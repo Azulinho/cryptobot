@@ -9,6 +9,9 @@ from os.path import exists
 from datetime import datetime
 from termcolor import colored, cprint
 
+from functools import wraps, lru_cache
+from time import time
+
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
 from binance.helpers import round_step_size
@@ -32,9 +35,6 @@ from config import (
 )
 
 
-from functools import wraps
-from time import time
-
 def timing(f):
     @wraps(f)
     def wrap(*args, **kw):
@@ -45,6 +45,29 @@ def timing(f):
           (f.__name__, args, kw, te-ts))
         return result
     return wrap
+
+
+@lru_cache(maxsize=65535)
+def truncate(self, number, decimals=0):
+    """
+    Returns a value truncated to a specific number of decimal places.
+    Better than rounding
+    """
+    if not isinstance(decimals, int):
+        raise TypeError("decimal places must be an integer.")
+    elif decimals < 0:
+        raise ValueError("decimal places has to be 0 or more.")
+    elif decimals == 0:
+        return math.trunc(number)
+
+    factor = 10.0 ** decimals
+    result = math.trunc(number * factor) / factor
+    return result
+
+
+@lru_cache(maxsize=65535)
+def percent(part, whole):
+    return float(whole) / 100 * float(part)
 
 
 class Coin():
@@ -84,7 +107,6 @@ class Coin():
             self.value = float(float(self.volume) * float(self.price))
 
 class Bot():
-    percent = lambda part, whole:float(whole) / 100 * float(part)
 
     def __init__(self, client):
         self.client = client
@@ -287,7 +309,7 @@ class Bot():
             if self.debug:
                 print(f"VOLUME1: {volume}")
         else:
-            volume = self.truncate(
+            volume = truncate(
                 float(self.investment) / float(coin.price), lot_size)
             if self.debug:
                 print(f"VOLUME2: {volume}")
@@ -296,22 +318,6 @@ class Bot():
             print(f"investment: {self.investment} coin: {coin.symbol} vol: {volume} lot: {lot_size}")
         return volume
 
-
-    def truncate(self, number, decimals=0):
-        """
-        Returns a value truncated to a specific number of decimal places.
-        Better than rounding
-        """
-        if not isinstance(decimals, int):
-            raise TypeError("decimal places must be an integer.")
-        elif decimals < 0:
-            raise ValueError("decimal places has to be 0 or more.")
-        elif decimals == 0:
-            return math.trunc(number)
-
-        factor = 10.0 ** decimals
-        result = math.trunc(number * factor) / factor
-        return result
 
 
     def process_coins(self):
@@ -350,7 +356,7 @@ class Bot():
         # has the price gone down by x% on a coin we don't own?
         if not self.holding and coin.symbol not in self.wallet:
 
-            if float(coin.price) < Bot.percent(self.buy_at_percentage, coin.max):
+            if float(coin.price) < percent(self.buy_at_percentage, coin.max):
                 # do some gimmicks, and don't buy the coin straight away
                 # but only buy it when the price is now higher than the minimum
                 # price ever recorded. This way we ensure that we got the dip
@@ -382,7 +388,7 @@ class Bot():
                 return
 
             # deal with STOP_LOSS
-            if float(coin.price) < Bot.percent(
+            if float(coin.price) < percent(
                     self.stop_loss_at_percentage,
                     coin.bought_at
             ):
@@ -404,7 +410,7 @@ class Bot():
                 return
 
             # possible sale
-            if float(coin.price) > Bot.percent(
+            if float(coin.price) > percent(
                     self.sell_at_percentage,
                     coin.bought_at
             ):
@@ -452,7 +458,8 @@ class Bot():
                     break
 
                 try:
-                    date, symbol, market_price  = re.match(pattern,line).groups()
+                    date, symbol, market_price  = re.match(pattern,
+                                                           line).groups()
 
                     if symbol in self.excluded_coins:
                         continue
