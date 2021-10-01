@@ -5,17 +5,18 @@ import sys
 import traceback
 import json
 from os.path import exists
-
+from time import time
 from datetime import datetime
 from termcolor import colored, cprint
+from functools import wraps
 
-from functools import wraps, lru_cache
-from time import time
 
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
 from binance.helpers import round_step_size
 from requests.exceptions import ReadTimeout, ConnectionError
+
+from tenacity import retry, wait_exponential
 
 from config import (
     INITIAL_INVESTMENT,
@@ -47,7 +48,6 @@ def timing(f):
     return wrap
 
 
-@lru_cache(maxsize=65535)
 def truncate(self, number, decimals=0):
     """
     Returns a value truncated to a specific number of decimal places.
@@ -65,7 +65,6 @@ def truncate(self, number, decimals=0):
     return result
 
 
-@lru_cache(maxsize=65535)
 def percent(part, whole):
     return float(whole) / 100 * float(part)
 
@@ -83,11 +82,14 @@ class Coin():
         self.value = 0
         self.lot_size = 0
         self.cost = 0
+        self.last = market_price
 
 
     def update(self, date, market_price):
         self.date = date
+        self.last = self.price
         self.price = float(market_price)
+
         if self.holding_time:
             self.holding_time = self.holding_time +1
 
@@ -122,6 +124,7 @@ class Bot():
         self.coins = {}
         self.wins = 0
         self.losses = 0
+        self.stales = 0
         self.profit = 0
         self.holding = False
         self.wallet = [] # store the coin we own
@@ -138,7 +141,8 @@ class Bot():
 
     def update_bot_profit(self, coin):
         # TODO: rename self.profit to bot_profit
-        self.profit = float(float(self.profit) + float(coin.profit))
+        fees = (1 - (2 * float(self.trading_fee)))
+        self.profit = (float(self.profit) + float(coin.profit * fees))
 
 
     def buy_coin(self, coin):
@@ -192,7 +196,7 @@ class Bot():
         self.holding = True
         self.wallet.append(coin.symbol)
 
-        cprint(f"{coin.date}: bought {float(coin.volume)} of {coin.symbol} total: ${coin.value} with price of {coin.price}", "magenta")
+        cprint(f"{coin.date}: [{coin.symbol}] (bought) {coin.volume} now: {coin.price} total: ${coin.value}", "magenta")
 
 
     def sell_coin(self, coin):
@@ -240,7 +244,7 @@ class Bot():
             ink = "green"
             message = "profit"
 
-        cprint(f"{coin.date}: sold {float(coin.volume)} of {coin.symbol} total: ${float(coin.value)} with price of {coin.price} and {message}: {coin.profit}", ink)
+        cprint(f"{coin.date}: [{coin.symbol}] (sold) {coin.volume}  now: {coin.price} total: ${coin.value} and {message}: {coin.profit}", ink)
         self.holding = False
         self.wallet.remove(coin.symbol)
 
@@ -287,50 +291,50 @@ class Bot():
 
     def calculate_volume_size(self, coin):
         try:
-            info = self.client.get_symbol_info(coin.symbol)
+            info = coin.client.get_symbol_info(coin)
             step_size = info['filters'][2]['stepSize']
-            lot_size = step_size.index('1') - 1
-
-            if lot_size < 0:
-                lot_size = 0
-
-            if self.debug:
-                print(f"INFO {info}")
-                print(f"STEP_SIE {step_size}")
-                print(f"LOT_SIE {lot_size}")
-
+            precision = int(round(-math.log(step_size, 10), 0))
         except:
-            print(info)
-            pass
+            precision = 0
 
-        # if lot size has 0 decimal points, make the volume an integer
-        if lot_size == 0:
-            volume = int(float(self.investment / float(coin.price)))
-            if self.debug:
-                print(f"VOLUME1: {volume}")
-        else:
-            volume = truncate(
-                float(self.investment) / float(coin.price), lot_size)
-            if self.debug:
-                print(f"VOLUME2: {volume}")
+        #decimal_count = len(str(coin.price).split(".")[1])
+        volume = float(round(self.investment / coin.price, precision))
 
         if self.debug:
-            print(f"investment: {self.investment} coin: {coin.symbol} vol: {volume} lot: {lot_size}")
+            print(f"[{coin.symbol}] investment:{self.investment}  vol:{volume} price:{coin.price} precision:{precision}")
         return volume
 
+
+    def truncate(self, number, decimals=0):
+        """
+        Returns a value truncated to a specific number of decimal places.
+        Better than rounding
+        """
+        if not isinstance(decimals, int):
+            raise TypeError("decimal places must be an integer.")
+        elif decimals < 0:
+            raise ValueError("decimal places has to be 0 or more.")
+        elif decimals == 0:
+            return math.trunc(number)
+
+        factor = 10.0 ** decimals
+        result = math.trunc(number * factor) / factor
+        return result
+
+
+    @retry(wait=wait_exponential(multiplier=1, max=90))
+    def get_binance_prices(self):
+        return self.client.get_all_tickers()
 
 
     def process_coins(self):
         # look for coins that are ready for buying, or selling
-        binance_prices = self.client.get_all_tickers()
+        binance_prices = self.get_binance_prices()
 
         for upstream in binance_prices:
 
             symbol = upstream['symbol']
             if symbol not in self.tickers:
-                continue
-
-            if symbol in self.excluded_coins:
                 continue
 
             market_price = upstream['price']
@@ -354,24 +358,28 @@ class Bot():
     def buy_or_sell(self, coin):
         # TODO: too much repetition here:
         # has the price gone down by x% on a coin we don't own?
-        if not self.holding and coin.symbol not in self.wallet:
-
-            if float(coin.price) < percent(self.buy_at_percentage, coin.max):
-                # do some gimmicks, and don't buy the coin straight away
-                # but only buy it when the price is now higher than the minimum
-                # price ever recorded. This way we ensure that we got the dip
-                # TODO: incorrect date
-                cprint(f"{coin.date}: possible buy: {coin.symbol}: current: {coin.price} min: {coin.min}", "blue")
-                if float(coin.price) > float(coin.min):
-                    self.buy_coin(coin)
-                    return
-            return
+        if coin.symbol not in self.excluded_coins:
+            if not self.holding and coin.symbol not in self.wallet:
+                if float(coin.price) < percent(self.buy_at_percentage, coin.max):
+                    # do some gimmicks, and don't buy the coin straight away
+                    # but only buy it when the price is now higher than the minimum
+                    # price ever recorded. This way we ensure that we got the dip
+                    # TODO: incorrect date
+                    print(f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min}")
+                    if float(coin.price) > float(coin.min):
+                        self.buy_coin(coin)
+                        # clear all stats on coins, like in a new start.
+                        for coin in self.coins:
+                            self.coins[coin].min = 0
+                            self.coins[coin].max = 0
+                        return
+                return
 
         # oh we already own this one, lets check prices
         if self.holding and coin.symbol in self.wallet:
             # This coin is too old, sell it
             if coin.holding_time > self.holding_time: # TODO: this is not a real time count
-                cprint(f"{coin.date}: forcing sale of old coin: {coin.symbol}: sold: {coin.price} bought: {coin.bought_at}", "red")
+                cprint(f"{coin.date}: [{coin.symbol}] (sale of old coin) : now: {coin.price} bought: {coin.bought_at}", "red")
 
                 self.sell_coin(coin)
                 self.update_bot_profit(coin)
@@ -380,7 +388,7 @@ class Bot():
                 # and block this coin for today:
                 #self.excluded_coins.append(coin.symbol)
 
-                self.losses = self.losses +1
+                self.stales = self.stales +1
                 # clear all stats on coins, like in a new start.
                 # we had a stale coin, so its likely the market has shifted
                 # and our stats do not reflect the state of the market anymore
@@ -393,7 +401,7 @@ class Bot():
                     coin.bought_at
             ):
                 # TODO: incorrect date
-                cprint(f"{coin.date}: stop loss: {coin.symbol}: selling: {coin.price} bought: {coin.bought_at}", "red")
+                cprint(f"{coin.date}: [{coin.symbol}] (stop loss) now: {coin.price} bought: {coin.bought_at}", "red")
                 self.sell_coin(coin)
 
                 self.update_bot_profit(coin)
@@ -418,7 +426,11 @@ class Bot():
                 # but only buy it when the price is now lower than the minimum
                 # price ever recorded
                 # TODO: incorrect date
-                cprint(f"{coin.date}: possible sell: {coin.symbol} current: {coin.price} max: {coin.max}", "blue")
+                # TODO: we need a state, where a coin has gone over the profit the profit margin
+                # and crashed, taking it below the profit boundary, but stopping the TSL to kick in
+                # as the coin is too low to be sold, and it will be sold likely by GC or SL
+
+                cprint(f"{coin.date}: [{coin.symbol}] (selling) now: {coin.price} max: {coin.max}", "blue")
                 if float(coin.price) < float(coin.max):
                     self.sell_coin(coin)
 
@@ -461,9 +473,6 @@ class Bot():
                     date, symbol, market_price  = re.match(pattern,
                                                            line).groups()
 
-                    if symbol in self.excluded_coins:
-                        continue
-
                     if symbol not in self.tickers:
                         continue
 
@@ -500,7 +509,7 @@ if __name__ == '__main__':
         if bot.holding:
             symbol = bot.wallet[0]
             coin = bot.coins[symbol]
-            cprint(f"still holding {coin.symbol}", "red")
+            cprint(f"still holding [{coin.symbol}]", "red")
             # TODO: improve this, maybe add a coin.cost property?
 
             cprint(f" cost: {coin.volume * coin.bought_at}", "green")
@@ -509,7 +518,7 @@ if __name__ == '__main__':
         print(f"total profit: {int(bot.profit)}")
         print(f"initial investment: {int(bot.initial_investment)} final investment: {int(bot.investment)}")
         print(f"buy_at: {bot.buy_at_percentage} sell_at: {bot.sell_at_percentage}")
-        print(f"wins: {bot.wins} losses: {bot.losses}")
+        print(f"wins: {bot.wins} losses: {bot.losses} stales: {bot.stales}")
         print(f"list of excluded coins: {bot.excluded_coins}")
 
     except:
