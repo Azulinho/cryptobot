@@ -184,7 +184,7 @@ class Bot():
             coin.cost = float(coin.bought_at) * float(coin.volume)
 
 
-        if self.mode in ["analyse"]:
+        if self.mode in ["backtesting"]:
             coin.bought_at = float(coin.price)
             coin.volume = volume
             coin.value = float(coin.bought_at) * float(coin.volume)
@@ -450,7 +450,7 @@ class Bot():
             self.process_coins()
             self.wait()
 
-    def analyse(self):
+    def backtesting(self):
         pattern = '([0-9]{4}-[0-9]{2}-[0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2}).*\s([0-9|A-Z].*' + \
             f'{self.pairing}' + ')\s(.*)'
 
@@ -502,9 +502,15 @@ if __name__ == '__main__':
         client = Client(ACCESS_KEY, SECRET_KEY)
         bot = Bot(client)
 
-        if bot.mode == "analyse":
-            print("running in analyse mode")
-            bot.analyse()
+        startup_msg = (
+           f"buy_at: {BUY_AT_PERCENTAGE} " +
+           f"sell_at: {SELL_AT_PERCENTAGE} " +
+           f"stop_loss: {STOP_LOSS_AT_PERCENTAGE}"
+        )
+
+        if bot.mode == "backtesting":
+            print(f"running in backtesting mode with {startup_msg}")
+            bot.backtesting()
 
         if bot.mode == "logmode":
             print("running in log mode")
