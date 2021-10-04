@@ -284,17 +284,18 @@ class Bot():
 
     def calculate_volume_size(self, coin):
         try:
-            info = coin.client.get_symbol_info(coin)
-            step_size = info['filters'][2]['stepSize']
-            precision = int(round(-math.log(step_size, 10), 0))
-        except:
-            precision = 0
+            info = self.client.get_symbol_info(coin.symbol)
+        except Exception as e:
+            print(e)
+            return -1
 
-        #decimal_count = len(str(coin.price).split(".")[1])
+        step_size = float(info['filters'][2]['stepSize'])
+        precision = int(round(-math.log(step_size, 10), 0))
+
         volume = float(
-            round(
-                (self.investment/ self.max_coins) / coin.price, precision
-            )
+          round(
+              (self.investment/ self.max_coins) / coin.price, precision
+          )
         )
 
         if self.debug:
