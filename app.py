@@ -340,8 +340,8 @@ class Bot():
             if self.mode in ["live", "logmode"]:
                 self.write_log(symbol)
 
-            if self.mode in ["live", "analyse"]:
-                if symbol not in self.excluded_coins:
+            if self.mode in ["live", "backtesting", 'testnet']:
+                if not any(sub in symbol for sub in self.excluded_coins):
                     if self.pairing in symbol:
                         self.buy_or_sell(self.coins[symbol])
 
