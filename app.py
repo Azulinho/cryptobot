@@ -26,7 +26,7 @@ from config import (
     STOP_LOSS_AT_PERCENTAGE,
     EXCLUDED_COINS,
     PAUSE_FOR,
-    PRICE_LOG,
+    PRICE_LOGS,
     ACCESS_KEY,
     SECRET_KEY,
     TICKERS,
@@ -105,7 +105,7 @@ class Bot():
         self.sell_at_percentage = SELL_AT_PERCENTAGE
         self.stop_loss_at_percentage = STOP_LOSS_AT_PERCENTAGE
         self.pause = PAUSE_FOR
-        self.price_log = PRICE_LOG
+        self.price_logs = PRICE_LOGS
         self.coins = {}
         self.wins = 0
         self.losses = 0
@@ -439,35 +439,46 @@ class Bot():
         pattern = '([0-9]{4}-[0-9]{2}-[0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2}).*\s([0-9|A-Z].*' + \
             f'{self.pairing}' + ')\s(.*)'
 
-        with open(self.price_log) as f:
-            while True:
-                try:
-                    line = f.readline()
-                    if line == '':
-                        return
+        for price_log in self.price_logs:
+            with open(price_log) as f:
+                while True:
+                    try:
+                        line = f.readline()
+                        if line == '':
+                            break
 
-                    match_found = re.match(pattern, line)
-                    if not match_found:
-                        continue
+                        if self.pairing not in line:
+                            continue
 
-                    date, symbol, market_price  = match_found.groups()
+                        match_found = re.match(pattern, line)
+                        if not match_found:
+                            continue
 
-                    if symbol not in self.tickers:
-                        continue
+                        date, symbol, market_price  = match_found.groups()
 
-                    # TODO: rework this
-                    if symbol not in self.coins:
-                        self.coins[symbol] = Coin(self.client, symbol, date, market_price)
-                    else:
-                        self.coins[symbol].update(date, market_price)
+                        if symbol not in self.tickers:
+                            continue
 
-                    self.buy_or_sell(self.coins[symbol])
-                except Exception as e:
-                    print(line)
-                    print(traceback.format_exc())
-                    if e == "KeyboardInterrupt":
-                        sys.exit(1)
-                    pass
+                        # TODO: rework this
+                        if symbol not in self.coins:
+                            self.coins[symbol] = Coin(
+                                self.client,
+                                symbol,
+                                date,
+                                market_price,
+                                self.buy_at_percentage,
+                                self.sell_at_percentage,
+                                self.stop_loss_at_percentage
+                            )
+                        else:
+                            self.coins[symbol].update(date, market_price)
+
+                        self.buy_drop_sell_recovery_strategy(self.coins[symbol])
+                    except Exception as e:
+                        print(traceback.format_exc())
+                        if e == "KeyboardInterrupt":
+                            sys.exit(1)
+                        pass
 
 
 
