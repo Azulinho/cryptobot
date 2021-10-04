@@ -3,6 +3,7 @@ import re
 import math
 import sys
 import traceback
+import pickle
 import json
 from os.path import exists
 from time import time
@@ -343,29 +344,46 @@ class Bot():
             if self.mode in ["live", "backtesting", 'testnet']:
                 if not any(sub in symbol for sub in self.excluded_coins):
                     if self.pairing in symbol:
-                        self.buy_or_sell(self.coins[symbol])
+                        self.buy_drop_sell_recovery_strategy(self.coins[symbol])
 
 
     def clear_coin_stats(self, coin):
         coin.min = coin.price
         coin.max = coin.price
 
+    def save_coins(self):
+        with open(".coins.pickle", "wb") as f:
+            pickle.dump(self.coins, f)
+        with open(".wallet.pickle", "wb") as f:
+            pickle.dump(self.wallet, f)
 
-    def buy_or_sell(self, coin):
+
+    def load_coins(self):
+        if exists(".coins.pickle"):
+            print("found .coins.pickle, loading coins")
+            with open(".coins.pickle", "rb") as f:
+                self.coins = pickle.load(f)
+        if exists(".wallet.pickle"):
+            print("found .wallet.pickle, loading wallet")
+            with open(".wallet.pickle", "rb") as f:
+                self.wallet = pickle.load(f)
+            print(f"wallet contains {self.wallet}")
+
+    def buy_drop_sell_recovery_strategy(self, coin):
         # TODO: too much repetition here:
-        # has the price gone down by x% on a coin we don't own?
 
         if coin.symbol in self.excluded_coins:
             return
 
+        # has the price gone down by x% on a coin we don't own?
         if coin.symbol not in self.wallet:
             if len(self.wallet) != self.max_coins:
-                if float(coin.price) < percent(self.buy_at_percentage, coin.max):
+                if float(coin.price) < percent(coin.buy_at_percentage, coin.max):
                     # do some gimmicks, and don't buy the coin straight away
                     # but only buy it when the price is now higher than the minimum
                     # price ever recorded. This way we ensure that we got the dip
                     # TODO: incorrect date
-                    print(f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min}")
+                    print(f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}")
                     if float(coin.price) > float(coin.min):
                         self.buy_coin(coin)
                         self.clear_coin_stats(coin)
@@ -393,7 +411,7 @@ class Bot():
 
             # deal with STOP_LOSS
         if float(coin.price) < percent(
-                self.stop_loss_at_percentage,
+                coin.stop_loss_at_percentage,
                 coin.bought_at
         ):
             # TODO: incorrect date
@@ -439,8 +457,10 @@ class Bot():
         sleep(self.pause)
 
     def run(self):
+        self.load_coins()
         while True:
             self.process_coins()
+            self.save_coins()
             self.wait()
             if exists(".stop"):
                 print(".stop flag found. Stopping bot.")
@@ -514,11 +534,11 @@ if __name__ == '__main__':
             bot.backtesting()
 
         if bot.mode == "logmode":
-            print("running in log mode")
+            print(f"running in log mode with {startup_msg}")
             bot.logmode()
 
         if bot.mode == "testnet":
-            print("running in testnet mode")
+            print(f"running in testnet mode with {startup_msg}")
             bot.client.API_URL = 'https://testnet.binance.vision/api'
             bot.run()
 
@@ -534,7 +554,7 @@ if __name__ == '__main__':
 
         print(f"total profit: {int(bot.profit)}")
         print(f"initial investment: {int(bot.initial_investment)} final investment: {int(bot.investment)}")
-        print(f"buy_at: {bot.buy_at_percentage} sell_at: {bot.sell_at_percentage}")
+        print(f"buy_at: {bot.buy_at_percentage} sell_at: {bot.sell_at_percentage} stop_loss: {bot.stop_loss_at_percentage}")
         print(f"wins: {bot.wins} losses: {bot.losses} stales: {bot.stales}")
         print(f"list of excluded coins: {bot.excluded_coins}")
 
