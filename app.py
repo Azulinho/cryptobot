@@ -55,7 +55,16 @@ def percent(part, whole):
 
 
 class Coin():
-    def __init__(self, client, symbol, date, market_price):
+    def __init__(
+            self,
+            client,
+            symbol,
+            date,
+            market_price,
+            buy_at,
+            sell_at,
+            stop_loss
+    ):
         self.symbol = symbol
         self.volume = 0
         self.bought_at = None
@@ -68,6 +77,9 @@ class Coin():
         self.lot_size = 0
         self.cost = 0
         self.last = market_price
+        self.buy_at_percentage = buy_at
+        self.sell_at_percentage = sell_at
+        self.stop_loss_at_percentage = stop_loss
 
 
     def update(self, date, market_price):
@@ -309,7 +321,10 @@ class Bot():
                 client,
                 symbol,
                 datetime.now(),
-                market_price
+                market_price,
+                buy_at = self.buy_at_percentage,
+                sell_at = self.sell_at_percentage,
+                stop_loss = self.stop_loss_at_percentage
             )
         else:
             self.coins[symbol].update(datetime.now(), market_price)
