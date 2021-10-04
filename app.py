@@ -372,7 +372,7 @@ class Bot():
     def buy_drop_sell_recovery_strategy(self, coin):
         # TODO: too much repetition here:
 
-        if coin.symbol in self.excluded_coins:
+        if any(sub in coin.symbol for sub in self.excluded_coins):
             return
 
         # has the price gone down by x% on a coin we don't own?
