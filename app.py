@@ -250,6 +250,7 @@ class Bot():
 
 
     def extract_order_data(self, order_details, coin):
+        # TODO: review this whole mess
         transactionInfo = {}
         # Market orders are not always filled at one price,
         # we need to find the averages of all 'parts' (fills) of this order.
@@ -356,6 +357,7 @@ class Bot():
     def clear_all_coins_stats(self):
         for coin in self.coins:
             self.clear_coin_stats(self.coins[coin])
+
     def clear_coin_stats(self, coin):
         coin.min = coin.price
         coin.max = coin.price
@@ -396,14 +398,17 @@ class Bot():
             self.coins[symbol].buy_at_percentage = self.buy_at_percentage
             self.coins[symbol].sell_at_percentage = self.sell_at_percentage
             self.coins[symbol].stop_loss_at_percentage = self.stop_loss_at_percentage
+
     def buy_drop_sell_recovery_strategy(self, coin):
         # TODO: too much repetition here:
+        # split these actions into their own functions
 
         if any(sub in coin.symbol for sub in self.excluded_coins):
             return
 
         if coin.symbol not in self.tickers and coin not in self.wallet:
             return
+
         # has the price gone down by x% on a coin we don't own?
         if coin.symbol not in self.wallet:
             if len(self.wallet) != self.max_coins:
