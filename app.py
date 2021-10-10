@@ -129,22 +129,25 @@ class Bot():
         self.wallet = [] # store the coin we own
         self.tickers = TICKERS
         self.mode = MODE
-        self.trading_fee = TRADING_FEE
+        self.trading_fee = float(TRADING_FEE)
         self.debug = DEBUG
         self.max_coins = MAX_COINS
         self.pairing = PAIRING
+        self.fees = 0
         self.clear_coin_stats_at_boot = CLEAR_COIN_STATS_AT_BOOT
 
     def update_investment(self):
-        # TODO: we need to do something about fees
         # and finally re-invest our profit, we're aiming to compound
         # so on every sale we invest our profit as well.
         self.investment = self.initial_investment + self.profit
 
     def update_bot_profit(self, coin):
-        # TODO: rename self.profit to bot_profit
-        fees = (1 - (2 * float(self.trading_fee)))
-        self.profit = (float(self.profit) + float(coin.profit * fees))
+        bought_fees = percent(self.trading_fee, coin.cost)
+        sell_fees = percent(self.trading_fee, coin.value)
+        fees = float( bought_fees + sell_fees)
+
+        self.profit = float(self.profit) + float(coin.profit )- float(fees)
+        self.fees = self.fees + fees
 
 
     def buy_coin(self, coin):
