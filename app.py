@@ -37,6 +37,7 @@ from config import (
     DEBUG,
     MAX_COINS,
     PAIRING,
+    CLEAR_COIN_STATS_AT_BOOT
 )
 
 
@@ -132,6 +133,7 @@ class Bot():
         self.debug = DEBUG
         self.max_coins = MAX_COINS
         self.pairing = PAIRING
+        self.clear_coin_stats_at_boot = CLEAR_COIN_STATS_AT_BOOT
 
     def update_investment(self):
         # TODO: we need to do something about fees
@@ -462,6 +464,8 @@ class Bot():
 
     def run(self):
         self.load_coins()
+        if self.clear_coin_stats_at_boot:
+            self.clear_all_coins_stats()
         while True:
             self.process_coins()
             self.save_coins()
