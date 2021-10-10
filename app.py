@@ -359,6 +359,9 @@ class Bot():
     def clear_coin_stats(self, coin):
         coin.min = coin.price
         coin.max = coin.price
+        coin.buy_at_percentage = self.buy_at_percentage
+        coin.sell_at_percentage = self.sell_at_percentage
+        coin.stop_loss_at_percentage = self.stop_loss_at_percentage
 
     def save_coins(self):
         with open(".coins.pickle", "wb") as f:
@@ -378,12 +381,29 @@ class Bot():
                 self.wallet = pickle.load(f)
             print(f"wallet contains {self.wallet}")
 
+        # sync our coins state with the list of coins we want to use.
+        # but keep using coins we currently have on our wallet
+        coins_to_remove = []
+        for coin in self.coins:
+            if coin not in self.tickers and coin not in self.wallet:
+                coins_to_remove.append(coin)
+
+        for coin in coins_to_remove:
+            self.coins.pop(coin)
+
+        # finally apply the current settings in the config file
+        for symbol in self.coins:
+            self.coins[symbol].buy_at_percentage = self.buy_at_percentage
+            self.coins[symbol].sell_at_percentage = self.sell_at_percentage
+            self.coins[symbol].stop_loss_at_percentage = self.stop_loss_at_percentage
     def buy_drop_sell_recovery_strategy(self, coin):
         # TODO: too much repetition here:
 
         if any(sub in coin.symbol for sub in self.excluded_coins):
             return
 
+        if coin.symbol not in self.tickers and coin not in self.wallet:
+            return
         # has the price gone down by x% on a coin we don't own?
         if coin.symbol not in self.wallet:
             if len(self.wallet) != self.max_coins:
