@@ -200,7 +200,7 @@ class Bot():
         coin.holding_time = 1
         self.wallet.append(coin.symbol)
 
-        cprint(f"{coin.date}: [{coin.symbol}] (bought) {coin.volume} now: {coin.price} total: ${coin.value}", "magenta")
+        cprint(f"{coin.date}: [{coin.symbol}] (bought) {coin.volume} now: {coin.price} total: ${coin.value} sell at:${coin.price * coin.sell_at_percentage /100} ({len(self.wallet)}/{self.max_coins})", "magenta")
 
 
     def sell_coin(self, coin):
@@ -245,8 +245,8 @@ class Bot():
             ink = "green"
             message = "profit"
 
-        cprint(f"{coin.date}: [{coin.symbol}] (sold) {coin.volume}  now: {coin.price} total: ${coin.value} and {message}: {coin.profit}", ink)
         self.wallet.remove(coin.symbol)
+        cprint(f"{coin.date}: [{coin.symbol}] (sold) {coin.volume}  now: {coin.price} total: ${coin.value} and {message}: {coin.profit} ({len(self.wallet)}/{self.max_coins})", ink)
 
 
     def extract_order_data(self, order_details, coin):
@@ -556,26 +556,25 @@ if __name__ == '__main__':
         bot = Bot(client)
 
         startup_msg = (
-           f"buy_at: {BUY_AT_PERCENTAGE} " +
-           f"sell_at: {SELL_AT_PERCENTAGE} " +
-           f"stop_loss: {STOP_LOSS_AT_PERCENTAGE}"
+           f"buy_at:{BUY_AT_PERCENTAGE} " +
+           f"sell_at:{SELL_AT_PERCENTAGE} " +
+           f"stop_loss:{STOP_LOSS_AT_PERCENTAGE} " +
+           f"max_coins:{MAX_COINS} " +
+           f"holding_time:{HOLDING_TIME} "
         )
+        print(f"running in {bot.mode} mode with {startup_msg}")
 
         if bot.mode == "backtesting":
-            print(f"running in backtesting mode with {startup_msg}")
             bot.backtesting()
 
         if bot.mode == "logmode":
-            print(f"running in log mode with {startup_msg}")
             bot.logmode()
 
         if bot.mode == "testnet":
-            print(f"running in testnet mode with {startup_msg}")
             bot.client.API_URL = 'https://testnet.binance.vision/api'
             bot.run()
 
         if bot.mode == "live":
-            print("running in LIVE mode")
             bot.run()
 
         for symbol in bot.wallet:
@@ -585,9 +584,10 @@ if __name__ == '__main__':
             cprint(f" value: {coin.volume * coin.price}", "red")
 
         print(f"total profit: {int(bot.profit)}")
+        print(f"total fees: {int(bot.fees)}")
         print(f"initial investment: {int(bot.initial_investment)} final investment: {int(bot.investment)}")
         print(f"buy_at: {bot.buy_at_percentage} sell_at: {bot.sell_at_percentage} stop_loss: {bot.stop_loss_at_percentage}")
-        print(f"wins: {bot.wins} losses: {bot.losses} stales: {bot.stales}")
+        print(f"wins:{bot.wins} losses:{bot.losses} stales:{bot.stales}")
         print(f"list of excluded coins: {bot.excluded_coins}")
 
     except:
