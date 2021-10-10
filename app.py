@@ -5,6 +5,7 @@ import sys
 import traceback
 import pickle
 import json
+import gzip
 from os.path import exists
 from time import time
 from datetime import datetime
@@ -477,6 +478,7 @@ class Bot():
 
         for price_log in self.price_logs:
             with open(price_log) as f:
+            with gzip.open(price_log,'rt') as f:
                 while True:
                     try:
                         line = f.readline()
