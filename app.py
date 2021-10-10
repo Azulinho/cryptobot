@@ -348,6 +348,9 @@ class Bot():
                         self.buy_drop_sell_recovery_strategy(self.coins[symbol])
 
 
+    def clear_all_coins_stats(self):
+        for coin in self.coins:
+            self.clear_coin_stats(self.coins[coin])
     def clear_coin_stats(self, coin):
         coin.min = coin.price
         coin.max = coin.price
@@ -387,7 +390,7 @@ class Bot():
                     print(f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}")
                     if float(coin.price) > float(coin.min):
                         self.buy_coin(coin)
-                        self.clear_coin_stats(coin)
+                        self.clear_all_coins_stats()
                         return
             return
 
@@ -407,7 +410,7 @@ class Bot():
             #self.excluded_coins.append(coin.symbol)
 
             self.stales = self.stales +1
-            self.clear_coin_stats(coin)
+            self.clear_all_coins_stats()
             return
 
             # deal with STOP_LOSS
@@ -426,7 +429,7 @@ class Bot():
             #self.excluded_coins.append(coin.symbol)
 
             self.losses = self.losses +1
-            self.clear_coin_stats(coin)
+            self.clear_all_coins_stats()
             return
 
         # possible sale
@@ -451,7 +454,7 @@ class Bot():
                 self.update_investment()
 
                 self.wins = self.wins + 1
-                self.clear_coin_stats(coin)
+                self.clear_all_coins_stats()
                 return
 
     def wait(self):
