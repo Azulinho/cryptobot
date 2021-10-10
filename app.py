@@ -511,8 +511,30 @@ class Bot():
         pattern = '([0-9]{4}-[0-9]{2}-[0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2}).*\s([0-9|A-Z].*' + \
             f'{self.pairing}' + ')\s(.*)'
 
+        results = []
+        last_profit = 0
+        last_fees = 0
+        last_investment = 0
+        last_wins = 0
+        last_losses = 0
+        last_stales = 0
         for price_log in self.price_logs:
-            with open(price_log) as f:
+            # reset our exclude coins every day.
+            # this mimics us stopping/starting the bot once a day
+            self.excluded_coins = EXCLUDED_COINS
+            # clear up profit, fees, and reset investment
+            # this will gives us our strategy results per day
+            # instead of compounded results
+            self.profit = 0
+            self.fees = 0
+            self.investment = self.initial_investment
+            self.wins = 0
+            self.losses = 0
+            self.stales = 0
+            _coins = {}
+            for symbol in self.wallet:
+                _coins[symbol] = self.coins[symbol]
+            self.coins = _coins
             with gzip.open(price_log,'rt') as f:
                 while True:
                     try:
@@ -554,6 +576,25 @@ class Bot():
                         pass
 
 
+            # gather results from this day run
+            this_run = f"{price_log} profit:{self.profit} fees:{self.fees} [w{self.wins},l{self.losses},s{self.stales}]"
+            results.append(this_run)
+
+            # and add up the moneys, wins,losses and others
+            last_profit = last_profit + self.profit
+            last_fees = last_fees + self.fees
+            last_wins = last_wins + self.wins
+            last_losses = last_losses + self.losses
+            last_stales = last_stales + self.stales
+            last_investment = last_investment + self.profit
+        for result in results:
+            cprint(result,  attrs=['bold'])
+        self.profit = last_profit
+        self.fees = last_fees
+        self.wins = last_wins
+        self.losses = last_losses
+        self.stales = last_stales
+        self.investment = self.initial_investment + last_investment
 
 if __name__ == '__main__':
     try:
