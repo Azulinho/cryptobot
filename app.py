@@ -477,7 +477,7 @@ class Bot():
 
             if float(coin.price) != float(coin.last):
                 print(f"{coin.date}: [{coin.symbol}] (selling) now: {coin.price} max: {coin.max}")
-            if float(coin.price) < float(coin.max):
+            if float(coin.price) < float(coin.last):
                 self.sell_coin(coin)
 
                 self.update_bot_profit(coin)
