@@ -83,6 +83,7 @@ class Coin():
         self.buy_at_percentage = buy_at
         self.sell_at_percentage = sell_at
         self.stop_loss_at_percentage = stop_loss
+        self.status = None
 
 
     def update(self, date, market_price):
@@ -245,6 +246,7 @@ class Bot():
             ink = "green"
             message = "profit"
 
+        coin.status = None
         self.wallet.remove(coin.symbol)
         cprint(f"{coin.date}: [{coin.symbol}] (sold) {coin.volume}  now: {coin.price} total: ${coin.value} and {message}: {coin.profit} ({len(self.wallet)}/{self.max_coins})", ink)
 
@@ -413,23 +415,27 @@ class Bot():
         if coin.symbol not in self.wallet:
             if len(self.wallet) != self.max_coins:
                 if float(coin.price) < percent(coin.buy_at_percentage, coin.max):
+                    coin.status = "DIP"
                     # do some gimmicks, and don't buy the coin straight away
                     # but only buy it when the price is now higher than the last
                     # price recorded. This way we ensure that we got the dip
                     # TODO: incorrect date
                     print(f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}")
                     if float(coin.price) > float(coin.last):
+                        coin.status = "RECOVERY"
                         self.buy_coin(coin)
                         self.clear_all_coins_stats()
                         return
             return
 
+        # return early if no work left to do
         if coin.symbol not in self.wallet:
             return
         # oh we already own this one, lets check prices
 
         # This coin is too old, sell it
         if coin.holding_time > self.holding_time: # TODO: this is not a real time count
+            coin.status = "STALE"
             cprint(f"{coin.date}: [{coin.symbol}] (sale of old coin) : now: {coin.price} bought: {coin.bought_at}", "red")
 
             self.sell_coin(coin)
@@ -448,7 +454,7 @@ class Bot():
                 coin.stop_loss_at_percentage,
                 coin.bought_at
         ):
-            # TODO: incorrect date
+            coin.status = "STOP_LOSS"
             cprint(f"{coin.date}: [{coin.symbol}] (stop loss) now: {coin.price} bought: {coin.bought_at}", "red")
             self.sell_coin(coin)
 
@@ -467,6 +473,7 @@ class Bot():
                 self.sell_at_percentage,
                 coin.bought_at
         ):
+            coin.status = "PROFIT"
             # do some gimmicks, and don't sell the coin straight away
             # but only sell it when the price is now higher than the last
             # price recorded
@@ -478,6 +485,7 @@ class Bot():
             if float(coin.price) != float(coin.last):
                 print(f"{coin.date}: [{coin.symbol}] (selling) now: {coin.price} max: {coin.max}")
             if float(coin.price) < float(coin.last):
+                coin.status = "SELLING"
                 self.sell_coin(coin)
 
                 self.update_bot_profit(coin)
