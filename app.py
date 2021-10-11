@@ -535,6 +535,7 @@ class Bot():
             for symbol in self.wallet:
                 _coins[symbol] = self.coins[symbol]
             self.coins = _coins
+            read_counter = 0
             with gzip.open(price_log,'rt') as f:
                 while True:
                     try:
@@ -554,6 +555,16 @@ class Bot():
                         if symbol not in self.tickers:
                             continue
 
+                        # implements a PAUSE_FOR pause while reading from
+                        # our price logs.
+                        # we essentially skip a number of iterations between
+                        # reads, causing a similar effect if we were only
+                        # probing prices every PAUSE_FOR seconds
+                        if read_counter == PAUSE_FOR:
+                            read_counter = 0
+                        else:
+                            read_counter = read_counter +1
+                            continue
                         # TODO: rework this
                         if symbol not in self.coins:
                             self.coins[symbol] = Coin(
