@@ -414,11 +414,11 @@ class Bot():
             if len(self.wallet) != self.max_coins:
                 if float(coin.price) < percent(coin.buy_at_percentage, coin.max):
                     # do some gimmicks, and don't buy the coin straight away
-                    # but only buy it when the price is now higher than the minimum
-                    # price ever recorded. This way we ensure that we got the dip
+                    # but only buy it when the price is now higher than the last
+                    # price recorded. This way we ensure that we got the dip
                     # TODO: incorrect date
                     print(f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}")
-                    if float(coin.price) > float(coin.min):
+                    if float(coin.price) > float(coin.last):
                         self.buy_coin(coin)
                         self.clear_all_coins_stats()
                         return
@@ -468,8 +468,8 @@ class Bot():
                 coin.bought_at
         ):
             # do some gimmicks, and don't sell the coin straight away
-            # but only buy it when the price is now lower than the minimum
-            # price ever recorded
+            # but only sell it when the price is now higher than the last
+            # price recorded
             # TODO: incorrect date
             # TODO: we need a state, where a coin has gone over the profit the profit margin
             # and crashed, taking it below the profit boundary, but stopping the TSL to kick in
