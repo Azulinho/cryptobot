@@ -37,8 +37,10 @@ from config import (
     DEBUG,
     MAX_COINS,
     PAIRING,
-    CLEAR_COIN_STATS_AT_BOOT
+    CLEAR_COIN_STATS_AT_BOOT,
     CLEAR_COIN_STATS_AT_SALE,
+    TRAIL_TARGET_SELL_PERCENTAGE,
+    TRAIL_RECOVERY_PERCENTAGE,
     NAUGHTY_TIMEOUT
 )
 
@@ -68,7 +70,9 @@ class Coin():
             market_price,
             buy_at,
             sell_at,
-            stop_loss
+            stop_loss,
+            trail_target_sell_percentage,
+            trail_recovery_percentage,
     ):
         self.symbol = symbol
         self.volume = 0
@@ -86,6 +90,10 @@ class Coin():
         self.sell_at_percentage = sell_at
         self.stop_loss_at_percentage = stop_loss
         self.status = None
+        self.trail_recovery_percentage = trail_recovery_percentage
+        self.trail_target_sell_percentage = trail_target_sell_percentage
+        self.dip = market_price,
+        self.tip = market_price
         self.naughty_timeout = 0
 
 
@@ -108,9 +116,6 @@ class Coin():
         if float(market_price) > float(self.max):
             self.max = float(market_price)
 
-        #  if self.volume:
-        #      self.profit = float(self.volume) * float(self.price) \
-        #          - float(self.volume) * float(self.bought_at)
 
         if self.volume:
             self.value = float(float(self.volume) * float(self.price))
@@ -123,9 +128,9 @@ class Bot():
         self.investment = INITIAL_INVESTMENT
         self.holding_time = HOLDING_TIME
         self.excluded_coins = EXCLUDED_COINS
-        self.buy_at_percentage = BUY_AT_PERCENTAGE
-        self.sell_at_percentage = SELL_AT_PERCENTAGE
-        self.stop_loss_at_percentage = STOP_LOSS_AT_PERCENTAGE
+        self.buy_at_percentage = float(100 + float(BUY_AT_PERCENTAGE))
+        self.sell_at_percentage = float(100 + float(SELL_AT_PERCENTAGE))
+        self.stop_loss_at_percentage = float(100 +float(STOP_LOSS_AT_PERCENTAGE))
         self.pause = PAUSE_FOR
         self.price_logs = PRICE_LOGS
         self.coins = {}
@@ -142,6 +147,8 @@ class Bot():
         self.pairing = PAIRING
         self.fees = 0
         self.clear_coin_stats_at_boot = CLEAR_COIN_STATS_AT_BOOT
+        self.trail_target_sell_percentage = float(100) + float(TRAIL_TARGET_SELL_PERCENTAGE)
+        self.trail_recovery_percentage = float(100) + float(TRAIL_RECOVERY_PERCENTAGE)
         self.naughty_timeout = NAUGHTY_TIMEOUT
         self.clean_coin_stats_at_sale = CLEAR_COIN_STATS_AT_SALE
 
@@ -208,6 +215,8 @@ class Bot():
 
         coin.holding_time = 1
         self.wallet.append(coin.symbol)
+        coin.status = "HOLD"
+        coin.tip = coin.price
 
         cprint(f"{coin.date}: [{coin.symbol}] (bought) {coin.volume} now: {coin.price} total: ${coin.value} sell at:${coin.price * coin.sell_at_percentage /100} ({len(self.wallet)}/{self.max_coins})", "magenta")
 
@@ -343,7 +352,9 @@ class Bot():
                 market_price,
                 buy_at = self.buy_at_percentage,
                 sell_at = self.sell_at_percentage,
-                stop_loss = self.stop_loss_at_percentage
+                stop_loss = self.stop_loss_at_percentage,
+                trail_target_sell_percentage = self.trail_target_sell_percentage,
+                trail_recovery_percentage = self.trail_recovery_percentage
             )
         else:
             self.coins[symbol].update(datetime.now(), market_price)
@@ -427,17 +438,24 @@ class Bot():
         if coin.symbol not in self.wallet:
             if len(self.wallet) != self.max_coins:
                 if float(coin.price) < percent(coin.buy_at_percentage, coin.max):
-                    coin.status = "DIP"
+                    if coin.status == None:
+                        coin.dip = coin.price
+                        coin.status = "TARGET_DIP"
+
+                    if coin.status == "TARGET_DIP":
+                        if float(coin.price) < float(coin.dip):
+                            coin.dip = coin.price
                     # do some gimmicks, and don't buy the coin straight away
                     # but only buy it when the price is now higher than the last
                     # price recorded. This way we ensure that we got the dip
                     # TODO: incorrect date
-                    print(f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}")
+                    if self.debug:
+                        print(f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}")
                     if float(coin.price) > float(coin.last):
-                        coin.status = "RECOVERY"
-                        self.buy_coin(coin)
-                        self.clear_all_coins_stats()
-                        return
+                        if float(coin.price) > percent(float(coin.trail_recovery_percentage), coin.dip):
+                            self.buy_coin(coin)
+                            self.clear_all_coins_stats()
+                            return
             return
 
         # return early if no work left to do
@@ -446,7 +464,7 @@ class Bot():
         # oh we already own this one, lets check prices
 
         # This coin is too old, sell it
-        if coin.holding_time > self.holding_time: # TODO: this is not a real time count
+        if coin.holding_time > self.holding_time and coin.status != "TARGET_SELL": # TODO: this is not a real time count
             coin.status = "STALE"
             cprint(f"{coin.date}: [{coin.symbol}] (sale of old coin) : now: {coin.price} bought: {coin.bought_at}", "red")
 
@@ -484,32 +502,49 @@ class Bot():
             coin.naughty_timeout = int(self.naughty_timeout) * int(self.holding_time)
             return
 
+        # coin was above sell_at_percentage and dropped below
+        # lets' sell it ASAP
+        if coin.status == "TARGET_SELL" and float(coin.price) < percent(
+                self.sell_at_percentage,
+                coin.bought_at
+        ):
+            self.sell_coin(coin)
+
+            self.update_bot_profit(coin)
+            self.update_investment()
+
+            self.wins = self.wins + 1
+            self.clear_all_coins_stats()
+            return
         # possible sale
         if float(coin.price) > percent(
                 self.sell_at_percentage,
                 coin.bought_at
         ):
-            coin.status = "PROFIT"
+            coin.status = "TARGET_SELL"
             # do some gimmicks, and don't sell the coin straight away
             # but only sell it when the price is now higher than the last
             # price recorded
             # TODO: incorrect date
-            # TODO: we need a state, where a coin has gone over the profit the profit margin
-            # and crashed, taking it below the profit boundary, but stopping the TSL to kick in
-            # as the coin is too low to be sold, and it will be sold likely by GC or SL
 
             if float(coin.price) != float(coin.last):
-                print(f"{coin.date}: [{coin.symbol}] (selling) now: {coin.price} max: {coin.max}")
+                if self.debug:
+                    print(f"{coin.date}: [{coin.symbol}] (selling) now: {coin.price} max: {coin.max}")
+            if float(coin.price) > float(coin.tip):
+                coin.tip = coin.price
+
             if float(coin.price) < float(coin.last):
-                coin.status = "SELLING"
-                self.sell_coin(coin)
+                coin.status = "TARGET_SELL"
 
-                self.update_bot_profit(coin)
-                self.update_investment()
+                if float(coin.price) < percent(float(coin.trail_target_sell_percentage), coin.tip):
+                    self.sell_coin(coin)
 
-                self.wins = self.wins + 1
-                self.clear_all_coins_stats()
-                return
+                    self.update_bot_profit(coin)
+                    self.update_investment()
+
+                    self.wins = self.wins + 1
+                    self.clear_all_coins_stats()
+                    return
 
     def wait(self):
         sleep(self.pause)
@@ -598,7 +633,9 @@ class Bot():
                                 market_price,
                                 self.buy_at_percentage,
                                 self.sell_at_percentage,
-                                self.stop_loss_at_percentage
+                                self.stop_loss_at_percentage,
+                                self.trail_target_sell_percentage,
+                                self.trail_recovery_percentage
                             )
                         else:
                             self.coins[symbol].update(date, market_price)
