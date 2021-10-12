@@ -38,6 +38,7 @@ from config import (
     MAX_COINS,
     PAIRING,
     CLEAR_COIN_STATS_AT_BOOT
+    NAUGHTY_TIMEOUT
 )
 
 
@@ -84,6 +85,7 @@ class Coin():
         self.sell_at_percentage = sell_at
         self.stop_loss_at_percentage = stop_loss
         self.status = None
+        self.naughty_timeout = 0
 
 
     def update(self, date, market_price):
@@ -93,6 +95,9 @@ class Coin():
 
         if self.holding_time:
             self.holding_time = self.holding_time +1
+
+        if self.naughty_timeout != 0:
+            self.naughty_timeout = self.naughty_timeout -1
 
         # do we have a new min price?
         if float(market_price) < float(self.min):
@@ -136,6 +141,7 @@ class Bot():
         self.pairing = PAIRING
         self.fees = 0
         self.clear_coin_stats_at_boot = CLEAR_COIN_STATS_AT_BOOT
+        self.naughty_timeout = NAUGHTY_TIMEOUT
 
     def update_investment(self):
         # and finally re-invest our profit, we're aiming to compound
@@ -411,6 +417,9 @@ class Bot():
         if coin.symbol not in self.tickers and coin not in self.wallet:
             return
 
+        if coin.naughty_timeout != 0:
+            return
+
         # has the price gone down by x% on a coin we don't own?
         if coin.symbol not in self.wallet:
             if len(self.wallet) != self.max_coins:
@@ -447,6 +456,9 @@ class Bot():
 
             self.stales = self.stales +1
             self.clear_all_coins_stats()
+
+            # and block this coin for today:
+            coin.naughty_timeout = int(self.naughty_timeout) * int(self.holding_time)
             return
 
             # deal with STOP_LOSS
@@ -462,10 +474,11 @@ class Bot():
             self.update_investment()
 
             # and block this coin for today:
-            #self.excluded_coins.append(coin.symbol)
+            coin.naughty_timeout = int(self.naughty_timeout) * int(self.holding_time)
 
             self.losses = self.losses +1
             self.clear_all_coins_stats()
+            coin.naughty_timeout = int(self.naughty_timeout) * int(self.holding_time)
             return
 
         # possible sale
