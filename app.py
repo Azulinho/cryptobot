@@ -38,6 +38,7 @@ from config import (
     MAX_COINS,
     PAIRING,
     CLEAR_COIN_STATS_AT_BOOT
+    CLEAR_COIN_STATS_AT_SALE,
     NAUGHTY_TIMEOUT
 )
 
@@ -142,6 +143,7 @@ class Bot():
         self.fees = 0
         self.clear_coin_stats_at_boot = CLEAR_COIN_STATS_AT_BOOT
         self.naughty_timeout = NAUGHTY_TIMEOUT
+        self.clean_coin_stats_at_sale = CLEAR_COIN_STATS_AT_SALE
 
     def update_investment(self):
         # and finally re-invest our profit, we're aiming to compound
@@ -363,8 +365,9 @@ class Bot():
 
 
     def clear_all_coins_stats(self):
-        for coin in self.coins:
-            self.clear_coin_stats(self.coins[coin])
+        if self.clean_coin_stats_at_sale:
+            for coin in self.coins:
+                self.clear_coin_stats(self.coins[coin])
 
     def clear_coin_stats(self, coin):
         coin.min = coin.price
