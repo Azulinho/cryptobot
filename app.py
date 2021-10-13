@@ -566,6 +566,77 @@ class Bot():
             self.process_coins()
             self.wait()
 
+    def backtest_logfile(self, price_log, pattern):
+        # reset our exclude coins every day.
+        # this mimics us stopping/starting the bot once a day
+        self.excluded_coins = EXCLUDED_COINS
+        # clear up profit, fees, and reset investment
+        # this will gives us our strategy results per day
+        # instead of compounded results
+        self.profit = 0
+        self.fees = 0
+        self.investment = self.initial_investment
+        self.wins = 0
+        self.losses = 0
+        self.stales = 0
+        _coins = {}
+        for symbol in self.wallet:
+            _coins[symbol] = self.coins[symbol]
+        self.coins = _coins
+        read_counter = 0
+        with gzip.open(price_log,'rt') as f:
+            while True:
+                try:
+                    line = f.readline()
+                    if line == '':
+                        break
+
+                    if self.pairing not in line:
+                        continue
+
+                    match_found = re.match(pattern, line)
+                    if not match_found:
+                        continue
+
+                    date, symbol, market_price  = match_found.groups()
+
+                    if symbol not in self.tickers:
+                        continue
+
+                    # implements a PAUSE_FOR pause while reading from
+                    # our price logs.
+                    # we essentially skip a number of iterations between
+                    # reads, causing a similar effect if we were only
+                    # probing prices every PAUSE_FOR seconds
+                    if read_counter == PAUSE_FOR:
+                        read_counter = 0
+                    else:
+                        read_counter = read_counter +1
+                        continue
+                    # TODO: rework this
+                    if symbol not in self.coins:
+                        self.coins[symbol] = Coin(
+                            self.client,
+                            symbol,
+                            date,
+                            market_price,
+                            self.buy_at_percentage,
+                            self.sell_at_percentage,
+                            self.stop_loss_at_percentage,
+                            self.trail_target_sell_percentage,
+                            self.trail_recovery_percentage
+                        )
+                    else:
+                        self.coins[symbol].update(date, market_price)
+
+                    self.buy_drop_sell_recovery_strategy(self.coins[symbol])
+                except Exception as e:
+                    print(traceback.format_exc())
+                    if e == "KeyboardInterrupt":
+                        sys.exit(1)
+                    pass
+
+
     def backtesting(self):
         pattern = '([0-9]{4}-[0-9]{2}-[0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2}).*\s([0-9|A-Z].*' + \
             f'{self.pairing}' + ')\s(.*)'
@@ -578,75 +649,7 @@ class Bot():
         last_losses = 0
         last_stales = 0
         for price_log in self.price_logs:
-            # reset our exclude coins every day.
-            # this mimics us stopping/starting the bot once a day
-            self.excluded_coins = EXCLUDED_COINS
-            # clear up profit, fees, and reset investment
-            # this will gives us our strategy results per day
-            # instead of compounded results
-            self.profit = 0
-            self.fees = 0
-            self.investment = self.initial_investment
-            self.wins = 0
-            self.losses = 0
-            self.stales = 0
-            _coins = {}
-            for symbol in self.wallet:
-                _coins[symbol] = self.coins[symbol]
-            self.coins = _coins
-            read_counter = 0
-            with gzip.open(price_log,'rt') as f:
-                while True:
-                    try:
-                        line = f.readline()
-                        if line == '':
-                            break
-
-                        if self.pairing not in line:
-                            continue
-
-                        match_found = re.match(pattern, line)
-                        if not match_found:
-                            continue
-
-                        date, symbol, market_price  = match_found.groups()
-
-                        if symbol not in self.tickers:
-                            continue
-
-                        # implements a PAUSE_FOR pause while reading from
-                        # our price logs.
-                        # we essentially skip a number of iterations between
-                        # reads, causing a similar effect if we were only
-                        # probing prices every PAUSE_FOR seconds
-                        if read_counter == PAUSE_FOR:
-                            read_counter = 0
-                        else:
-                            read_counter = read_counter +1
-                            continue
-                        # TODO: rework this
-                        if symbol not in self.coins:
-                            self.coins[symbol] = Coin(
-                                self.client,
-                                symbol,
-                                date,
-                                market_price,
-                                self.buy_at_percentage,
-                                self.sell_at_percentage,
-                                self.stop_loss_at_percentage,
-                                self.trail_target_sell_percentage,
-                                self.trail_recovery_percentage
-                            )
-                        else:
-                            self.coins[symbol].update(date, market_price)
-
-                        self.buy_drop_sell_recovery_strategy(self.coins[symbol])
-                    except Exception as e:
-                        print(traceback.format_exc())
-                        if e == "KeyboardInterrupt":
-                            sys.exit(1)
-                        pass
-
+            self.backtest_logfile(price_log, pattern)
 
             # gather results from this day run
             this_run = f"{price_log} profit:{self.profit} fees:{self.fees} [w{self.wins},l{self.losses},s{self.stales}]"
