@@ -566,7 +566,7 @@ class Bot():
             self.process_coins()
             self.wait()
 
-    def backtest_logfile(self, price_log, pattern):
+    def backtest_logfile(self, price_log, compiled_regex):
         # reset our exclude coins every day.
         # this mimics us stopping/starting the bot once a day
         self.excluded_coins = EXCLUDED_COINS
@@ -594,7 +594,7 @@ class Bot():
                     if self.pairing not in line:
                         continue
 
-                    match_found = re.match(pattern, line)
+                    match_found = compiled_regex.match(line)
                     if not match_found:
                         continue
 
@@ -638,8 +638,9 @@ class Bot():
 
 
     def backtesting(self):
-        pattern = '([0-9]{4}-[0-9]{2}-[0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2}).*\s([0-9|A-Z].*' + \
+        pattern = r'([0-9]{4}-[0-9]{2}-[0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2}).*\s([0-9|A-Z].*' + \
             f'{self.pairing}' + ')\s(.*)'
+        compiled_regex = re.compile(pattern, re.IGNORECASE)
 
         results = []
         last_profit = 0
@@ -649,7 +650,7 @@ class Bot():
         last_losses = 0
         last_stales = 0
         for price_log in self.price_logs:
-            self.backtest_logfile(price_log, pattern)
+            self.backtest_logfile(price_log, compiled_regex)
 
             # gather results from this day run
             this_run = f"{price_log} profit:{self.profit} fees:{self.fees} [w{self.wins},l{self.losses},s{self.stales}]"
