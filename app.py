@@ -22,7 +22,8 @@ from tenacity import retry, wait_exponential
 
 from config import (
     INITIAL_INVESTMENT,
-    HOLDING_TIME,
+    SOFT_LIMIT_HOLDING_TIME,
+    HARD_LIMIT_HOLDING_TIME,
     BUY_AT_PERCENTAGE,
     SELL_AT_PERCENTAGE,
     STOP_LOSS_AT_PERCENTAGE,
@@ -126,7 +127,8 @@ class Bot():
         self.client = client
         self.initial_investment = INITIAL_INVESTMENT
         self.investment = INITIAL_INVESTMENT
-        self.holding_time = HOLDING_TIME
+        self.soft_limit_holding_time = SOFT_LIMIT_HOLDING_TIME
+        self.hard_limit_holding_time = HARD_LIMIT_HOLDING_TIME
         self.excluded_coins = EXCLUDED_COINS
         self.buy_at_percentage = float(100 + float(BUY_AT_PERCENTAGE))
         self.sell_at_percentage = float(100 + float(SELL_AT_PERCENTAGE))
@@ -463,26 +465,7 @@ class Bot():
             return
         # oh we already own this one, lets check prices
 
-        # This coin is too old, sell it
-        if coin.holding_time > self.holding_time and coin.status != "TARGET_SELL": # TODO: this is not a real time count
-            coin.status = "STALE"
-            cprint(f"{coin.date}: [{coin.symbol}] (sale of old coin) : now: {coin.price} bought: {coin.bought_at}", "red")
-
-            self.sell_coin(coin)
-            self.update_bot_profit(coin)
-            self.update_investment()
-
-            # and block this coin for today:
-            #self.excluded_coins.append(coin.symbol)
-
-            self.stales = self.stales +1
-            self.clear_all_coins_stats()
-
-            # and block this coin for today:
-            coin.naughty_timeout = int(self.naughty_timeout) * int(self.holding_time)
-            return
-
-            # deal with STOP_LOSS
+        # deal with STOP_LOSS
         if float(coin.price) < percent(
                 coin.stop_loss_at_percentage,
                 coin.bought_at
@@ -494,12 +477,11 @@ class Bot():
             self.update_bot_profit(coin)
             self.update_investment()
 
-            # and block this coin for today:
-            coin.naughty_timeout = int(self.naughty_timeout) * int(self.holding_time)
 
             self.losses = self.losses +1
             self.clear_all_coins_stats()
-            coin.naughty_timeout = int(self.naughty_timeout) * int(self.holding_time)
+            # and block this coin for a while
+            coin.naughty_timeout = int(self.naughty_timeout)
             return
 
         # coin was above sell_at_percentage and dropped below
@@ -516,6 +498,7 @@ class Bot():
             self.wins = self.wins + 1
             self.clear_all_coins_stats()
             return
+
         # possible sale
         if float(coin.price) > percent(
                 self.sell_at_percentage,
@@ -545,6 +528,55 @@ class Bot():
                     self.wins = self.wins + 1
                     self.clear_all_coins_stats()
                     return
+
+        # This coin is too old, sell it
+        if (coin.holding_time > self.hard_limit_holding_time) and (
+            coin.status != "TARGET_SELL"
+        ):
+            coin.status = "STALE"
+            cprint(
+                f"{coin.date}: [{coin.symbol}] (stale) : now: " +
+                f"{coin.price} bought: {coin.bought_at}", "red"
+            )
+
+            self.sell_coin(coin)
+            self.update_bot_profit(coin)
+            self.update_investment()
+
+            # and block this coin for today:
+            #self.excluded_coins.append(coin.symbol)
+
+            self.stales = self.stales +1
+            self.clear_all_coins_stats()
+
+            # and block this coin for today:
+            coin.naughty_timeout = int(self.naughty_timeout)
+            return
+
+
+        # This coin is past our soft limit
+        # we apply a sliding window to the buy profit
+        if coin.holding_time > self.soft_limit_holding_time and coin.status != "TARGET_SELL": # TODO: this is not a real time count
+            coin.status = "STALE"
+            profit_boundary = (self.sell_at_percentage - 100) - (2 * self.trading_fee)
+            percentage_slice_per_holding_time_slice =  profit_boundary / self.hard_limit_holding_time
+
+            trail_target_slice_per_holding_time_slice = (
+                (100 - coin.trail_target_sell_percentage) / self.hard_limit_holding_time
+            )
+
+            coin_life_left = self.hard_limit_holding_time - coin.holding_time
+            new_sell_at_percentage = 100 + (coin_life_left * percentage_slice_per_holding_time_slice)
+            new_trail_target_sell_percentage = 100 - (coin_life_left * trail_target_slice_per_holding_time_slice)
+
+            coin.sell_at_percentage = new_sell_at_percentage
+            coin.trail_target_sell_percentage = new_trail_target_sell_percentage
+
+            if self.debug:
+                print(f"holding: {coin.holding_time} {coin.sell_at_percentage:.4f} {coin.trail_target_sell_percentage:.4f}")
+
+            return
+
 
     def wait(self):
         sleep(self.pause)
@@ -584,6 +616,7 @@ class Bot():
             _coins[symbol] = self.coins[symbol]
         self.coins = _coins
         read_counter = 0
+
         with gzip.open(price_log,'rt') as f:
             while True:
                 try:
@@ -638,6 +671,8 @@ class Bot():
 
 
     def backtesting(self):
+
+
         pattern = r'([0-9]{4}-[0-9]{2}-[0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2}).*\s([0-9|A-Z].*' + \
             f'{self.pairing}' + ')\s(.*)'
         compiled_regex = re.compile(pattern, re.IGNORECASE)
@@ -682,7 +717,8 @@ if __name__ == '__main__':
            f"sell_at:{SELL_AT_PERCENTAGE} " +
            f"stop_loss:{STOP_LOSS_AT_PERCENTAGE} " +
            f"max_coins:{MAX_COINS} " +
-           f"holding_time:{HOLDING_TIME} "
+            f"soft_limit_holding_time:{SOFT_LIMIT_HOLDING_TIME} " +
+            f"hard_limit_holding_time:{HARD_LIMIT_HOLDING_TIME} "
         )
         print(f"running in {bot.mode} mode with {startup_msg}")
 
