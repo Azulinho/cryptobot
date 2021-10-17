@@ -10,7 +10,7 @@ from os.path import exists
 from time import time
 from datetime import datetime
 from termcolor import colored, cprint
-from functools import wraps
+from functools import wraps, lru_cache
 
 
 from binance.client import Client
@@ -220,7 +220,11 @@ class Bot():
         coin.status = "HOLD"
         coin.tip = coin.price
 
-        cprint(f"{coin.date}: [{coin.symbol}] (bought) {coin.volume} now: {coin.price} total: ${coin.value} sell at:${coin.price * coin.sell_at_percentage /100} ({len(self.wallet)}/{self.max_coins})", "magenta")
+        cprint(
+            f"{coin.date}: [{coin.symbol}] (bought) " +
+            f"U:{coin.volume} P:{coin.price} T:${coin.value:.3f} " +
+            f"sell_at:${coin.price * coin.sell_at_percentage /100} "+
+            f"({len(self.wallet)}/{self.max_coins})", "magenta")
 
 
     def sell_coin(self, coin):
@@ -267,7 +271,14 @@ class Bot():
 
         coin.status = None
         self.wallet.remove(coin.symbol)
-        cprint(f"{coin.date}: [{coin.symbol}] (sold) {coin.volume}  now: {coin.price} total: ${coin.value} and {message}: {coin.profit} ({len(self.wallet)}/{self.max_coins})", ink)
+        cprint(
+            f"{coin.date}: [{coin.symbol}] (sold) U:{coin.volume} "+
+            f"P:{coin.price} T:${coin.value:.3f} and "+
+            f"{message}:{coin.profit:.3f} "+
+            f"sell_at:{coin.sell_at_percentage:.3f} "+
+            f"trail_sell:{coin.trail_target_sell_percentage:.3f}" +
+            f" ({len(self.wallet)}/{self.max_coins})", ink
+        )
 
 
     def extract_order_data(self, order_details, coin):
@@ -311,15 +322,24 @@ class Bot():
         return transactionInfo
 
 
-    def calculate_volume_size(self, coin):
+    @lru_cache()
+    @retry(wait=wait_exponential(multiplier=1, max=10))
+    def get_symbol_precision(self, symbol):
         try:
-            info = self.client.get_symbol_info(coin.symbol)
+            info = self.client.get_symbol_info(symbol)
         except Exception as e:
             print(e)
             return -1
 
         step_size = float(info['filters'][2]['stepSize'])
         precision = int(round(-math.log(step_size, 10), 0))
+
+        return precision
+
+
+
+    def calculate_volume_size(self, coin):
+        precision = self.get_symbol_precision(coin.symbol)
 
         volume = float(
           round(
