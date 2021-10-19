@@ -42,7 +42,7 @@ from config import (
     CLEAR_COIN_STATS_AT_SALE,
     TRAIL_TARGET_SELL_PERCENTAGE,
     TRAIL_RECOVERY_PERCENTAGE,
-    NAUGHTY_TIMEOUT
+    NAUGHTY_TIMEOUT,
 )
 
 
@@ -321,7 +321,6 @@ class Bot():
             "tradeFeeUnit": tradeFeeApprox,
         }
         return transactionInfo
-
 
     @lru_cache()
     @retry(wait=wait_exponential(multiplier=1, max=10))
@@ -703,7 +702,13 @@ class Bot():
             self.backtest_logfile(price_log)
 
             # gather results from this day run
-            this_run = f"{price_log} profit:{self.profit} fees:{self.fees} [w{self.wins},l{self.losses},s{self.stales}]"
+            this_run = " ".join([
+                f"{price_log}",
+                f"profit:{self.profit}",
+                f"fees:{self.fees}",
+                f"[w{self.wins},l{self.losses},s{self.stales}]"
+            ])
+
             results.append(this_run)
 
             # and add up the moneys, wins,losses and others
@@ -713,8 +718,11 @@ class Bot():
             last_losses = last_losses + self.losses
             last_stales = last_stales + self.stales
             last_investment = last_investment + self.profit
+
+
         for result in results:
             cprint(result,  attrs=['bold'])
+
         self.profit = last_profit
         self.fees = last_fees
         self.wins = last_wins
@@ -732,8 +740,8 @@ if __name__ == '__main__':
            f"sell_at:{SELL_AT_PERCENTAGE} " +
            f"stop_loss:{STOP_LOSS_AT_PERCENTAGE} " +
            f"max_coins:{MAX_COINS} " +
-            f"soft_limit_holding_time:{SOFT_LIMIT_HOLDING_TIME} " +
-            f"hard_limit_holding_time:{HARD_LIMIT_HOLDING_TIME} "
+           f"soft_limit_holding_time:{SOFT_LIMIT_HOLDING_TIME} " +
+           f"hard_limit_holding_time:{HARD_LIMIT_HOLDING_TIME} "
         )
         print(f"running in {bot.mode} mode with {startup_msg}")
 
