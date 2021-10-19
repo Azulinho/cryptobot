@@ -619,7 +619,7 @@ class Bot():
             self.process_coins()
             self.wait()
 
-    def backtest_logfile(self, price_log, compiled_regex):
+    def backtest_logfile(self, price_log):
         # reset our exclude coins every day.
         # this mimics us stopping/starting the bot once a day
         self.excluded_coins = EXCLUDED_COINS
@@ -636,8 +636,8 @@ class Bot():
         for symbol in self.wallet:
             _coins[symbol] = self.coins[symbol]
         self.coins = _coins
-        read_counter = 0
 
+        read_counter = 0
         with gzip.open(price_log,'rt') as f:
             while True:
                 try:
@@ -648,11 +648,10 @@ class Bot():
                     if self.pairing not in line:
                         continue
 
-                    match_found = compiled_regex.match(line)
-                    if not match_found:
-                        continue
-
-                    date, symbol, market_price  = match_found.groups()
+                    parts = line.split(' ')
+                    date = ' '.join(parts[0:2])
+                    symbol = parts[2]
+                    market_price = parts[3]
 
                     if symbol not in self.tickers:
                         continue
@@ -692,12 +691,6 @@ class Bot():
 
 
     def backtesting(self):
-
-
-        pattern = r'([0-9]{4}-[0-9]{2}-[0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2}).*\s([0-9|A-Z].*' + \
-            f'{self.pairing}' + ')\s(.*)'
-        compiled_regex = re.compile(pattern, re.IGNORECASE)
-
         results = []
         last_profit = 0
         last_fees = 0
@@ -705,8 +698,9 @@ class Bot():
         last_wins = 0
         last_losses = 0
         last_stales = 0
+
         for price_log in self.price_logs:
-            self.backtest_logfile(price_log, compiled_regex)
+            self.backtest_logfile(price_log)
 
             # gather results from this day run
             this_run = f"{price_log} profit:{self.profit} fees:{self.fees} [w{self.wins},l{self.losses},s{self.stales}]"
