@@ -730,6 +730,34 @@ class Bot():
         self.stales = last_stales
         self.investment = self.initial_investment + last_investment
 
+        with open("backtesting.log", "a") as f:
+            log_entry = '|'.join([
+                f"profit:{self.profit:.2f}",
+                f"investment:{self.initial_investment}",
+                f"n_tickers:{len(self.tickers)}",
+                f"tickers_file:{self.tickers_file}",
+                f"w{self.wins},l{self.losses},s{self.stales},h{len(self.wallet)}",
+                f"max_coins:{self.max_coins}",
+                f"days:{len(self.price_logs)}",
+                f"buy_at:{self.buy_at_percentage}",
+                f"sell_at:{self.sell_at_percentage}",
+                f"stop_loss_at:{self.stop_loss_at_percentage}",
+                f"trail_target_sell_percentage:{self.trail_target_sell_percentage}",
+                f"trail_recovery_percentage:{self.trail_recovery_percentage}",
+                f"soft_limit_holding_time:{self.soft_limit_holding_time}",
+                f"hard_limit_holding_time:{self.hard_limit_holding_time}",
+                f"naughty_timeout:{self.naughty_timeout}",
+                f"clear_coin_stats_at_sale:{self.clean_coin_stats_at_sale}",
+                f"trading_fee:{self.trading_fee}",
+                f"pause:{self.pause}",
+                f"pairing:{self.pairing}",
+                f"holding:{self.wallet}",
+                f"results:{results}",
+            ])
+
+            f.write(f"{log_entry}\n")
+
+
 if __name__ == '__main__':
     try:
         client = Client(ACCESS_KEY, SECRET_KEY)
