@@ -32,7 +32,7 @@ from config import (
     PRICE_LOGS,
     ACCESS_KEY,
     SECRET_KEY,
-    TICKERS,
+    TICKERS_FILE,
     MODE,
     TRADING_FEE,
     DEBUG,
@@ -141,7 +141,8 @@ class Bot():
         self.stales = 0
         self.profit = 0
         self.wallet = [] # store the coin we own
-        self.tickers = TICKERS
+        self.tickers_file = TICKERS_FILE
+        self.tickers = [line.strip() for line in open(TICKERS_FILE)]
         self.mode = MODE
         self.trading_fee = float(TRADING_FEE)
         self.debug = DEBUG
