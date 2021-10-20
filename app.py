@@ -619,23 +619,6 @@ class Bot():
             self.wait()
 
     def backtest_logfile(self, price_log):
-        # reset our exclude coins every day.
-        # this mimics us stopping/starting the bot once a day
-        self.excluded_coins = EXCLUDED_COINS
-        # clear up profit, fees, and reset investment
-        # this will gives us our strategy results per day
-        # instead of compounded results
-        self.profit = 0
-        self.fees = 0
-        self.investment = self.initial_investment
-        self.wins = 0
-        self.losses = 0
-        self.stales = 0
-        _coins = {}
-        for symbol in self.wallet:
-            _coins[symbol] = self.coins[symbol]
-        self.coins = _coins
-
         read_counter = 0
         with gzip.open(price_log,'rt') as f:
             while True:
@@ -690,45 +673,9 @@ class Bot():
 
 
     def backtesting(self):
-        results = []
-        last_profit = 0
-        last_fees = 0
-        last_investment = 0
-        last_wins = 0
-        last_losses = 0
-        last_stales = 0
-
         for price_log in self.price_logs:
             self.backtest_logfile(price_log)
 
-            # gather results from this day run
-            this_run = " ".join([
-                f"{price_log}",
-                f"profit:{self.profit}",
-                f"fees:{self.fees}",
-                f"[w{self.wins},l{self.losses},s{self.stales}]"
-            ])
-
-            results.append(this_run)
-
-            # and add up the moneys, wins,losses and others
-            last_profit = last_profit + self.profit
-            last_fees = last_fees + self.fees
-            last_wins = last_wins + self.wins
-            last_losses = last_losses + self.losses
-            last_stales = last_stales + self.stales
-            last_investment = last_investment + self.profit
-
-
-        for result in results:
-            cprint(result,  attrs=['bold'])
-
-        self.profit = last_profit
-        self.fees = last_fees
-        self.wins = last_wins
-        self.losses = last_losses
-        self.stales = last_stales
-        self.investment = self.initial_investment + last_investment
 
         with open("backtesting.log", "a") as f:
             log_entry = '|'.join([
@@ -752,7 +699,6 @@ class Bot():
                 f"pause:{self.pause}",
                 f"pairing:{self.pairing}",
                 f"holding:{self.wallet}",
-                f"results:{results}",
             ])
 
             f.write(f"{log_entry}\n")
