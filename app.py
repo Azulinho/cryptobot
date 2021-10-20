@@ -162,6 +162,7 @@ class Bot():
             self.buy_drop_sell_recovery_strategy(*args, **kwargs)
         if self.strategy == "buy_moon_sell_recovery_strategy":
             self.buy_moon_sell_recovery_strategy(*args, **kwargs)
+        self.check_for_sale_conditions(*args, **kwargs)
 
     def update_investment(self):
         # and finally re-invest our profit, we're aiming to compound
@@ -601,29 +602,28 @@ class Bot():
 
     def buy_drop_sell_recovery_strategy(self, coin):
         # has the price gone down by x% on a coin we don't own?
-        if coin.symbol not in self.wallet:
-            if len(self.wallet) != self.max_coins:
-                if float(coin.price) < percent(coin.buy_at_percentage, coin.max):
-                    if coin.status == None:
-                        coin.dip = coin.price
-                        coin.status = "TARGET_DIP"
-
-                    if coin.status == "TARGET_DIP":
-                        if float(coin.price) < float(coin.dip):
-                            coin.dip = coin.price
-                    # do some gimmicks, and don't buy the coin straight away
-                    # but only buy it when the price is now higher than the last
-                    # price recorded. This way we ensure that we got the dip
-                    # TODO: incorrect date
-                    if self.debug:
-                        print(f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}")
-                    if float(coin.price) > float(coin.last):
-                        if float(coin.price) > percent(float(coin.trail_recovery_percentage), coin.dip):
-                            self.buy_coin(coin)
-                            self.clear_all_coins_stats()
-                            return
+        if coin.symbol in self.wallet:
             return
-        self.check_for_sale_conditions(coin)
+        if len(self.wallet) == self.max_coins:
+            return
+
+        if float(coin.price) < percent(coin.buy_at_percentage, coin.max):
+            if coin.status == None:
+                coin.dip = coin.price
+                coin.status = "TARGET_DIP"
+
+        if coin.status == "TARGET_DIP":
+            if float(coin.price) < float(coin.dip):
+                coin.dip = coin.price
+        # do some gimmicks, and don't buy the coin straight away
+        # but only buy it when the price is now higher than the last
+        # price recorded. This way we ensure that we got the dip
+        if self.debug:
+            print(f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}")
+        if float(coin.price) > float(coin.last):
+            if float(coin.price) > percent(float(coin.trail_recovery_percentage), coin.dip):
+                self.buy_coin(coin)
+                self.clear_all_coins_stats()
 
     def buy_moon_sell_recovery_strategy(self, coin):
         # has the price gone up by x% on a coin we don't own?
@@ -637,7 +637,6 @@ class Bot():
                         print(f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}")
                     return
             return
-        self.check_for_sale_conditions(coin)
 
 
 
