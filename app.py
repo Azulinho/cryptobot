@@ -239,6 +239,8 @@ class Bot():
             f"sell_at:${coin.price * coin.sell_at_percentage /100} "+
             f"({len(self.wallet)}/{self.max_coins})", "magenta")
 
+        self.clear_all_coins_stats()
+
 
     def sell_coin(self, coin):
         if coin.symbol not in self.wallet:
@@ -292,6 +294,7 @@ class Bot():
             f"trail_sell:{coin.trail_target_sell_percentage:.3f}" +
             f" ({len(self.wallet)}/{self.max_coins})", ink
         )
+        self.clear_all_coins_stats()
 
 
     def extract_order_data(self, order_details, coin):
@@ -426,7 +429,6 @@ class Bot():
 
 
             self.losses = self.losses +1
-            self.clear_all_coins_stats()
             # and block this coin for a while
             coin.naughty_timeout = int(self.naughty_timeout)
             return True
@@ -443,7 +445,6 @@ class Bot():
             self.update_investment()
 
             self.wins = self.wins + 1
-            self.clear_all_coins_stats()
             return True
 
     def possible_sale(self, coin):
@@ -473,7 +474,6 @@ class Bot():
                     self.update_investment()
 
                     self.wins = self.wins + 1
-                    self.clear_all_coins_stats()
                     return True
 
 
@@ -495,7 +495,6 @@ class Bot():
             #self.excluded_coins.append(coin.symbol)
 
             self.stales = self.stales +1
-            self.clear_all_coins_stats()
 
             # and block this coin for today:
             coin.naughty_timeout = int(self.naughty_timeout)
@@ -623,19 +622,19 @@ class Bot():
         if float(coin.price) > float(coin.last):
             if float(coin.price) > percent(float(coin.trail_recovery_percentage), coin.dip):
                 self.buy_coin(coin)
-                self.clear_all_coins_stats()
 
     def buy_moon_sell_recovery_strategy(self, coin):
-        # has the price gone up by x% on a coin we don't own?
-        if coin.symbol not in self.wallet:
-            if len(self.wallet) != self.max_coins:
-                #if float(coin.price) > percent(coin.buy_at_percentage, coin.min):
-                if float(coin.price) > percent(coin.buy_at_percentage, coin.last):
-                    self.buy_coin(coin)
-                    self.clear_all_coins_stats()
-                    if self.debug:
-                        print(f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}")
-                    return
+        if coin.symbol in self.wallet:
+            return
+
+        if len(self.wallet) == self.max_coins:
+            return
+
+        #if float(coin.price) > percent(coin.buy_at_percentage, coin.min):
+        if float(coin.price) > percent(coin.buy_at_percentage, coin.last):
+            self.buy_coin(coin)
+            if self.debug:
+                print(f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}")
             return
 
 
