@@ -184,6 +184,9 @@ class Bot():
         if len(self.wallet) == self.max_coins:
             return False
 
+        if coin.naughty_timeout > 0:
+            return False
+
         volume = float(self.calculate_volume_size(coin))
 
         if self.mode in ["testnet", "live"]:
@@ -401,7 +404,7 @@ class Bot():
 
             if self.mode in ["live", "backtesting", 'testnet']:
                 if self.pairing in symbol:
-                    if self.coins[symbol].naughty_timeout == 0:
+                    if self.coins[symbol].naughty_timeout < 1:
                         if not any(sub in symbol for sub in self.excluded_coins):
                             if symbol in self.tickers or symbol in self.wallet:
                                 self.run_strategy(self.coins[symbol])
