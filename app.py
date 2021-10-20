@@ -154,6 +154,13 @@ class Bot():
         self.trail_recovery_percentage = float(100) + float(TRAIL_RECOVERY_PERCENTAGE)
         self.naughty_timeout = NAUGHTY_TIMEOUT
         self.clean_coin_stats_at_sale = CLEAR_COIN_STATS_AT_SALE
+        self.strategy = STRATEGY
+
+    def run_strategy(self, *args, **kwargs):
+        if self.strategy == "buy_drop_sell_recovery_strategy":
+            self.buy_drop_sell_recovery_strategy(*args, **kwargs)
+        if self.strategy == "buy_moon_sell_recovery_strategy":
+            self.buy_moon_sell_recovery_strategy(*args, **kwargs)
 
     def update_investment(self):
         # and finally re-invest our profit, we're aiming to compound
@@ -596,6 +603,21 @@ class Bot():
                 print(f"holding: {coin.holding_time} {coin.sell_at_percentage:.4f} {coin.trail_target_sell_percentage:.4f}")
 
             return
+
+    def buy_moon_sell_recovery_strategy(self, coin):
+        # has the price gone up by x% on a coin we don't own?
+        if coin.symbol not in self.wallet:
+            if len(self.wallet) != self.max_coins:
+                #if float(coin.price) > percent(coin.buy_at_percentage, coin.min):
+                if float(coin.price) > percent(coin.buy_at_percentage, coin.last):
+                    self.buy_coin(coin)
+                    self.clear_all_coins_stats()
+                    if self.debug:
+                        print(f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}")
+                    return
+            return
+        self.check_for_sale_conditions(coin)
+
 
 
     def wait(self):
