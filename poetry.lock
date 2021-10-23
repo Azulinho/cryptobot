@@ -40,6 +40,14 @@ tests = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)"
 tests_no_zope = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)", "six", "mypy", "pytest-mypy-plugins"]
 
 [[package]]
+name = "backports.shutil-which"
+version = "3.5.2"
+description = "Backport of shutil.which from Python 3.3"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "black"
 version = "21.9b0"
 description = "The uncompromising code formatter."
@@ -302,6 +310,17 @@ optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 
 [[package]]
+name = "snakeviz"
+version = "2.1.0"
+description = "A web-based viewer for Python profiler output"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+tornado = ">=2.0"
+
+[[package]]
 name = "tenacity"
 version = "8.0.1"
 description = "Retry code until it succeeds"
@@ -335,6 +354,14 @@ description = "A lil' TOML parser"
 category = "dev"
 optional = false
 python-versions = ">=3.6"
+
+[[package]]
+name = "tornado"
+version = "6.1"
+description = "Tornado is a Python web framework and asynchronous networking library, originally developed at FriendFeed."
+category = "dev"
+optional = false
+python-versions = ">= 3.5"
 
 [[package]]
 name = "typing-extensions"
@@ -388,6 +415,21 @@ secure = ["pyOpenSSL (>=0.14)", "cryptography (>=1.3.4)", "idna (>=2.0.0)", "cer
 socks = ["PySocks (>=1.5.6,!=1.5.7,<2.0)"]
 
 [[package]]
+name = "vmprof"
+version = "0.4.15"
+description = "Python's vmprof client"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+"backports.shutil_which" = "*"
+colorama = "*"
+pytz = "*"
+requests = "*"
+six = "*"
+
+[[package]]
 name = "websockets"
 version = "9.1"
 description = "An implementation of the WebSocket Protocol (RFC 6455 & 7692)"
@@ -410,7 +452,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "9ed3b95530b68650de530d190446b1a01b96576bd62ad9bf5a8cb3f832d1eb22"
+content-hash = "acbc22e6f1c550199ca41453ab303982fb2100bac9374b9990b8b1dabaa688d7"
 
 [metadata.files]
 aiohttp = [
@@ -459,6 +501,10 @@ async-timeout = [
 attrs = [
     {file = "attrs-21.2.0-py2.py3-none-any.whl", hash = "sha256:149e90d6d8ac20db7a955ad60cf0e6881a3f20d37096140088356da6c716b0b1"},
     {file = "attrs-21.2.0.tar.gz", hash = "sha256:ef6aaac3ca6cd92904cdd0d83f629a15f18053ec84e6432106f7a4d04ae4f5fb"},
+]
+"backports.shutil-which" = [
+    {file = "backports.shutil_which-3.5.2-py2.py3-none-any.whl", hash = "sha256:dc627fb2bc40f8ad7e012d7d9a59ed0cb1b74a9510ed936b3f9358b7ac6d4d31"},
+    {file = "backports.shutil_which-3.5.2.tar.gz", hash = "sha256:fe39f567cbe4fad89e8ac4dbeb23f87ef80f7fe8e829669d0221ecdb0437c133"},
 ]
 black = [
     {file = "black-21.9b0-py3-none-any.whl", hash = "sha256:380f1b5da05e5a1429225676655dddb96f5ae8c75bdf91e53d798871b902a115"},
@@ -644,6 +690,10 @@ six = [
     {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},
     {file = "six-1.16.0.tar.gz", hash = "sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926"},
 ]
+snakeviz = [
+    {file = "snakeviz-2.1.0-py2.py3-none-any.whl", hash = "sha256:8ce375b18ae4a749516d7e6c6fbbf8be6177c53974f53534d8eadb646cd279b1"},
+    {file = "snakeviz-2.1.0.tar.gz", hash = "sha256:92ad876fb6a201a7e23a6b85ea96d9643a51e285667c253a8653643804f7cb68"},
+]
 tenacity = [
     {file = "tenacity-8.0.1-py3-none-any.whl", hash = "sha256:f78f4ea81b0fabc06728c11dc2a8c01277bfc5181b321a4770471902e3eb844a"},
     {file = "tenacity-8.0.1.tar.gz", hash = "sha256:43242a20e3e73291a28bcbcacfd6e000b02d3857a9a9fff56b297a27afdc932f"},
@@ -658,6 +708,49 @@ toml = [
 tomli = [
     {file = "tomli-1.2.1-py3-none-any.whl", hash = "sha256:8dd0e9524d6f386271a36b41dbf6c57d8e32fd96fd22b6584679dc569d20899f"},
     {file = "tomli-1.2.1.tar.gz", hash = "sha256:a5b75cb6f3968abb47af1b40c1819dc519ea82bcc065776a866e8d74c5ca9442"},
+]
+tornado = [
+    {file = "tornado-6.1-cp35-cp35m-macosx_10_9_x86_64.whl", hash = "sha256:d371e811d6b156d82aa5f9a4e08b58debf97c302a35714f6f45e35139c332e32"},
+    {file = "tornado-6.1-cp35-cp35m-manylinux1_i686.whl", hash = "sha256:0d321a39c36e5f2c4ff12b4ed58d41390460f798422c4504e09eb5678e09998c"},
+    {file = "tornado-6.1-cp35-cp35m-manylinux1_x86_64.whl", hash = "sha256:9de9e5188a782be6b1ce866e8a51bc76a0fbaa0e16613823fc38e4fc2556ad05"},
+    {file = "tornado-6.1-cp35-cp35m-manylinux2010_i686.whl", hash = "sha256:61b32d06ae8a036a6607805e6720ef00a3c98207038444ba7fd3d169cd998910"},
+    {file = "tornado-6.1-cp35-cp35m-manylinux2010_x86_64.whl", hash = "sha256:3e63498f680547ed24d2c71e6497f24bca791aca2fe116dbc2bd0ac7f191691b"},
+    {file = "tornado-6.1-cp35-cp35m-manylinux2014_aarch64.whl", hash = "sha256:6c77c9937962577a6a76917845d06af6ab9197702a42e1346d8ae2e76b5e3675"},
+    {file = "tornado-6.1-cp35-cp35m-win32.whl", hash = "sha256:6286efab1ed6e74b7028327365cf7346b1d777d63ab30e21a0f4d5b275fc17d5"},
+    {file = "tornado-6.1-cp35-cp35m-win_amd64.whl", hash = "sha256:fa2ba70284fa42c2a5ecb35e322e68823288a4251f9ba9cc77be04ae15eada68"},
+    {file = "tornado-6.1-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:0a00ff4561e2929a2c37ce706cb8233b7907e0cdc22eab98888aca5dd3775feb"},
+    {file = "tornado-6.1-cp36-cp36m-manylinux1_i686.whl", hash = "sha256:748290bf9112b581c525e6e6d3820621ff020ed95af6f17fedef416b27ed564c"},
+    {file = "tornado-6.1-cp36-cp36m-manylinux1_x86_64.whl", hash = "sha256:e385b637ac3acaae8022e7e47dfa7b83d3620e432e3ecb9a3f7f58f150e50921"},
+    {file = "tornado-6.1-cp36-cp36m-manylinux2010_i686.whl", hash = "sha256:25ad220258349a12ae87ede08a7b04aca51237721f63b1808d39bdb4b2164558"},
+    {file = "tornado-6.1-cp36-cp36m-manylinux2010_x86_64.whl", hash = "sha256:65d98939f1a2e74b58839f8c4dab3b6b3c1ce84972ae712be02845e65391ac7c"},
+    {file = "tornado-6.1-cp36-cp36m-manylinux2014_aarch64.whl", hash = "sha256:e519d64089b0876c7b467274468709dadf11e41d65f63bba207e04217f47c085"},
+    {file = "tornado-6.1-cp36-cp36m-win32.whl", hash = "sha256:b87936fd2c317b6ee08a5741ea06b9d11a6074ef4cc42e031bc6403f82a32575"},
+    {file = "tornado-6.1-cp36-cp36m-win_amd64.whl", hash = "sha256:cc0ee35043162abbf717b7df924597ade8e5395e7b66d18270116f8745ceb795"},
+    {file = "tornado-6.1-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:7250a3fa399f08ec9cb3f7b1b987955d17e044f1ade821b32e5f435130250d7f"},
+    {file = "tornado-6.1-cp37-cp37m-manylinux1_i686.whl", hash = "sha256:ed3ad863b1b40cd1d4bd21e7498329ccaece75db5a5bf58cd3c9f130843e7102"},
+    {file = "tornado-6.1-cp37-cp37m-manylinux1_x86_64.whl", hash = "sha256:dcef026f608f678c118779cd6591c8af6e9b4155c44e0d1bc0c87c036fb8c8c4"},
+    {file = "tornado-6.1-cp37-cp37m-manylinux2010_i686.whl", hash = "sha256:70dec29e8ac485dbf57481baee40781c63e381bebea080991893cd297742b8fd"},
+    {file = "tornado-6.1-cp37-cp37m-manylinux2010_x86_64.whl", hash = "sha256:d3f7594930c423fd9f5d1a76bee85a2c36fd8b4b16921cae7e965f22575e9c01"},
+    {file = "tornado-6.1-cp37-cp37m-manylinux2014_aarch64.whl", hash = "sha256:3447475585bae2e77ecb832fc0300c3695516a47d46cefa0528181a34c5b9d3d"},
+    {file = "tornado-6.1-cp37-cp37m-win32.whl", hash = "sha256:e7229e60ac41a1202444497ddde70a48d33909e484f96eb0da9baf8dc68541df"},
+    {file = "tornado-6.1-cp37-cp37m-win_amd64.whl", hash = "sha256:cb5ec8eead331e3bb4ce8066cf06d2dfef1bfb1b2a73082dfe8a161301b76e37"},
+    {file = "tornado-6.1-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:20241b3cb4f425e971cb0a8e4ffc9b0a861530ae3c52f2b0434e6c1b57e9fd95"},
+    {file = "tornado-6.1-cp38-cp38-manylinux1_i686.whl", hash = "sha256:c77da1263aa361938476f04c4b6c8916001b90b2c2fdd92d8d535e1af48fba5a"},
+    {file = "tornado-6.1-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:fba85b6cd9c39be262fcd23865652920832b61583de2a2ca907dbd8e8a8c81e5"},
+    {file = "tornado-6.1-cp38-cp38-manylinux2010_i686.whl", hash = "sha256:1e8225a1070cd8eec59a996c43229fe8f95689cb16e552d130b9793cb570a288"},
+    {file = "tornado-6.1-cp38-cp38-manylinux2010_x86_64.whl", hash = "sha256:d14d30e7f46a0476efb0deb5b61343b1526f73ebb5ed84f23dc794bdb88f9d9f"},
+    {file = "tornado-6.1-cp38-cp38-manylinux2014_aarch64.whl", hash = "sha256:8f959b26f2634a091bb42241c3ed8d3cedb506e7c27b8dd5c7b9f745318ddbb6"},
+    {file = "tornado-6.1-cp38-cp38-win32.whl", hash = "sha256:34ca2dac9e4d7afb0bed4677512e36a52f09caa6fded70b4e3e1c89dbd92c326"},
+    {file = "tornado-6.1-cp38-cp38-win_amd64.whl", hash = "sha256:6196a5c39286cc37c024cd78834fb9345e464525d8991c21e908cc046d1cc02c"},
+    {file = "tornado-6.1-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:f0ba29bafd8e7e22920567ce0d232c26d4d47c8b5cf4ed7b562b5db39fa199c5"},
+    {file = "tornado-6.1-cp39-cp39-manylinux1_i686.whl", hash = "sha256:33892118b165401f291070100d6d09359ca74addda679b60390b09f8ef325ffe"},
+    {file = "tornado-6.1-cp39-cp39-manylinux1_x86_64.whl", hash = "sha256:7da13da6f985aab7f6f28debab00c67ff9cbacd588e8477034c0652ac141feea"},
+    {file = "tornado-6.1-cp39-cp39-manylinux2010_i686.whl", hash = "sha256:e0791ac58d91ac58f694d8d2957884df8e4e2f6687cdf367ef7eb7497f79eaa2"},
+    {file = "tornado-6.1-cp39-cp39-manylinux2010_x86_64.whl", hash = "sha256:66324e4e1beede9ac79e60f88de548da58b1f8ab4b2f1354d8375774f997e6c0"},
+    {file = "tornado-6.1-cp39-cp39-manylinux2014_aarch64.whl", hash = "sha256:a48900ecea1cbb71b8c71c620dee15b62f85f7c14189bdeee54966fbd9a0c5bd"},
+    {file = "tornado-6.1-cp39-cp39-win32.whl", hash = "sha256:d3d20ea5782ba63ed13bc2b8c291a053c8d807a8fa927d941bd718468f7b950c"},
+    {file = "tornado-6.1-cp39-cp39-win_amd64.whl", hash = "sha256:548430be2740e327b3fe0201abe471f314741efcb0067ec4f2d7dcfb4825f3e4"},
+    {file = "tornado-6.1.tar.gz", hash = "sha256:33c6e81d7bd55b468d2e793517c909b139960b6c790a60b7991b9b6b76fb9791"},
 ]
 typing-extensions = [
     {file = "typing_extensions-3.10.0.2-py2-none-any.whl", hash = "sha256:d8226d10bc02a29bcc81df19a26e56a9647f8b0a6d4a83924139f4a8b01f17b7"},
@@ -721,6 +814,23 @@ ujson = [
 urllib3 = [
     {file = "urllib3-1.26.7-py2.py3-none-any.whl", hash = "sha256:c4fdf4019605b6e5423637e01bc9fe4daef873709a7973e195ceba0a62bbc844"},
     {file = "urllib3-1.26.7.tar.gz", hash = "sha256:4987c65554f7a2dbf30c18fd48778ef124af6fab771a377103da0585e2336ece"},
+]
+vmprof = [
+    {file = "vmprof-0.4.15-cp27-cp27m-macosx_10_10_x86_64.whl", hash = "sha256:09e3a6b1e584967bcc06406bd04e9a484a61734c49a32e3fab79595605981265"},
+    {file = "vmprof-0.4.15-cp27-cp27m-manylinux1_i686.whl", hash = "sha256:419b47d3867b289e454d34a2ddbe05028961f795fe5e6f105b09f293a8f7326d"},
+    {file = "vmprof-0.4.15-cp27-cp27m-manylinux1_x86_64.whl", hash = "sha256:0ce3cffa060bed61aced485caacf675d273bab5706884740ec4e350885cd66fe"},
+    {file = "vmprof-0.4.15-cp27-cp27mu-manylinux1_i686.whl", hash = "sha256:36781e29b79de366fe1019d0a866968db0418541f4e32e503d06f5253b92b8ae"},
+    {file = "vmprof-0.4.15-cp27-cp27mu-manylinux1_x86_64.whl", hash = "sha256:8733a0e19110e870516842192ce5787a3a5a3b26a57eba91dda5fe677fee667c"},
+    {file = "vmprof-0.4.15-cp34-cp34m-macosx_10_10_x86_64.whl", hash = "sha256:53f8838ca9aef15d4b8ce6f19d37b1d867e8c15000d4aea2b4842091a9aece23"},
+    {file = "vmprof-0.4.15-cp34-cp34m-manylinux1_i686.whl", hash = "sha256:c9f017809f8f70c864962c86e3f07bc7d3baec1f3cc9071ef4658acbc11126f6"},
+    {file = "vmprof-0.4.15-cp34-cp34m-manylinux1_x86_64.whl", hash = "sha256:84c7311f7d11273ab7673f562cb9d8738e031fe9899f3449fb29b28912502674"},
+    {file = "vmprof-0.4.15-cp35-cp35m-macosx_10_10_x86_64.whl", hash = "sha256:f5bbf926338c2759858d7ce258270cc2df902571522da3e26415c541124be706"},
+    {file = "vmprof-0.4.15-cp35-cp35m-manylinux1_i686.whl", hash = "sha256:6b07e300b52e18b07daf3df09b217c87ccc2c641d609ee386547bf8d511e85c6"},
+    {file = "vmprof-0.4.15-cp35-cp35m-manylinux1_x86_64.whl", hash = "sha256:6608b50df4e44ee691acd9746761b1ab5e914d7d209e02fd7f935fbad2f5d125"},
+    {file = "vmprof-0.4.15-cp36-cp36m-macosx_10_10_x86_64.whl", hash = "sha256:1f40b27d64a25a338ba5c4ce7f3c774124aec861b97da345206502cbbb7c5d7b"},
+    {file = "vmprof-0.4.15-cp36-cp36m-manylinux1_i686.whl", hash = "sha256:927e3a58261e7bc1559226696991772bee596c3a950b6811a773a6131c303e5a"},
+    {file = "vmprof-0.4.15-cp36-cp36m-manylinux1_x86_64.whl", hash = "sha256:921bd840e1fec6eea842e76498d64d130e0d98ab59be745a36187b557ae6c787"},
+    {file = "vmprof-0.4.15.tar.gz", hash = "sha256:a2d872a40196404386d1e0d960e97b37c86c3f72a4f9d5a2b5f9ca1adaff5b62"},
 ]
 websockets = [
     {file = "websockets-9.1-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:d144b350045c53c8ff09aa1cfa955012dd32f00c7e0862c199edcabb1a8b32da"},

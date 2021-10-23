@@ -42,6 +42,7 @@ ropemode = "0.5"
 ropevim = "0.8.1"
 mypy = "^0.910"
 black = "^21.9b0"
+snakeviz = "^2.1.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
