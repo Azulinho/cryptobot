@@ -278,7 +278,7 @@ class Bot:
             ink = "green"
             message = "profit"
 
-        coin.status = None
+        coin.status = ""
         self.wallet.remove(coin.symbol)
         cprint(
             f"{coin.date}: [{coin.symbol}] (sold) U:{coin.volume} "
@@ -607,7 +607,7 @@ class Bot:
         if float(coin.price) > percent(coin.buy_at_percentage, coin.max):
             return
 
-        if coin.status == None:
+        if coin.status == "":
             coin.dip = coin.price
             coin.status = "TARGET_DIP"
             return
