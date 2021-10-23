@@ -6,3 +6,4 @@ config.py
 venv
 .*.pickle
 log/*
+testlogs/
