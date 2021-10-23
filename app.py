@@ -601,11 +601,6 @@ class Bot():
 
     def buy_drop_sell_recovery_strategy(self, coin):
         # has the price gone down by x% on a coin we don't own?
-        if coin.symbol in self.wallet:
-            return
-        if len(self.wallet) == self.max_coins:
-            return
-
         if float(coin.price) > percent(coin.buy_at_percentage, coin.max):
             return
 
@@ -614,33 +609,27 @@ class Bot():
             coin.status = "TARGET_DIP"
             return
 
-        if coin.status == "TARGET_DIP":
-            if float(coin.price) < float(coin.dip):
-                coin.dip = coin.price
-                return
+        if coin.status != "TARGET_DIP":
+            return
+
+        if float(coin.price) < float(coin.dip):
+            coin.dip = coin.price
+            return
         # do some gimmicks, and don't buy the coin straight away
         # but only buy it when the price is now higher than the last
         # price recorded. This way we ensure that we got the dip
-        if coin.status == "TARGET_DIP":
-            if self.debug:
-                print(f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}")
-            if float(coin.price) > float(coin.last):
-                if float(coin.price) > percent(float(coin.trail_recovery_percentage), coin.dip):
-                    self.buy_coin(coin)
+        if self.debug:
+            print(f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}")
+        if float(coin.price) > float(coin.last):
+            if float(coin.price) > percent(float(coin.trail_recovery_percentage), coin.dip):
+                self.buy_coin(coin)
 
     def buy_moon_sell_recovery_strategy(self, coin):
-        if coin.symbol in self.wallet:
-            return
-
-        if len(self.wallet) == self.max_coins:
-            return
-
         #if float(coin.price) > percent(coin.buy_at_percentage, coin.min):
         if float(coin.price) > percent(coin.buy_at_percentage, coin.last):
             self.buy_coin(coin)
             if self.debug:
                 print(f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}")
-            return
 
 
 
