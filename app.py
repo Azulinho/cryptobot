@@ -1,23 +1,20 @@
-from time import sleep
-import re
+import gzip
+import json
 import math
+import pickle
+import re
 import sys
 import traceback
-import pickle
-import json
-import gzip
-from os.path import exists
-from time import time
 from datetime import datetime
-from termcolor import colored, cprint
 from functools import wraps, lru_cache
-
-
+from os.path import exists
+from time import time, sleep
+from typing import List, Set, Dict, Any
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
 from binance.helpers import round_step_size
+from neotermcolor import colored, cprint
 from requests.exceptions import ReadTimeout, ConnectionError
-
 from tenacity import retry, wait_exponential
 
 from config import (
@@ -59,7 +56,7 @@ def timing(f):
     return wrap
 
 
-def percent(part, whole):
+def percent(part: float, whole: float) -> float:
     return float(whole) / 100 * float(part)
 
 
@@ -67,38 +64,38 @@ class Coin:
     def __init__(
         self,
         client,
-        symbol,
-        date,
-        market_price,
-        buy_at,
-        sell_at,
-        stop_loss,
-        trail_target_sell_percentage,
-        trail_recovery_percentage,
-    ):
+        symbol: str,
+        date: str,
+        market_price: float,
+        buy_at: float,
+        sell_at: float,
+        stop_loss: float,
+        trail_target_sell_percentage: float,
+        trail_recovery_percentage: float,
+    ) -> None:
         self.symbol = symbol
-        self.volume = 0
-        self.bought_at = None
+        self.volume: float = 0
+        self.bought_at: float = 0
         self.min = market_price
         self.max = market_price
         self.date = date
         self.price = market_price
-        self.holding_time = 0
-        self.value = 0
-        self.lot_size = 0
-        self.cost = 0
+        self.holding_time = int(0)
+        self.value = float(0)
+        self.lot_size = float(0)
+        self.cost = float(0)
         self.last = market_price
         self.buy_at_percentage = buy_at
         self.sell_at_percentage = sell_at
         self.stop_loss_at_percentage = stop_loss
-        self.status = None
+        self.status = ''
         self.trail_recovery_percentage = trail_recovery_percentage
         self.trail_target_sell_percentage = trail_target_sell_percentage
-        self.dip = (market_price,)
+        self.dip = market_price
         self.tip = market_price
-        self.naughty_timeout = 0
+        self.naughty_timeout = int(0)
 
-    def update(self, date, market_price):
+    def update(self, date: str, market_price: float) -> None:
         self.date = date
         self.last = self.price
         self.price = float(market_price)
@@ -122,54 +119,54 @@ class Coin:
 
 
 class Bot:
-    def __init__(self, client):
+    def __init__(self, client) -> None:
         self.client = client
-        self.initial_investment = INITIAL_INVESTMENT
-        self.investment = INITIAL_INVESTMENT
-        self.soft_limit_holding_time = SOFT_LIMIT_HOLDING_TIME
-        self.hard_limit_holding_time = HARD_LIMIT_HOLDING_TIME
+        self.initial_investment = float(INITIAL_INVESTMENT)
+        self.investment = float(INITIAL_INVESTMENT)
+        self.soft_limit_holding_time = int(SOFT_LIMIT_HOLDING_TIME)
+        self.hard_limit_holding_time = int(HARD_LIMIT_HOLDING_TIME)
         self.excluded_coins = EXCLUDED_COINS
         self.buy_at_percentage = float(100 + float(BUY_AT_PERCENTAGE))
         self.sell_at_percentage = float(100 + float(SELL_AT_PERCENTAGE))
         self.stop_loss_at_percentage = float(100 + float(STOP_LOSS_AT_PERCENTAGE))
-        self.pause = PAUSE_FOR
+        self.pause = float(PAUSE_FOR)
         self.price_logs = PRICE_LOGS
-        self.coins = {}
-        self.wins = 0
-        self.losses = 0
-        self.stales = 0
-        self.profit = 0
-        self.wallet = []  # store the coin we own
-        self.tickers_file = TICKERS_FILE
-        self.tickers = [line.strip() for line in open(TICKERS_FILE)]
-        self.mode = MODE
-        self.trading_fee = float(TRADING_FEE)
-        self.debug = DEBUG
-        self.max_coins = MAX_COINS
-        self.pairing = PAIRING
-        self.fees = 0
-        self.clear_coin_stats_at_boot = CLEAR_COIN_STATS_AT_BOOT
-        self.trail_target_sell_percentage = float(100) + float(
+        self.coins: Dict[str, Coin] = {}
+        self.wins: int = 0
+        self.losses: int = 0
+        self.stales: int = 0
+        self.profit: float = 0
+        self.wallet: List = []  # store the coin we own
+        self.tickers_file: str = TICKERS_FILE
+        self.tickers: List  = [line.strip() for line in open(TICKERS_FILE)]
+        self.mode: str = MODE
+        self.trading_fee: float = TRADING_FEE
+        self.debug: bool = DEBUG
+        self.max_coins: int = MAX_COINS
+        self.pairing: str = PAIRING
+        self.fees: float = 0
+        self.clear_coin_stats_at_boot: bool = CLEAR_COIN_STATS_AT_BOOT
+        self.trail_target_sell_percentage: float = float(100) + float(
             TRAIL_TARGET_SELL_PERCENTAGE
         )
-        self.trail_recovery_percentage = float(100) + float(TRAIL_RECOVERY_PERCENTAGE)
-        self.naughty_timeout = NAUGHTY_TIMEOUT
-        self.clean_coin_stats_at_sale = CLEAR_COIN_STATS_AT_SALE
-        self.strategy = STRATEGY
+        self.trail_recovery_percentage: float = float(100) + float(TRAIL_RECOVERY_PERCENTAGE)
+        self.naughty_timeout: int = NAUGHTY_TIMEOUT
+        self.clean_coin_stats_at_sale: bool = CLEAR_COIN_STATS_AT_SALE
+        self.strategy: str = STRATEGY
 
-    def run_strategy(self, *args, **kwargs):
+    def run_strategy(self, *args, **kwargs) -> None:
         if self.strategy == "buy_drop_sell_recovery_strategy":
             self.buy_drop_sell_recovery_strategy(*args, **kwargs)
         if self.strategy == "buy_moon_sell_recovery_strategy":
             self.buy_moon_sell_recovery_strategy(*args, **kwargs)
         self.check_for_sale_conditions(*args, **kwargs)
 
-    def update_investment(self):
+    def update_investment(self) -> None:
         # and finally re-invest our profit, we're aiming to compound
         # so on every sale we invest our profit as well.
         self.investment = self.initial_investment + self.profit
 
-    def update_bot_profit(self, coin):
+    def update_bot_profit(self, coin) -> None:
         bought_fees = percent(self.trading_fee, coin.cost)
         sell_fees = percent(self.trading_fee, coin.value)
         fees = float(bought_fees + sell_fees)
@@ -177,15 +174,15 @@ class Bot:
         self.profit = float(self.profit) + float(coin.profit) - float(fees)
         self.fees = self.fees + fees
 
-    def buy_coin(self, coin):
+    def buy_coin(self, coin) -> None:
         if coin.symbol in self.wallet:
-            return False
+            return
 
         if len(self.wallet) == self.max_coins:
-            return False
+            return
 
         if coin.naughty_timeout > 0:
-            return False
+            return
 
         volume = float(self.calculate_volume_size(coin))
 
@@ -202,7 +199,7 @@ class Bot:
             except Exception as e:
                 print(f"buy() exception: {e}")
                 print(f"tried to buy: {volume} of {coin.symbol}")
-                return False
+                return
 
             orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
             while orders == []:
@@ -240,9 +237,9 @@ class Bot:
 
         self.clear_all_coins_stats()
 
-    def sell_coin(self, coin):
+    def sell_coin(self, coin) -> None:
         if coin.symbol not in self.wallet:
-            return False
+            return
 
         if self.mode in ["testnet", "live"]:
             try:
@@ -256,7 +253,7 @@ class Bot:
             except Exception as e:
                 print(f"sell() exception: {e}")
                 print(f"tried to sell: {coin.volume} of {coin.symbol}")
-                return False
+                return
 
             orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
             while orders == []:
@@ -294,14 +291,14 @@ class Bot:
         )
         self.clear_all_coins_stats()
 
-    def extract_order_data(self, order_details, coin):
+    def extract_order_data(self, order_details, coin) -> Dict[str, Any]:
         # TODO: review this whole mess
         transactionInfo = {}
         # Market orders are not always filled at one price,
         # we need to find the averages of all 'parts' (fills) of this order.
-        fills_total = 0
-        fills_qty = 0
-        fills_fee = 0
+        fills_total: float = 0
+        fills_qty: float = 0
+        fills_fee: float = 0
 
         # loop through each 'fill':
         for fills in order_details["fills"]:
@@ -336,7 +333,7 @@ class Bot:
 
     @lru_cache()
     @retry(wait=wait_exponential(multiplier=1, max=10))
-    def get_symbol_precision(self, symbol):
+    def get_symbol_precision(self, symbol: str) -> int:
         try:
             info = self.client.get_symbol_info(symbol)
         except Exception as e:
@@ -348,7 +345,7 @@ class Bot:
 
         return precision
 
-    def calculate_volume_size(self, coin):
+    def calculate_volume_size(self, coin) -> float:
         precision = self.get_symbol_precision(coin.symbol)
 
         volume = float(
@@ -362,15 +359,15 @@ class Bot:
         return volume
 
     @retry(wait=wait_exponential(multiplier=1, max=90))
-    def get_binance_prices(self):
+    def get_binance_prices(self) -> list[Dict[str, str]]:
         return self.client.get_all_tickers()
 
-    def write_log(self, symbol):
+    def write_log(self, symbol: str) -> None:
         price_log = f"log/{datetime.now().strftime('%Y%m%d')}.log"
         with open(price_log, "a+") as f:
             f.write(f"{datetime.now()} {symbol} {self.coins[symbol].price}\n")
 
-    def init_or_update_coin(self, binance_data):
+    def init_or_update_coin(self, binance_data: Dict[str, Any]) -> None:
         symbol = binance_data["symbol"]
 
         market_price = binance_data["price"]
@@ -378,7 +375,7 @@ class Bot:
             self.coins[symbol] = Coin(
                 client,
                 symbol,
-                datetime.now(),
+                str(datetime.now()),
                 market_price,
                 buy_at=self.buy_at_percentage,
                 sell_at=self.sell_at_percentage,
@@ -387,25 +384,27 @@ class Bot:
                 trail_recovery_percentage=self.trail_recovery_percentage,
             )
         else:
-            self.coins[symbol].update(datetime.now(), market_price)
+            self.coins[symbol].update(str(datetime.now()), market_price)
 
-    def process_coins(self):
+    def process_coins(self) -> None:
         # look for coins that are ready for buying, or selling
         for binance_data in self.get_binance_prices():
-            symbol = binance_data["symbol"]
+            coin_symbol = binance_data["symbol"]
             self.init_or_update_coin(binance_data)
 
             if self.mode in ["live", "logmode"]:
-                self.write_log(symbol)
+                self.write_log(coin_symbol)
 
-            if self.mode in ["live", "backtesting", "testnet"]:
-                if self.pairing in symbol:
-                    if self.coins[symbol].naughty_timeout < 1:
-                        if not any(sub in symbol for sub in self.excluded_coins):
-                            if symbol in self.tickers or symbol in self.wallet:
-                                self.run_strategy(self.coins[symbol])
+            if self.mode not in ["live", "backtesting", "testnet"]:
+                return
 
-    def stop_loss(self, coin):
+            if self.pairing in coin_symbol:
+                if self.coins[coin_symbol].naughty_timeout < 1:
+                    if not any(sub in coin_symbol for sub in self.excluded_coins):
+                        if coin_symbol in self.tickers or coin_symbol in self.wallet:
+                            self.run_strategy(self.coins[coin_symbol])
+
+    def stop_loss(self, coin: Coin) -> bool:
         # oh we already own this one, lets check prices
         # deal with STOP_LOSS
         if float(coin.price) < percent(coin.stop_loss_at_percentage, coin.bought_at):
@@ -423,8 +422,9 @@ class Bot:
             # and block this coin for a while
             coin.naughty_timeout = int(self.naughty_timeout)
             return True
+        return False
 
-    def coin_gone_up_and_dropped(self, coin):
+    def coin_gone_up_and_dropped(self, coin) -> bool:
         if coin.status == "TARGET_SELL" and float(coin.price) < percent(
             self.sell_at_percentage, coin.bought_at
         ):
@@ -435,8 +435,9 @@ class Bot:
 
             self.wins = self.wins + 1
             return True
+        return False
 
-    def possible_sale(self, coin):
+    def possible_sale(self, coin: Coin) -> bool:
         if float(coin.price) > percent(self.sell_at_percentage, coin.bought_at):
             coin.status = "TARGET_SELL"
             # do some gimmicks, and don't sell the coin straight away
@@ -465,8 +466,9 @@ class Bot:
 
                     self.wins = self.wins + 1
                     return True
+        return False
 
-    def past_hard_limit(self, coin):
+    def past_hard_limit(self, coin: Coin) -> bool:
         if (coin.holding_time > self.hard_limit_holding_time) and (
             coin.status != "TARGET_SELL"
         ):
@@ -489,8 +491,9 @@ class Bot:
             # and block this coin for today:
             coin.naughty_timeout = int(self.naughty_timeout)
             return True
+        return False
 
-    def past_soft_limit(self, coin):
+    def past_soft_limit(self, coin: Coin) -> bool:
         # This coin is past our soft limit
         # we apply a sliding window to the buy profit
         if (
@@ -524,26 +527,27 @@ class Bot:
                 )
 
             return True
+        return False
 
-    def clear_all_coins_stats(self):
+    def clear_all_coins_stats(self) -> None:
         if self.clean_coin_stats_at_sale:
             for coin in self.coins:
                 self.clear_coin_stats(self.coins[coin])
 
-    def clear_coin_stats(self, coin):
+    def clear_coin_stats(self, coin: Coin) -> None:
         coin.min = coin.price
         coin.max = coin.price
         coin.buy_at_percentage = self.buy_at_percentage
         coin.sell_at_percentage = self.sell_at_percentage
         coin.stop_loss_at_percentage = self.stop_loss_at_percentage
 
-    def save_coins(self):
+    def save_coins(self) -> None:
         with open(".coins.pickle", "wb") as f:
             pickle.dump(self.coins, f)
         with open(".wallet.pickle", "wb") as f:
             pickle.dump(self.wallet, f)
 
-    def load_coins(self):
+    def load_coins(self) -> None:
         if exists(".coins.pickle"):
             print("found .coins.pickle, loading coins")
             with open(".coins.pickle", "rb") as f:
@@ -570,7 +574,7 @@ class Bot:
             self.coins[symbol].sell_at_percentage = self.sell_at_percentage
             self.coins[symbol].stop_loss_at_percentage = self.stop_loss_at_percentage
 
-    def check_for_sale_conditions(self, coin):
+    def check_for_sale_conditions(self, coin: Coin) -> None:
         # return early if no work left to do
         if coin.symbol not in self.wallet:
             return
@@ -598,7 +602,7 @@ class Bot:
         if self.past_soft_limit(coin):
             return
 
-    def buy_drop_sell_recovery_strategy(self, coin):
+    def buy_drop_sell_recovery_strategy(self, coin: Coin) -> None:
         # has the price gone down by x% on a coin we don't own?
         if float(coin.price) > percent(coin.buy_at_percentage, coin.max):
             return
@@ -627,7 +631,7 @@ class Bot:
             ):
                 self.buy_coin(coin)
 
-    def buy_moon_sell_recovery_strategy(self, coin):
+    def buy_moon_sell_recovery_strategy(self, coin: Coin) -> None:
         # if float(coin.price) > percent(coin.buy_at_percentage, coin.min):
         if float(coin.price) > percent(coin.buy_at_percentage, coin.last):
             self.buy_coin(coin)
@@ -636,10 +640,10 @@ class Bot:
                     f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}"
                 )
 
-    def wait(self):
+    def wait(self) -> None:
         sleep(self.pause)
 
-    def run(self):
+    def run(self) -> None:
         self.load_coins()
         if self.clear_coin_stats_at_boot:
             self.clear_all_coins_stats()
@@ -651,12 +655,12 @@ class Bot:
                 print(".stop flag found. Stopping bot.")
                 return
 
-    def logmode(self):
+    def logmode(self) -> None:
         while True:
             self.process_coins()
             self.wait()
 
-    def backtest_logfile(self, price_log):
+    def backtest_logfile(self, price_log: str) -> None:
         read_counter = 0
         with gzip.open(price_log, "rt") as f:
             while True:
@@ -671,7 +675,7 @@ class Bot:
                     parts = line.split(" ")
                     date = " ".join(parts[0:2])
                     symbol = parts[2]
-                    market_price = parts[3]
+                    market_price = float(parts[3])
 
                     if symbol not in self.tickers:
                         continue
@@ -709,7 +713,7 @@ class Bot:
                         sys.exit(1)
                     pass
 
-    def backtesting(self):
+    def backtesting(self) -> None:
         for price_log in self.price_logs:
             self.backtest_logfile(price_log)
 
@@ -772,9 +776,9 @@ if __name__ == "__main__":
 
         for symbol in bot.wallet:
             cprint(f"still holding {symbol}", "red")
-            coin = bot.coins[symbol]
-            cprint(f" cost: {coin.volume * coin.bought_at}", "green")
-            cprint(f" value: {coin.volume * coin.price}", "red")
+            holding = bot.coins[symbol]
+            cprint(f" cost: {holding.volume * holding.bought_at}", "green")
+            cprint(f" value: {holding.volume * holding.price}", "red")
 
         print(f"total profit: {int(bot.profit)}")
         print(f"total fees: {int(bot.fees)}")
