@@ -1,4 +1,4 @@
-import gzip
+import lz4.frame
 import json
 import math
 import pickle
@@ -662,7 +662,7 @@ class Bot:
 
     def backtest_logfile(self, price_log: str) -> None:
         read_counter = 0
-        with gzip.open(price_log, "rt") as f:
+        with lz4.frame.open(price_log, "rt") as f:
             while True:
                 try:
                     line = f.readline()
