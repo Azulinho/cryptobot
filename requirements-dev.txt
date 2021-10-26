@@ -1,0 +1,5 @@
+black
+rope
+ropevim
+snakeviz
+pytest

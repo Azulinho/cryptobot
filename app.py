@@ -359,7 +359,7 @@ class Bot:
         return volume
 
     @retry(wait=wait_exponential(multiplier=1, max=90))
-    def get_binance_prices(self) -> list[Dict[str, str]]:
+    def get_binance_prices(self) -> List[Dict[str, str]]:
         return self.client.get_all_tickers()
 
     def write_log(self, symbol: str) -> None:

@@ -1,0 +1,7 @@
+colorama
+lz4
+mypy
+neotermcolor
+python-binance
+requests
+tenacity
