@@ -3,3 +3,5 @@ rope
 ropevim
 snakeviz
 pytest
+pytest-socket
+urllib3-mock
