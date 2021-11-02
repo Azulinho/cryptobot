@@ -57,7 +57,8 @@ def timing(f):
 
 
 def percent(part: float, whole: float) -> float:
-    return float(whole) / 100 * float(part)
+    result = float(whole) / 100 * float(part)
+    return result
 
 
 class Coin:
@@ -94,6 +95,7 @@ class Coin:
         self.dip = market_price
         self.tip = market_price
         self.naughty_timeout = int(0)
+        self.profit = float(0)
 
     def update(self, date: str, market_price: float) -> None:
         self.date = date
@@ -155,10 +157,11 @@ class Bot:
         self.strategy: str = STRATEGY
 
     def run_strategy(self, *args, **kwargs) -> None:
-        if self.strategy == "buy_drop_sell_recovery_strategy":
-            self.buy_drop_sell_recovery_strategy(*args, **kwargs)
-        if self.strategy == "buy_moon_sell_recovery_strategy":
-            self.buy_moon_sell_recovery_strategy(*args, **kwargs)
+        if len(self.wallet) != self.max_coins:
+            if self.strategy == "buy_drop_sell_recovery_strategy":
+                self.buy_drop_sell_recovery_strategy(*args, **kwargs)
+            if self.strategy == "buy_moon_sell_recovery_strategy":
+                self.buy_moon_sell_recovery_strategy(*args, **kwargs)
         self.check_for_sale_conditions(*args, **kwargs)
 
     def update_investment(self) -> None:
@@ -373,7 +376,7 @@ class Bot:
         market_price = binance_data["price"]
         if symbol not in self.coins:
             self.coins[symbol] = Coin(
-                client,
+                self.client,
                 symbol,
                 str(datetime.now()),
                 market_price,
@@ -501,7 +504,9 @@ class Bot:
             and coin.status != "TARGET_SELL"
         ):  # TODO: this is not a real time count
             coin.status = "STALE"
-            profit_boundary = (self.sell_at_percentage - 100) - (2 * self.trading_fee)
+            profit_boundary = (
+                float(self.sell_at_percentage) - 100
+            ) - (2 * float(self.trading_fee))
             percentage_slice_per_holding_time_slice = (
                 profit_boundary / self.hard_limit_holding_time
             )
@@ -523,7 +528,7 @@ class Bot:
 
             if self.debug:
                 print(
-                    f"holding: {coin.holding_time} {coin.sell_at_percentage:.4f} {coin.trail_target_sell_percentage:.4f}"
+                    f"holding: {coin.symbol} {coin.holding_time} {coin.price} {coin.sell_at_percentage:.4f} {coin.trail_target_sell_percentage:.4f}"
                 )
 
             return True
@@ -579,9 +584,16 @@ class Bot:
         if coin.symbol not in self.wallet:
             return
 
+        if self.debug:
+            print(f"coin: {coin.symbol} {coin.status}")
+
         # oh we already own this one, lets check prices
         # deal with STOP_LOSS
         if self.stop_loss(coin):
+            return
+
+        # This coin is too old, sell it
+        if self.past_hard_limit(coin):
             return
 
         # coin was above sell_at_percentage and dropped below
@@ -591,10 +603,6 @@ class Bot:
 
         # possible sale
         if self.possible_sale(coin):
-            return
-
-        # This coin is too old, sell it
-        if self.past_hard_limit(coin):
             return
 
         # This coin is past our soft limit
@@ -661,9 +669,11 @@ class Bot:
             self.wait()
 
     def backtest_logfile(self, price_log: str) -> None:
+        print(f"backtesting: {price_log}")
         read_counter = 0
         with lz4.frame.open(price_log, "rt") as f:
             while True:
+                read_counter = read_counter + 1
                 try:
                     line = f.readline()
                     if line == "":
@@ -685,11 +695,10 @@ class Bot:
                     # we essentially skip a number of iterations between
                     # reads, causing a similar effect if we were only
                     # probing prices every PAUSE_FOR seconds
-                    if read_counter == PAUSE_FOR:
-                        read_counter = 0
-                    else:
-                        read_counter = read_counter + 1
+                    if read_counter != PAUSE_FOR:
                         continue
+
+                    read_counter = 0
                     # TODO: rework this
                     if symbol not in self.coins:
                         self.coins[symbol] = Coin(
