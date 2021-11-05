@@ -36,9 +36,9 @@ app.EXCLUDED_COINS = [
 ]
 
 
+
 def test_percent():
     assert app.percent(0.1, 100.0) == 0.1
-
 
 @pytest.fixture()
 def bot():
@@ -561,8 +561,15 @@ class TestBot:
         assert coin.min == coin.price
         assert coin.max == coin.price
 
+    def test_buy_drop_sell_recovery_strategy(self, bot, coin):
+        pass
 
-    def test_check_for_sale_conditions_returns_early_on_empty_wallet(self, bot, coin):
+    def test_buy_moon_sell_recovery_strategy(self, bot, coin):
+        pass
+
+
+class TestBotCheckForSaleConditions:
+    def test_returns_early_on_empty_wallet(self, bot, coin):
         with mock.patch.object(
             bot, "stop_loss", return_value=None
         ) as m1:
@@ -587,8 +594,7 @@ class TestBot:
                             m4.assert_not_called()
                             m5.assert_not_called()
 
-
-    def test_check_for_sale_conditions_returns_early_on_stop_loss(self, bot, coin):
+    def test_returns_early_on_stop_loss(self, bot, coin):
         with mock.patch.object(
             bot, "past_hard_limit", return_value=None
         ) as m2:
@@ -611,7 +617,7 @@ class TestBot:
                         m4.assert_not_called()
                         m5.assert_not_called()
 
-    def test_check_for_sale_conditions_returns_early_on_stale_coin(self, bot, coin):
+    def test_returns_early_on_stale_coin(self, bot, coin):
         with mock.patch.object(
             bot, "stop_loss", return_value=None
         ) as m1:
@@ -636,7 +642,7 @@ class TestBot:
                         m4.assert_not_called()
                         m5.assert_not_called()
 
-    def test_check_for_sale_conditions_returns_early_on_coing_gone_up_and_dropped(self, bot, coin):
+    def test_returns_early_on_coing_gone_up_and_dropped(self, bot, coin):
         with mock.patch.object(
             bot, "stop_loss", return_value=None
         ) as m1:
@@ -660,7 +666,7 @@ class TestBot:
                         m4.assert_not_called()
                         m5.assert_not_called()
 
-    def test_check_for_sale_conditions_returns_early_on_possible_sale(self, bot, coin):
+    def test_returns_early_on_possible_sale(self, bot, coin):
         with mock.patch.object(
             bot, "stop_loss", return_value=None
         ) as m1:
@@ -686,7 +692,7 @@ class TestBot:
                         m3.assert_called()
                         m5.assert_not_called()
 
-    def test_check_for_sale_conditions_returns_final_on_past_soft_limit(self, bot, coin):
+    def test_returns_final_on_past_soft_limit(self, bot, coin):
         with mock.patch.object(
             bot, "past_soft_limit", return_value=None
         ) as m1:
@@ -696,9 +702,4 @@ class TestBot:
             assert result == (False, 'HOLD')
             m1.assert_called()
 
-    def test_buy_drop_sell_recovery_strategy(self, bot, coin):
-        pass
-
-    def test_buy_moon_sell_recovery_strategy(self, bot, coin):
-        pass
 
