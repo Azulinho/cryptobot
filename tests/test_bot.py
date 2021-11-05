@@ -36,7 +36,6 @@ app.EXCLUDED_COINS = [
 ]
 
 
-
 def test_percent():
     assert app.percent(0.1, 100.0) == 0.1
 
@@ -79,102 +78,6 @@ def coin():
 #
 
 class TestBot:
-
-    def test_update_investment(self, bot):
-        bot.profit = 10
-
-        result = bot.update_investment()
-        assert result is None
-        assert bot.investment == 110
-
-    def test_update_bot_profit_returns_None(self, bot, coin):
-        result = bot.update_bot_profit(coin)
-        assert result == None
-
-    def test_update_bot_profit_on_profit(self, bot, coin):
-        coin.cost = 100
-        coin.value = 200
-        coin.profit = 100
-
-        result = bot.update_bot_profit(coin)
-        # bought 100 of coin and paid 0.1% of fees which is 0.10
-        # sold 200 of coin and paid 0.1% of fees which is 0.20
-        assert float(round(bot.fees, 1)) == float(0.3)
-        assert float(bot.profit) == float(99.7)
-
-    def test_update_bot_profit_on_loss(self, bot, coin):
-        coin.cost = 110
-        coin.value = 100
-        coin.profit = -10
-
-        result = bot.update_bot_profit(coin)
-        # bought 110 of coin and paid 0.1% of fees which is 0.11
-        # sold 100 of coin and paid 0.1% of fees which is 0.10
-        assert bot.profit == -10.21
-        assert bot.fees == 0.21000000000000002
-
-
-    def test_buy_coin_when_coin_already_on_wallet(self, bot, coin):
-        bot.wallet = ["BTCUSDT"]
-        bot.buy_coin(coin)
-        assert bot.wallet == ["BTCUSDT"]
-
-    def test_buy_coin_when_wallet_is_full(self, bot, coin):
-        bot.wallet = ["BTCUSDT", "ETHUSDT"]
-        bot.buy_coin(coin)
-        assert bot.wallet == ["BTCUSDT", "ETHUSDT"]
-
-    def test_buy_coin_when_coin_is_naughty(self, bot, coin):
-        coin.naughty_timeout = 1
-        bot.buy_coin(coin)
-        assert bot.wallet == []
-
-    @mock.patch('app.Bot.get_symbol_precision', return_value=1)
-    def test_buy_coin_in_backtesting(self, mocked, bot, coin):
-        bot.mode = "backtesting"
-        coin.price = 100
-
-        bot.buy_coin(coin)
-        assert bot.wallet == ["BTCUSDT"]
-        assert coin.bought_at == 100
-        assert coin.volume == 0.5
-
-    def test_buy_coin_in_testnet(self, bot, coin):
-        bot.mode = "testnet"
-        coin.price = 100
-
-        with mock.patch.object(
-            bot.client, 'create_order', return_value={
-                "symbol": "BTCUSDT",
-                "orderId": "1",
-                "transactTime": 1507725176595,
-                "fills": [
-                    {
-                        "price": "100",
-                        "qty": "1",
-                        "commission": "1",
-                    }
-                ]
-            }
-        ) as m1:
-            with mock.patch.object(
-                bot.client, 'get_all_orders', return_value=[
-                    {
-                        "symbol": "BTCUSDT",
-                        "orderId": 1
-                    }
-                ]
-            ) as m2:
-                with mock.patch.object(
-                    bot, 'get_symbol_precision', return_value=1
-                ) as m3:
-
-                    bot.buy_coin(coin)
-                    assert bot.wallet == ["BTCUSDT"]
-                    assert coin.bought_at == 100
-                    assert coin.volume == 0.5
-                    # TODO: assert that clear_all_coins_stats
-
 
     def test_sell_coin_in_testnet(self, bot, coin):
         bot.mode = "testnet"
@@ -316,6 +219,121 @@ class TestBot:
                         assert bot.wallet == []
 
 
+
+class TestBotCheckForSaleConditions:
+    def test_returns_early_on_empty_wallet(self, bot, coin):
+        bot.wallet = []
+        result = bot.check_for_sale_conditions(coin)
+        assert result == (False, 'EMPTY_WALLET')
+
+    def test_returns_early_on_stop_loss(self, bot, coin):
+        bot.wallet = ["BTCUSDT"]
+        coin.price = 1
+        coin.bought_at = 100
+        result = bot.check_for_sale_conditions(coin)
+        assert result == (True, 'STOP_LOSS')
+
+    def test_returns_early_on_stale_coin(self, bot, coin):
+        bot.wallet = ["BTCUSDT"]
+        coin.price = 1000
+        coin.holding_time = 99999
+        coin.status = "DIRTY"
+        bot.hard_limit_holding_time = 1
+        result = bot.check_for_sale_conditions(coin)
+        assert result == (True, 'STALE')
+
+    def test_returns_early_on_coing_gone_up_and_dropped(self, bot, coin):
+        bot.wallet = ["BTCUSDT"]
+        coin.status = "TARGET_SELL"
+        coin.price = 100.5
+        coin.last = 120
+        coin.bought_at = 100
+        result = bot.check_for_sale_conditions(coin)
+        print(coin.stop_loss_at_percentage)
+        assert result == (True, 'GONE_UP_AND_DROPPED')
+
+    def test_returns_early_on_possible_sale(self, bot, coin):
+        bot.wallet = ["BTCUSDT"]
+        coin.status = "TARGET_SELL"
+        coin.bought_at = 1
+        coin.price = 50
+        coin.last = 100
+        coin.tip = 200
+        result = bot.check_for_sale_conditions(coin)
+        assert result == (True, 'TARGET_SELL')
+
+    def test_returns_final_on_past_soft_limit(self, bot, coin):
+        bot.wallet = ["BTCUSDT"]
+        coin.bought_at = 100
+        coin.price = 100
+        coin.last = 100
+        coin.tip = 100
+        result = bot.check_for_sale_conditions(coin)
+        assert result == (False, 'HOLD')
+
+class TestBuyCoin:
+    def test_buy_coin_when_coin_already_on_wallet(self, bot, coin):
+        bot.wallet = ["BTCUSDT"]
+        bot.buy_coin(coin)
+        assert bot.wallet == ["BTCUSDT"]
+
+    def test_buy_coin_when_wallet_is_full(self, bot, coin):
+        bot.wallet = ["BTCUSDT", "ETHUSDT"]
+        bot.buy_coin(coin)
+        assert bot.wallet == ["BTCUSDT", "ETHUSDT"]
+
+    def test_buy_coin_when_coin_is_naughty(self, bot, coin):
+        coin.naughty_timeout = 1
+        bot.buy_coin(coin)
+        assert bot.wallet == []
+
+    @mock.patch('app.Bot.get_symbol_precision', return_value=1)
+    def test_buy_coin_in_backtesting(self, mocked, bot, coin):
+        bot.mode = "backtesting"
+        coin.price = 100
+
+        bot.buy_coin(coin)
+        assert bot.wallet == ["BTCUSDT"]
+        assert coin.bought_at == 100
+        assert coin.volume == 0.5
+
+    def test_buy_coin_in_testnet(self, bot, coin):
+        bot.mode = "testnet"
+        coin.price = 100
+
+        with mock.patch.object(
+            bot.client, 'create_order', return_value={
+                "symbol": "BTCUSDT",
+                "orderId": "1",
+                "transactTime": 1507725176595,
+                "fills": [
+                    {
+                        "price": "100",
+                        "qty": "1",
+                        "commission": "1",
+                    }
+                ]
+            }
+        ) as m1:
+            with mock.patch.object(
+                bot.client, 'get_all_orders', return_value=[
+                    {
+                        "symbol": "BTCUSDT",
+                        "orderId": 1
+                    }
+                ]
+            ) as m2:
+                with mock.patch.object(
+                    bot, 'get_symbol_precision', return_value=1
+                ) as m3:
+
+                    bot.buy_coin(coin)
+                    assert bot.wallet == ["BTCUSDT"]
+                    assert coin.bought_at == 100
+                    assert coin.volume == 0.5
+                    # TODO: assert that clear_all_coins_stats
+
+class TestCoinStatus:
     def test_stop_loss(self, bot, coin):
         bot.wallet = ["BTCUSDT"]
         coin.bought_at = 100
@@ -561,60 +579,44 @@ class TestBot:
         assert coin.min == coin.price
         assert coin.max == coin.price
 
+class TestBotProfit:
+    def test_update_investment(self, bot):
+        bot.profit = 10
+
+        result = bot.update_investment()
+        assert result is None
+        assert bot.investment == 110
+
+    def test_update_bot_profit_returns_None(self, bot, coin):
+        result = bot.update_bot_profit(coin)
+        assert result == None
+
+    def test_update_bot_profit_on_profit(self, bot, coin):
+        coin.cost = 100
+        coin.value = 200
+        coin.profit = 100
+
+        result = bot.update_bot_profit(coin)
+        # bought 100 of coin and paid 0.1% of fees which is 0.10
+        # sold 200 of coin and paid 0.1% of fees which is 0.20
+        assert float(round(bot.fees, 1)) == float(0.3)
+        assert float(bot.profit) == float(99.7)
+
+    def test_update_bot_profit_on_loss(self, bot, coin):
+        coin.cost = 110
+        coin.value = 100
+        coin.profit = -10
+
+        result = bot.update_bot_profit(coin)
+        # bought 110 of coin and paid 0.1% of fees which is 0.11
+        # sold 100 of coin and paid 0.1% of fees which is 0.10
+        assert bot.profit == -10.21
+        assert bot.fees == 0.21000000000000002
+
+class TestStrategy:
     def test_buy_drop_sell_recovery_strategy(self, bot, coin):
         pass
 
     def test_buy_moon_sell_recovery_strategy(self, bot, coin):
         pass
 
-
-class TestBotCheckForSaleConditions:
-    def test_returns_early_on_empty_wallet(self, bot, coin):
-        bot.wallet = []
-        result = bot.check_for_sale_conditions(coin)
-        assert result == (False, 'EMPTY_WALLET')
-
-    def test_returns_early_on_stop_loss(self, bot, coin):
-        bot.wallet = ["BTCUSDT"]
-        coin.price = 1
-        coin.bought_at = 100
-        result = bot.check_for_sale_conditions(coin)
-        assert result == (True, 'STOP_LOSS')
-
-    def test_returns_early_on_stale_coin(self, bot, coin):
-        bot.wallet = ["BTCUSDT"]
-        coin.price = 1000
-        coin.holding_time = 99999
-        coin.status = "DIRTY"
-        bot.hard_limit_holding_time = 1
-        result = bot.check_for_sale_conditions(coin)
-        assert result == (True, 'STALE')
-
-    def test_returns_early_on_coing_gone_up_and_dropped(self, bot, coin):
-        bot.wallet = ["BTCUSDT"]
-        coin.status = "TARGET_SELL"
-        coin.price = 100.5
-        coin.last = 120
-        coin.bought_at = 100
-        result = bot.check_for_sale_conditions(coin)
-        print(coin.stop_loss_at_percentage)
-        assert result == (True, 'GONE_UP_AND_DROPPED')
-
-    def test_returns_early_on_possible_sale(self, bot, coin):
-        bot.wallet = ["BTCUSDT"]
-        coin.status = "TARGET_SELL"
-        coin.bought_at = 1
-        coin.price = 50
-        coin.last = 100
-        coin.tip = 200
-        result = bot.check_for_sale_conditions(coin)
-        assert result == (True, 'TARGET_SELL')
-
-    def test_returns_final_on_past_soft_limit(self, bot, coin):
-        bot.wallet = ["BTCUSDT"]
-        coin.bought_at = 100
-        coin.price = 100
-        coin.last = 100
-        coin.tip = 100
-        result = bot.check_for_sale_conditions(coin)
-        assert result == (False, 'HOLD')
