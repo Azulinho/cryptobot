@@ -26,7 +26,7 @@ app.NAUGHTY_TIMEOUT = 28800
 app.CLEAR_COIN_STATS_AT_SALE = True
 app.DEBUG = False
 app.STRATEGY="buy_drop_sell_recovery_strategy"
-app.TICKERS_FILE = "tickers.dot.txt"
+app.TICKERS_FILE = "tickers/all.txt"
 app.TICKERS = ["BTCUSDT"]
 app.TRADING_FEE = 0.1
 app.PRICE_LOGS = ["prices.log"]
@@ -354,6 +354,7 @@ class TestBot:
 
 
     def test_coin_gone_up_and_dropped(self, bot, coin):
+        bot.wallet = ["BTCUSDT"]
         coin.bought_at = 100
         coin.cost = 100
         coin.price = 1
@@ -392,6 +393,7 @@ class TestBot:
 
 
     def test_possible_sale(self, bot, coin):
+        bot.wallet = ["BTCUSDT"]
         coin.bought_at = 100
         coin.cost = 100
         coin.tip = 300
@@ -431,6 +433,7 @@ class TestBot:
                 assert round(bot.investment, 1) == round(199.7, 1)
 
     def test_past_hard_limit(self, bot, coin):
+        bot.wallet = ["BTCUSDT"]
         coin.bought_at = 100
         coin.cost = 100
         coin.tip = 300
@@ -505,7 +508,6 @@ class TestBot:
 
                 result = bot.past_soft_limit(coin)
                 assert result == True
-                assert coin.status == "STALE"
                 assert coin.naughty_timeout == 0
 
     def test_clear_all_coins_stats(self, bot, coin):
