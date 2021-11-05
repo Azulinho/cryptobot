@@ -102,7 +102,8 @@ class Coin:
         self.last = self.price
         self.price = float(market_price)
 
-        if self.holding_time:
+        # don't age our coin, unless we're waiting to sell it.
+        if self.status in ["TARGET_SELL", "HOLD"]:
             self.holding_time = self.holding_time + 1
 
         if self.naughty_timeout != 0:
@@ -118,6 +119,20 @@ class Coin:
 
         if self.volume:
             self.value = float(float(self.volume) * float(self.price))
+
+        if self.status == "HOLD":
+            if float(market_price) > percent(
+                self.sell_at_percentage, self.bought_at
+            ):
+                self.status = "TARGET_SELL"
+
+        if self.status == "TARGET_SELL":
+            if float(market_price) > float(self.tip):
+                self.tip = market_price
+
+        if self.status == "TARGET_DIP":
+            if float(market_price) < float(self.dip):
+                self.dip = market_price
 
 
 class Bot:
@@ -162,7 +177,8 @@ class Bot:
                 self.buy_drop_sell_recovery_strategy(*args, **kwargs)
             if self.strategy == "buy_moon_sell_recovery_strategy":
                 self.buy_moon_sell_recovery_strategy(*args, **kwargs)
-        self.check_for_sale_conditions(*args, **kwargs)
+        if len(self.wallet) != 0:
+            self.check_for_sale_conditions(*args, **kwargs)
 
     def update_investment(self) -> None:
         # and finally re-invest our profit, we're aiming to compound
@@ -231,14 +247,13 @@ class Bot:
         coin.tip = coin.price
 
         cprint(
-            f"{coin.date}: [{coin.symbol}] (bought) "
+            f"{coin.date}: [{coin.symbol}] {coin.status} "
             + f"U:{coin.volume} P:{coin.price} T:${coin.value:.3f} "
             + f"sell_at:${coin.price * coin.sell_at_percentage /100} "
             + f"({len(self.wallet)}/{self.max_coins})",
             "magenta",
         )
 
-        self.clear_all_coins_stats()
 
     def sell_coin(self, coin) -> None:
         if coin.symbol not in self.wallet:
@@ -281,10 +296,8 @@ class Bot:
             ink = "green"
             message = "profit"
 
-        coin.status = ""
-        self.wallet.remove(coin.symbol)
         cprint(
-            f"{coin.date}: [{coin.symbol}] (sold) U:{coin.volume} "
+            f"{coin.date}: [{coin.symbol}] {coin.status} U:{coin.volume} "
             + f"P:{coin.price} T:${coin.value:.3f} and "
             + f"{message}:{coin.profit:.3f} "
             + f"sell_at:{coin.sell_at_percentage:.3f} "
@@ -292,6 +305,11 @@ class Bot:
             + f" ({len(self.wallet)}/{self.max_coins})",
             ink,
         )
+        coin.status = ""
+        self.wallet.remove(coin.symbol)
+        self.update_bot_profit(coin)
+        self.update_investment()
+        self.clear_coin_stats(coin)
         self.clear_all_coins_stats()
 
     def extract_order_data(self, order_details, coin) -> Dict[str, Any]:
@@ -339,6 +357,9 @@ class Bot:
     def get_symbol_precision(self, symbol: str) -> int:
         try:
             info = self.client.get_symbol_info(symbol)
+            with open('api.log', 'a') as f:
+                f.write(f"{datetime.now()} called client.get_symbol_info({symbol})\n")
+
         except Exception as e:
             print(e)
             return -1
@@ -367,7 +388,7 @@ class Bot:
 
     def write_log(self, symbol: str) -> None:
         price_log = f"log/{datetime.now().strftime('%Y%m%d')}.log"
-        with open(price_log, "a+") as f:
+        with open(price_log, "a") as f:
             f.write(f"{datetime.now()} {symbol} {self.coins[symbol].price}\n")
 
     def init_or_update_coin(self, binance_data: Dict[str, Any]) -> None:
@@ -389,6 +410,7 @@ class Bot:
         else:
             self.coins[symbol].update(str(datetime.now()), market_price)
 
+
     def process_coins(self) -> None:
         # look for coins that are ready for buying, or selling
         for binance_data in self.get_binance_prices():
@@ -406,6 +428,8 @@ class Bot:
                     if not any(sub in coin_symbol for sub in self.excluded_coins):
                         if coin_symbol in self.tickers or coin_symbol in self.wallet:
                             self.run_strategy(self.coins[coin_symbol])
+                        if coin_symbol in self.wallet:
+                            self.log_debug_coin(self.coins[coin_symbol])
 
     def stop_loss(self, coin: Coin) -> bool:
         # oh we already own this one, lets check prices
@@ -413,14 +437,10 @@ class Bot:
         if float(coin.price) < percent(coin.stop_loss_at_percentage, coin.bought_at):
             coin.status = "STOP_LOSS"
             cprint(
-                f"{coin.date}: [{coin.symbol}] (stop loss) now: {coin.price} bought: {coin.bought_at}",
+                f"{coin.date} [{coin.symbol}] {coin.status} now: {coin.price} bought: {coin.bought_at}",
                 "red",
             )
             self.sell_coin(coin)
-
-            self.update_bot_profit(coin)
-            self.update_investment()
-
             self.losses = self.losses + 1
             # and block this coin for a while
             coin.naughty_timeout = int(self.naughty_timeout)
@@ -431,64 +451,39 @@ class Bot:
         if coin.status == "TARGET_SELL" and float(coin.price) < percent(
             self.sell_at_percentage, coin.bought_at
         ):
+            coin.status = "DROP_IN_TARGET_SELL"
             self.sell_coin(coin)
-
-            self.update_bot_profit(coin)
-            self.update_investment()
-
             self.wins = self.wins + 1
             return True
         return False
 
     def possible_sale(self, coin: Coin) -> bool:
-        if float(coin.price) > percent(self.sell_at_percentage, coin.bought_at):
-            coin.status = "TARGET_SELL"
+        if coin.status == "TARGET_SELL":
             # do some gimmicks, and don't sell the coin straight away
             # but only sell it when the price is now higher than the last
             # price recorded
             # TODO: incorrect date
 
             if float(coin.price) != float(coin.last):
-                if self.debug:
-                    print(
-                        f"{coin.date}: [{coin.symbol}] (selling) now: {coin.price} max: {coin.max}"
-                    )
-            if float(coin.price) > float(coin.tip):
-                coin.tip = coin.price
-
+                self.log_debug_coin(coin)
+            # has price has gone down ?
             if float(coin.price) < float(coin.last):
-                coin.status = "TARGET_SELL"
 
+                # and below our target sell percentage over the tip ?
                 if float(coin.price) < percent(
                     float(coin.trail_target_sell_percentage), coin.tip
                 ):
+                    # let's sell it then
                     self.sell_coin(coin)
-
-                    self.update_bot_profit(coin)
-                    self.update_investment()
-
                     self.wins = self.wins + 1
                     return True
         return False
 
+    # This is not being called anywhhere that matters
     def past_hard_limit(self, coin: Coin) -> bool:
-        if (coin.holding_time > self.hard_limit_holding_time) and (
-            coin.status != "TARGET_SELL"
-        ):
+        if coin.holding_time > self.hard_limit_holding_time:
             coin.status = "STALE"
-            cprint(
-                f"{coin.date}: [{coin.symbol}] (stale) : now: "
-                + f"{coin.price} bought: {coin.bought_at}",
-                "red",
-            )
-
             self.sell_coin(coin)
-            self.update_bot_profit(coin)
-            self.update_investment()
-
-            # and block this coin for today:
-            # self.excluded_coins.append(coin.symbol)
-
             self.stales = self.stales + 1
 
             # and block this coin for today:
@@ -496,14 +491,13 @@ class Bot:
             return True
         return False
 
+    # This is not being called anywhhere that matters
     def past_soft_limit(self, coin: Coin) -> bool:
         # This coin is past our soft limit
         # we apply a sliding window to the buy profit
         if (
             coin.holding_time > self.soft_limit_holding_time
-            and coin.status != "TARGET_SELL"
         ):  # TODO: this is not a real time count
-            coin.status = "STALE"
             profit_boundary = (
                 float(self.sell_at_percentage) - 100
             ) - (2 * float(self.trading_fee))
@@ -512,39 +506,55 @@ class Bot:
             )
 
             trail_target_slice_per_holding_time_slice = (
-                100 - coin.trail_target_sell_percentage
+                100 - float(coin.trail_target_sell_percentage)
             ) / self.hard_limit_holding_time
 
             coin_life_left = self.hard_limit_holding_time - coin.holding_time
-            new_sell_at_percentage = 100 + (
-                coin_life_left * percentage_slice_per_holding_time_slice
+            new_sell_at_percentage = float(
+                100 + (
+                    coin_life_left * percentage_slice_per_holding_time_slice
+                )
             )
-            new_trail_target_sell_percentage = 100 - (
-                coin_life_left * trail_target_slice_per_holding_time_slice
+            new_trail_target_sell_percentage = float(
+                100 - (
+                    coin_life_left * trail_target_slice_per_holding_time_slice
+                )
             )
 
             coin.sell_at_percentage = new_sell_at_percentage
             coin.trail_target_sell_percentage = new_trail_target_sell_percentage
 
-            if self.debug:
-                print(
-                    f"holding: {coin.symbol} {coin.holding_time} {coin.price} {coin.sell_at_percentage:.4f} {coin.trail_target_sell_percentage:.4f}"
-                )
-
+            self.log_debug_coin(coin)
             return True
         return False
 
+    def log_debug_coin(self, coin: Coin) -> None:
+        if self.debug:
+            print(
+                f"{coin.date} {coin.symbol} {coin.status} age:{coin.holding_time} now:{coin.price} bought:{coin.bought_at} sell:{coin.sell_at_percentage:.4f}% trail_target_sell:{coin.trail_target_sell_percentage:.4f}%"
+            )
+
+
     def clear_all_coins_stats(self) -> None:
-        if self.clean_coin_stats_at_sale:
-            for coin in self.coins:
+        for coin in self.coins:
+            if coin not in self.wallet:
                 self.clear_coin_stats(self.coins[coin])
 
     def clear_coin_stats(self, coin: Coin) -> None:
-        coin.min = coin.price
-        coin.max = coin.price
+        coin.holding_time = 0
         coin.buy_at_percentage = self.buy_at_percentage
         coin.sell_at_percentage = self.sell_at_percentage
         coin.stop_loss_at_percentage = self.stop_loss_at_percentage
+        coin.trail_target_sell_percentage = self.trail_target_sell_percentage
+        coin.trail_recovery_percentage = self.trail_recovery_percentage
+        coin.bought_at = float(0)
+        coin.dip = float(0)
+        coin.tip = float(0)
+        coin.status = ""
+        # TODO: should we just clear the stats on the coin we just sold?
+        if self.clean_coin_stats_at_sale:
+            coin.min = coin.price
+            coin.max = coin.price
 
     def save_coins(self) -> None:
         with open(".coins.pickle", "wb") as f:
@@ -579,16 +589,14 @@ class Bot:
             self.coins[symbol].sell_at_percentage = self.sell_at_percentage
             self.coins[symbol].stop_loss_at_percentage = self.stop_loss_at_percentage
 
+    # TODO: THIS function is not doing anything
     def check_for_sale_conditions(self, coin: Coin) -> None:
         # return early if no work left to do
         if coin.symbol not in self.wallet:
             return
 
-        if self.debug:
-            print(f"coin: {coin.symbol} {coin.status}")
-
         # oh we already own this one, lets check prices
-        # deal with STOP_LOSS
+        # deal with STOP_LOSS first
         if self.stop_loss(coin):
             return
 
@@ -610,29 +618,22 @@ class Bot:
         if self.past_soft_limit(coin):
             return
 
+    # TODO: stale is not being consumed here
     def buy_drop_sell_recovery_strategy(self, coin: Coin) -> None:
         # has the price gone down by x% on a coin we don't own?
-        if float(coin.price) > percent(coin.buy_at_percentage, coin.max):
-            return
-
-        if coin.status == "":
+        if (
+            float(coin.price) < percent(coin.buy_at_percentage, coin.max)
+        ) and coin.status == "":
             coin.dip = coin.price
             coin.status = "TARGET_DIP"
-            return
 
         if coin.status != "TARGET_DIP":
             return
 
-        if float(coin.price) < float(coin.dip):
-            coin.dip = coin.price
-            return
         # do some gimmicks, and don't buy the coin straight away
         # but only buy it when the price is now higher than the last
         # price recorded. This way we ensure that we got the dip
-        if self.debug:
-            print(
-                f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}"
-            )
+        self.log_debug_coin(coin)
         if float(coin.price) > float(coin.last):
             if float(coin.price) > percent(
                 float(coin.trail_recovery_percentage), coin.dip
@@ -643,10 +644,7 @@ class Bot:
         # if float(coin.price) > percent(coin.buy_at_percentage, coin.min):
         if float(coin.price) > percent(coin.buy_at_percentage, coin.last):
             self.buy_coin(coin)
-            if self.debug:
-                print(
-                    f"{coin.date}: [{coin.symbol}] (buying) {self.investment} now: {coin.price} min: {coin.min} max: {coin.max}"
-                )
+            self.log_debug_coin(coin)
 
     def wait(self) -> None:
         sleep(self.pause)
@@ -654,6 +652,9 @@ class Bot:
     def run(self) -> None:
         self.load_coins()
         if self.clear_coin_stats_at_boot:
+            cprint("WARNING: about the clear all coin stats...", "red")
+            cprint("CTRL-C to cancel in the next 10 seconds", "red")
+            sleep(10)
             self.clear_all_coins_stats()
         while True:
             self.process_coins()
@@ -670,10 +671,10 @@ class Bot:
 
     def backtest_logfile(self, price_log: str) -> None:
         print(f"backtesting: {price_log}")
+        print(f"wallet: {self.wallet}")
         read_counter = 0
         with lz4.frame.open(price_log, "rt") as f:
             while True:
-                read_counter = read_counter + 1
                 try:
                     line = f.readline()
                     if line == "":
@@ -695,6 +696,7 @@ class Bot:
                     # we essentially skip a number of iterations between
                     # reads, causing a similar effect if we were only
                     # probing prices every PAUSE_FOR seconds
+                    read_counter = read_counter + 1
                     if read_counter != PAUSE_FOR:
                         continue
 
@@ -714,11 +716,11 @@ class Bot:
                         )
                     else:
                         self.coins[symbol].update(date, market_price)
-
                     self.run_strategy(self.coins[symbol])
                 except Exception as e:
                     print(traceback.format_exc())
                     if e == "KeyboardInterrupt":
+                        print(f"BOOOM")
                         sys.exit(1)
                     pass
 
