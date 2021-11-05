@@ -7,3 +7,4 @@ venv
 .*.pickle
 log/*
 testlogs/
+tickers/*
