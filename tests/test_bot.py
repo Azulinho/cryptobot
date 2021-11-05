@@ -580,7 +580,7 @@ class TestBot:
                         ) as m5:
                             bot.wallet = []
                             result = bot.check_for_sale_conditions(coin)
-                            assert result == None
+                            assert result == (False, 'EMPTY_WALLET')
                             m1.assert_not_called()
                             m2.assert_not_called()
                             m3.assert_not_called()
@@ -605,7 +605,7 @@ class TestBot:
                         coin.price = 1
                         coin.bought_at = 100
                         result = bot.check_for_sale_conditions(coin)
-                        assert result == None
+                        assert result == (True, 'STOP_LOSS')
                         m2.assert_not_called()
                         m3.assert_not_called()
                         m4.assert_not_called()
@@ -630,7 +630,7 @@ class TestBot:
                         coin.status = "DIRTY"
                         bot.hard_limit_holding_time = 1
                         result = bot.check_for_sale_conditions(coin)
-                        assert result == None
+                        assert result == (True, 'STALE')
                         m1.assert_called()
                         m3.assert_not_called()
                         m4.assert_not_called()
@@ -654,7 +654,7 @@ class TestBot:
                         coin.price = 1
                         coin.bought_at = 1000
                         result = bot.check_for_sale_conditions(coin)
-                        assert result == None
+                        assert result == (True, 'GONE_UP_AND_DROPPED')
                         m1.assert_called()
                         m2.assert_called()
                         m4.assert_not_called()
@@ -680,11 +680,21 @@ class TestBot:
                         coin.last = 100
                         coin.tip = 200
                         result = bot.check_for_sale_conditions(coin)
-                        assert result == None
+                        assert result == (True, 'TARGET_SELL')
                         m1.assert_called()
                         m2.assert_called()
                         m3.assert_called()
                         m5.assert_not_called()
+
+    def test_check_for_sale_conditions_returns_final_on_past_soft_limit(self, bot, coin):
+        with mock.patch.object(
+            bot, "past_soft_limit", return_value=None
+        ) as m1:
+            bot.wallet = ["BTCUSDT"]
+            coin.status = "TARGET_SELL"
+            result = bot.check_for_sale_conditions(coin)
+            assert result == (False, 'HOLD')
+            m1.assert_called()
 
     def test_buy_drop_sell_recovery_strategy(self, bot, coin):
         pass

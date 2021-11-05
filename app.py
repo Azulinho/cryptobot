@@ -9,7 +9,7 @@ from datetime import datetime
 from functools import wraps, lru_cache
 from os.path import exists
 from time import time, sleep
-from typing import List, Set, Dict, Any
+from typing import List, Set, Dict, Any, Tuple
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
 from binance.helpers import round_step_size
@@ -590,33 +590,35 @@ class Bot:
             self.coins[symbol].stop_loss_at_percentage = self.stop_loss_at_percentage
 
     # TODO: THIS function is not doing anything
-    def check_for_sale_conditions(self, coin: Coin) -> None:
+    def check_for_sale_conditions(self, coin: Coin) -> Tuple[bool, str]:
         # return early if no work left to do
         if coin.symbol not in self.wallet:
-            return
+            return (False, 'EMPTY_WALLET')
 
         # oh we already own this one, lets check prices
         # deal with STOP_LOSS first
         if self.stop_loss(coin):
-            return
+            return (True, 'STOP_LOSS')
 
         # This coin is too old, sell it
         if self.past_hard_limit(coin):
-            return
+            return (True, 'STALE')
 
         # coin was above sell_at_percentage and dropped below
         # lets' sell it ASAP
         if self.coin_gone_up_and_dropped(coin):
-            return
+            return (True, 'GONE_UP_AND_DROPPED')
 
         # possible sale
         if self.possible_sale(coin):
-            return
+            return (True, 'TARGET_SELL')
 
         # This coin is past our soft limit
         # we apply a sliding window to the buy profit
         if self.past_soft_limit(coin):
-            return
+            return (False, 'PAST_SOFT_LIMIT')
+
+        return (False, 'HOLD')
 
     # TODO: stale is not being consumed here
     def buy_drop_sell_recovery_strategy(self, coin: Coin) -> None:
