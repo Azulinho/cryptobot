@@ -66,7 +66,7 @@ def coin():
         market_price=100.00,
         buy_at=(100 + app.BUY_AT_PERCENTAGE),
         sell_at=(100 + app.SELL_AT_PERCENTAGE),
-        stop_loss=(100 + app.SELL_AT_PERCENTAGE),
+        stop_loss=(100 + app.STOP_LOSS_AT_PERCENTAGE),
         trail_target_sell_percentage=(100 + app.TRAIL_TARGET_SELL_PERCENTAGE),
         trail_recovery_percentage=(100 + app.TRAIL_RECOVERY_PERCENTAGE)
     )
@@ -570,136 +570,51 @@ class TestBot:
 
 class TestBotCheckForSaleConditions:
     def test_returns_early_on_empty_wallet(self, bot, coin):
-        with mock.patch.object(
-            bot, "stop_loss", return_value=None
-        ) as m1:
-            with mock.patch.object(
-                bot, "past_hard_limit", return_value=None
-            ) as m2:
-                with mock.patch.object(
-                    bot, "coin_gone_up_and_dropped", return_value=None
-                ) as m3:
-                    with mock.patch.object(
-                        bot, "possible_sale", return_value=None
-                    ) as m4:
-                        with mock.patch.object(
-                            bot, "past_soft_limit", return_value=None
-                        ) as m5:
-                            bot.wallet = []
-                            result = bot.check_for_sale_conditions(coin)
-                            assert result == (False, 'EMPTY_WALLET')
-                            m1.assert_not_called()
-                            m2.assert_not_called()
-                            m3.assert_not_called()
-                            m4.assert_not_called()
-                            m5.assert_not_called()
+        bot.wallet = []
+        result = bot.check_for_sale_conditions(coin)
+        assert result == (False, 'EMPTY_WALLET')
 
     def test_returns_early_on_stop_loss(self, bot, coin):
-        with mock.patch.object(
-            bot, "past_hard_limit", return_value=None
-        ) as m2:
-            with mock.patch.object(
-                bot, "coin_gone_up_and_dropped", return_value=None
-            ) as m3:
-                with mock.patch.object(
-                    bot, "possible_sale", return_value=None
-                ) as m4:
-                    with mock.patch.object(
-                        bot, "past_soft_limit", return_value=None
-                    ) as m5:
-                        bot.wallet = ["BTCUSDT"]
-                        coin.price = 1
-                        coin.bought_at = 100
-                        result = bot.check_for_sale_conditions(coin)
-                        assert result == (True, 'STOP_LOSS')
-                        m2.assert_not_called()
-                        m3.assert_not_called()
-                        m4.assert_not_called()
-                        m5.assert_not_called()
+        bot.wallet = ["BTCUSDT"]
+        coin.price = 1
+        coin.bought_at = 100
+        result = bot.check_for_sale_conditions(coin)
+        assert result == (True, 'STOP_LOSS')
 
     def test_returns_early_on_stale_coin(self, bot, coin):
-        with mock.patch.object(
-            bot, "stop_loss", return_value=None
-        ) as m1:
-            with mock.patch.object(
-                bot, "coin_gone_up_and_dropped", return_value=None
-            ) as m3:
-                with mock.patch.object(
-                    bot, "possible_sale", return_value=None
-                ) as m4:
-                    with mock.patch.object(
-                        bot, "past_soft_limit", return_value=None
-                    ) as m5:
-                        bot.wallet = ["BTCUSDT"]
-                        coin.price = 1000
-                        coin.holding_time = 99999
-                        coin.status = "DIRTY"
-                        bot.hard_limit_holding_time = 1
-                        result = bot.check_for_sale_conditions(coin)
-                        assert result == (True, 'STALE')
-                        m1.assert_called()
-                        m3.assert_not_called()
-                        m4.assert_not_called()
-                        m5.assert_not_called()
+        bot.wallet = ["BTCUSDT"]
+        coin.price = 1000
+        coin.holding_time = 99999
+        coin.status = "DIRTY"
+        bot.hard_limit_holding_time = 1
+        result = bot.check_for_sale_conditions(coin)
+        assert result == (True, 'STALE')
 
     def test_returns_early_on_coing_gone_up_and_dropped(self, bot, coin):
-        with mock.patch.object(
-            bot, "stop_loss", return_value=None
-        ) as m1:
-            with mock.patch.object(
-                bot, "past_hard_limit", return_value=None
-            ) as m2:
-                with mock.patch.object(
-                    bot, "possible_sale", return_value=None
-                ) as m4:
-                    with mock.patch.object(
-                        bot, "past_soft_limit", return_value=None
-                    ) as m5:
-                        bot.wallet = ["BTCUSDT"]
-                        coin.status = "TARGET_SELL"
-                        coin.price = 1
-                        coin.bought_at = 1000
-                        result = bot.check_for_sale_conditions(coin)
-                        assert result == (True, 'GONE_UP_AND_DROPPED')
-                        m1.assert_called()
-                        m2.assert_called()
-                        m4.assert_not_called()
-                        m5.assert_not_called()
+        bot.wallet = ["BTCUSDT"]
+        coin.status = "TARGET_SELL"
+        coin.price = 100.5
+        coin.last = 120
+        coin.bought_at = 100
+        result = bot.check_for_sale_conditions(coin)
+        print(coin.stop_loss_at_percentage)
+        assert result == (True, 'GONE_UP_AND_DROPPED')
 
     def test_returns_early_on_possible_sale(self, bot, coin):
-        with mock.patch.object(
-            bot, "stop_loss", return_value=None
-        ) as m1:
-            with mock.patch.object(
-                bot, "past_hard_limit", return_value=None
-            ) as m2:
-                with mock.patch.object(
-                    bot, "coin_gone_up_and_dropped", return_value=None
-                ) as m3:
-                    with mock.patch.object(
-                        bot, "past_soft_limit", return_value=None
-                    ) as m5:
-                        bot.wallet = ["BTCUSDT"]
-                        coin.status = "TARGET_SELL"
-                        coin.bought_at = 1
-                        coin.price = 50
-                        coin.last = 100
-                        coin.tip = 200
-                        result = bot.check_for_sale_conditions(coin)
-                        assert result == (True, 'TARGET_SELL')
-                        m1.assert_called()
-                        m2.assert_called()
-                        m3.assert_called()
-                        m5.assert_not_called()
+        bot.wallet = ["BTCUSDT"]
+        coin.status = "TARGET_SELL"
+        coin.bought_at = 1
+        coin.price = 50
+        coin.last = 100
+        coin.tip = 200
+        result = bot.check_for_sale_conditions(coin)
+        assert result == (True, 'TARGET_SELL')
 
     def test_returns_final_on_past_soft_limit(self, bot, coin):
-        with mock.patch.object(
-            bot, "past_soft_limit", return_value=None
-        ) as m1:
-            bot.wallet = ["BTCUSDT"]
-            coin.status = "TARGET_SELL"
-            result = bot.check_for_sale_conditions(coin)
-            assert result == (False, 'HOLD')
-            m1.assert_called()
-
-
+        bot.wallet = ["BTCUSDT"]
+        coin.bought_at = 100
+        coin.price = 100
+        coin.last = 100
+        coin.tip = 100
+        result = bot.check_for_sale_conditions(coin)
+        assert result == (False, 'HOLD')
