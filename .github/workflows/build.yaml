@@ -13,6 +13,12 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v2
 
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v3
+        with:
+          images: name/app
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
         with:
@@ -23,5 +29,6 @@ jobs:
       - name: Push to GitHub Packages
         uses: docker/build-push-action@v2
         with:
-          tags: ${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           push: true
