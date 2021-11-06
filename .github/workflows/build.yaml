@@ -12,9 +12,5 @@ jobs:
       - name: Push to GitHub Packages
         uses: docker/build-push-action@v2
         with:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITGUB_PAT }}
-          registry: ghcr.io
-          repository: azulinho/cryptobot
           tags: ${{ github.sha }}
           dockerfile: Dockerfile
