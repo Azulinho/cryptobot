@@ -78,7 +78,6 @@ def coin():
 #
 
 class TestBot:
-
     def test_sell_coin_in_testnet(self, bot, coin):
         bot.mode = "testnet"
         coin.price = 100
@@ -217,7 +216,6 @@ class TestBot:
                     ) as m4:
                         bot.process_coins()
                         assert bot.wallet == []
-
 
 
 class TestBotCheckForSaleConditions:
@@ -613,10 +611,76 @@ class TestBotProfit:
         assert bot.profit == -10.21
         assert bot.fees == 0.21000000000000002
 
-class TestStrategy:
-    def test_buy_drop_sell_recovery_strategy(self, bot, coin):
+class TestStrategyBuyDropSellRecovery:
+    def test_coin_is_set_to_target_dip_when_price_drops(self, bot, coin):
+        coin.status = ""
+        coin.price = 90
+        coin.max = 100
+        result = bot.buy_drop_sell_recovery_strategy(coin)
+        assert result == False
+        assert coin.status == "TARGET_DIP"
+
+    def test_returns_early_when_coin_is_not_TARGET_DIP(self, bot, coin):
+        coin.status = ""
+        coin.price = 100
+        coin.max = 100
+        result = bot.buy_drop_sell_recovery_strategy(coin)
+        assert result == False
+        assert coin.status == ""
+
+    def test_coin_is_not_bought_when_current_price_lower_than_last(self, bot, coin):
+        coin.status = "TARGET_DIP"
+        coin.price = 90
+        coin.last = 100
+        with mock.patch.object(
+            bot, 'buy_coin', return_value=False
+        ) as m1:
+            result = bot.buy_drop_sell_recovery_strategy(coin)
+            assert result == False
+            assert coin.status == "TARGET_DIP"
+            m1.assert_not_called()
+
+    def test_bot_buys_coin_when_price_over_trail_recovery_dip(self, bot, coin):
+        coin.status = "TARGET_DIP"
+        coin.price = 90
+        coin.last = 80
+        coin.dip = 80
+        with mock.patch.object(
+            bot, 'buy_coin', return_value=False
+        ) as m1:
+            result = bot.buy_drop_sell_recovery_strategy(coin)
+            assert result == True
+            assert coin.status == "TARGET_DIP"
+            m1.assert_called()
+
+class TestStrategyMoonSellRecovery:
+    def test_bot_does_not_buy_coin_when_price_below_buy_at_percentage(self, bot, coin):
+        # TODO: refactor this into its own config fixture
+        coin.buy_at_percentage = 105
+        coin.price = 101
+        coin.last = 100
+        with mock.patch.object(
+            bot, 'buy_coin', return_value=False
+        ) as m1:
+            result = bot.buy_moon_sell_recovery_strategy(coin)
+            assert result == False
+            m1.assert_not_called()
+
+    def test_bot_buys_coin_when_price_above_buy_at_percentage(self, bot, coin):
+        # TODO: refactor this into its own config fixture
+        coin.buy_at_percentage = 105
+        coin.price = 100
+        coin.last = 90
+        with mock.patch.object(
+            bot, 'buy_coin', return_value=True
+        ) as m1:
+            result = bot.buy_moon_sell_recovery_strategy(coin)
+            assert result == True
+            m1.assert_called()
+
+class TestBacktesting:
+    def backtesting(self):
         pass
 
-    def test_buy_moon_sell_recovery_strategy(self, bot, coin):
+    def backtest_logfile(self):
         pass
-

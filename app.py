@@ -621,7 +621,7 @@ class Bot:
         return (False, 'HOLD')
 
     # TODO: stale is not being consumed here
-    def buy_drop_sell_recovery_strategy(self, coin: Coin) -> None:
+    def buy_drop_sell_recovery_strategy(self, coin: Coin) -> bool:
         # has the price gone down by x% on a coin we don't own?
         if (
             float(coin.price) < percent(coin.buy_at_percentage, coin.max)
@@ -630,7 +630,7 @@ class Bot:
             coin.status = "TARGET_DIP"
 
         if coin.status != "TARGET_DIP":
-            return
+            return False
 
         # do some gimmicks, and don't buy the coin straight away
         # but only buy it when the price is now higher than the last
@@ -641,12 +641,15 @@ class Bot:
                 float(coin.trail_recovery_percentage), coin.dip
             ):
                 self.buy_coin(coin)
+                return True
+        return False
 
-    def buy_moon_sell_recovery_strategy(self, coin: Coin) -> None:
-        # if float(coin.price) > percent(coin.buy_at_percentage, coin.min):
+    def buy_moon_sell_recovery_strategy(self, coin: Coin) -> bool:
         if float(coin.price) > percent(coin.buy_at_percentage, coin.last):
             self.buy_coin(coin)
             self.log_debug_coin(coin)
+            return True
+        return False
 
     def wait(self) -> None:
         sleep(self.pause)
