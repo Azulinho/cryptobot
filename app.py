@@ -248,8 +248,8 @@ class Bot:
 
         cprint(
             f"{coin.date}: [{coin.symbol}] {coin.status} "
-            + f"U:{coin.volume} P:{coin.price} T:${coin.value:.3f} "
-            + f"sell_at:${coin.price * coin.sell_at_percentage /100} "
+            + f"U:{coin.volume} P:{coin.price} T:{coin.value:.3f} "
+            + f"sell_at:{coin.price * coin.sell_at_percentage /100} "
             + f"({len(self.wallet)}/{self.max_coins})",
             "magenta",
         )
@@ -298,7 +298,7 @@ class Bot:
 
         cprint(
             f"{coin.date}: [{coin.symbol}] {coin.status} U:{coin.volume} "
-            + f"P:{coin.price} T:${coin.value:.3f} and "
+            + f"P:{coin.price} T:{coin.value:.3f} and "
             + f"{message}:{coin.profit:.3f} "
             + f"sell_at:{coin.sell_at_percentage:.3f} "
             + f"trail_sell:{coin.trail_target_sell_percentage:.3f}"
@@ -733,7 +733,7 @@ class Bot:
         with open("backtesting.log", "a") as f:
             log_entry = "|".join(
                 [
-                    f"profit:{self.profit:.2f}",
+                    f"profit:{self.profit:.3f}",
                     f"investment:{self.initial_investment}",
                     f"n_tickers:{len(self.tickers)}",
                     f"tickers_file:{self.tickers_file}",
@@ -793,8 +793,8 @@ if __name__ == "__main__":
             cprint(f" cost: {holding.volume * holding.bought_at}", "green")
             cprint(f" value: {holding.volume * holding.price}", "red")
 
-        print(f"total profit: {int(bot.profit)}")
-        print(f"total fees: {int(bot.fees)}")
+        print(f"total profit: {bot.profit:.3f}")
+        print(f"total fees: {bot.fees:.3f}")
         print(
             f"initial investment: {int(bot.initial_investment)} final investment: {int(bot.investment)}"
         )
