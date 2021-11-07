@@ -1,0 +1,11 @@
+version: "3.9"
+services:
+  cryptobot:
+    user: ${DOCKER_USER}
+    tty: true
+    build: .
+    image: ghcr.io/azulinho/cryptobot:latest
+    volumes:
+      - ./${BOT_CONFIG_PY}:/cryptobot/config.py
+      - ./tickers:/cryptobot/tickers
+      - ./log:/cryptobot/log
