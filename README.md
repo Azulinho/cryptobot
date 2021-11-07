@@ -148,7 +148,8 @@ CLEAR_COIN_STATS_AT_BOOT = True
 The bot saves a couple of files during execution, *.coins.pickle* and
 *.wallet.pickle*. These files contain the list of coins the bot bought and
 holds, and the different values for all those coins, things like maximum price,
-minimum price, dips, and tips.
+minimum price, dips, and tips. This setting specifies if that data should be
+discarded at boot time.
 
 ```
 NAUGHTY_TIMEOUT = 28800
