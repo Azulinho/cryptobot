@@ -421,7 +421,7 @@ class Bot:
                 self.write_log(coin_symbol)
 
             if self.mode not in ["live", "backtesting", "testnet"]:
-                return
+                continue
 
             if self.pairing in coin_symbol:
                 if self.coins[coin_symbol].naughty_timeout < 1:
