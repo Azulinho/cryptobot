@@ -6,6 +6,6 @@ services:
     build: .
     image: ghcr.io/azulinho/cryptobot:latest
     volumes:
-      - ./${BOT_CONFIG_PY}:/cryptobot/config.py
-      - ./tickers:/cryptobot/tickers
-      - ./log:/cryptobot/log
+      - ./${BOT_CONFIG_PY}:/cryptobot/config.py:ro
+      - ./tickers:/cryptobot/tickers:ro
+      - ./log:/cryptobot/log:rw

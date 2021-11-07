@@ -357,9 +357,6 @@ class Bot:
     def get_symbol_precision(self, symbol: str) -> int:
         try:
             info = self.client.get_symbol_info(symbol)
-            with open('api.log', 'a') as f:
-                f.write(f"{datetime.now()} called client.get_symbol_info({symbol})\n")
-
         except Exception as e:
             print(e)
             return -1
@@ -733,7 +730,7 @@ class Bot:
         for price_log in self.price_logs:
             self.backtest_logfile(price_log)
 
-        with open("backtesting.log", "a") as f:
+        with open("log/backtesting.log", "a") as f:
             log_entry = "|".join(
                 [
                     f"profit:{self.profit:.3f}",
