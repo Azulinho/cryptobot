@@ -1,6 +1,6 @@
 # cryptobot
 
-Usage:
+## Usage:
 
 Generate a *config.py*, see the example configs in *examples/*
 
@@ -11,7 +11,7 @@ BOT_CONFIG_PY=configs/my-config.py \
   DOCKER_USER="$(id -u):$(id -g)" docker-compose up
 ```
 
-Config settings:
+## Config settings:
 
 
 ```
