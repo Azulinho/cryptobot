@@ -5,35 +5,15 @@ import app
 import pytest
 import socket
 import requests
+import yaml
 from unittest import mock
 
 from binance.client import Client
 
-app.MODE = "backtesting"
-app.PAUSE_FOR = 1
-app.INITIAL_INVESTMENT = 100
-app.MAX_COINS = 2
-app.PAIRING="USDT"
-app.SOFT_LIMIT_HOLDING_TIME = 3600
-app.HARD_LIMIT_HOLDING_TIME = 7200
-app.BUY_AT_PERCENTAGE = -5.0
-app.SELL_AT_PERCENTAGE = +1.0
-app.STOP_LOSS_AT_PERCENTAGE = -9
-app.CLEAR_COIN_STATS_AT_BOOT = True
-app.TRAIL_TARGET_SELL_PERCENTAGE = -0.1
-app.TRAIL_RECOVERY_PERCENTAGE = +0.5
-app.NAUGHTY_TIMEOUT = 28800
-app.CLEAR_COIN_STATS_AT_SALE = True
-app.DEBUG = False
-app.STRATEGY="buy_drop_sell_recovery_strategy"
-app.TICKERS_FILE = "tickers/all.txt"
-app.TICKERS = ["BTCUSDT"]
-app.TRADING_FEE = 0.1
-app.PRICE_LOGS = ["prices.log"]
-app.EXCLUDED_COINS = [
-    'DOWNUSDT',
-    'UPUSDT',
-]
+with open("tests/config.yaml") as f:
+    cfg = yaml.safe_load(f.read())
+
+cfg["MODE"] = "backtesting"
 
 
 def test_percent():
@@ -49,7 +29,7 @@ def bot():
         with mock.patch('requests.get', return_value={}
         ) as mock2:
 
-            bot = app.Bot(client)
+            bot = app.Bot(client, cfg)
             bot.client.API_URL = "https://www.google.com"
             bot.tickers = ["BTCUSDT"]
             yield bot
@@ -63,11 +43,11 @@ def coin():
         symbol="BTCUSDT",
         date="2021",
         market_price=100.00,
-        buy_at=(100 + app.BUY_AT_PERCENTAGE),
-        sell_at=(100 + app.SELL_AT_PERCENTAGE),
-        stop_loss=(100 + app.STOP_LOSS_AT_PERCENTAGE),
-        trail_target_sell_percentage=(100 + app.TRAIL_TARGET_SELL_PERCENTAGE),
-        trail_recovery_percentage=(100 + app.TRAIL_RECOVERY_PERCENTAGE)
+        buy_at=100 + float(cfg['BUY_AT_PERCENTAGE']),
+        sell_at=100 + float(cfg['SELL_AT_PERCENTAGE']),
+        stop_loss=100 + float(cfg['STOP_LOSS_AT_PERCENTAGE']),
+        trail_target_sell_percentage=100 + float(cfg['TRAIL_TARGET_SELL_PERCENTAGE']),
+        trail_recovery_percentage=100 + float(cfg['TRAIL_RECOVERY_PERCENTAGE'])
     )
     yield coin
     del(coin)
@@ -151,19 +131,19 @@ class TestBot:
 
         assert float(bot.coins['BTCUSDT'].price) == float(101.0)
         assert bot.coins['BTCUSDT'].buy_at_percentage == float(
-            100 + app.BUY_AT_PERCENTAGE
+            100 + cfg['BUY_AT_PERCENTAGE']
         )
         assert bot.coins['BTCUSDT'].stop_loss_at_percentage == float(
-            100 + app.STOP_LOSS_AT_PERCENTAGE
+            100 + cfg['STOP_LOSS_AT_PERCENTAGE']
         )
         assert bot.coins['BTCUSDT'].sell_at_percentage == float(
-            100 + app.SELL_AT_PERCENTAGE
+            100 + cfg['SELL_AT_PERCENTAGE']
         )
         assert bot.coins['BTCUSDT'].trail_target_sell_percentage == float(
-            100 + app.TRAIL_TARGET_SELL_PERCENTAGE
+            100 + cfg['TRAIL_TARGET_SELL_PERCENTAGE']
         )
         assert bot.coins['BTCUSDT'].trail_recovery_percentage == float(
-            100 + app.TRAIL_RECOVERY_PERCENTAGE
+            100 + cfg['TRAIL_RECOVERY_PERCENTAGE']
         )
 
 
@@ -487,7 +467,7 @@ class TestCoinStatus:
                 assert result == True
                 assert bot.stales == 1
                 assert bot.profit == 99.7
-                assert coin.naughty_timeout == app.NAUGHTY_TIMEOUT
+                assert coin.naughty_timeout == cfg['NAUGHTY_TIMEOUT']
                 assert round(bot.investment, 1) == round(199.7, 1)
 
     def test_past_soft_limit(self, bot, coin):

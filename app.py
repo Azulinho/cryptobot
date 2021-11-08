@@ -5,6 +5,8 @@ import pickle
 import re
 import sys
 import traceback
+import yaml
+import argparse
 from datetime import datetime
 from functools import wraps, lru_cache
 from os.path import exists
@@ -16,34 +18,6 @@ from binance.helpers import round_step_size
 from neotermcolor import colored, cprint
 from requests.exceptions import ReadTimeout, ConnectionError
 from tenacity import retry, wait_exponential
-
-from config import (
-    INITIAL_INVESTMENT,
-    SOFT_LIMIT_HOLDING_TIME,
-    HARD_LIMIT_HOLDING_TIME,
-    BUY_AT_PERCENTAGE,
-    SELL_AT_PERCENTAGE,
-    STOP_LOSS_AT_PERCENTAGE,
-    EXCLUDED_COINS,
-    PAUSE_FOR,
-    PRICE_LOGS,
-    ACCESS_KEY,
-    SECRET_KEY,
-    TICKERS_FILE,
-    MODE,
-    TRADING_FEE,
-    DEBUG,
-    MAX_COINS,
-    PAIRING,
-    CLEAR_COIN_STATS_AT_BOOT,
-    CLEAR_COIN_STATS_AT_SALE,
-    TRAIL_TARGET_SELL_PERCENTAGE,
-    TRAIL_RECOVERY_PERCENTAGE,
-    NAUGHTY_TIMEOUT,
-    STRATEGY,
-    SELL_AS_SOON_IT_DROPS
-)
-
 
 def timing(f):
     @wraps(f)
@@ -137,41 +111,41 @@ class Coin:
 
 
 class Bot:
-    def __init__(self, client) -> None:
+    def __init__(self, client, cfg) -> None:
         self.client = client
-        self.initial_investment = float(INITIAL_INVESTMENT)
-        self.investment = float(INITIAL_INVESTMENT)
-        self.soft_limit_holding_time = int(SOFT_LIMIT_HOLDING_TIME)
-        self.hard_limit_holding_time = int(HARD_LIMIT_HOLDING_TIME)
-        self.excluded_coins = EXCLUDED_COINS
-        self.buy_at_percentage = float(100 + float(BUY_AT_PERCENTAGE))
-        self.sell_at_percentage = float(100 + float(SELL_AT_PERCENTAGE))
-        self.stop_loss_at_percentage = float(100 + float(STOP_LOSS_AT_PERCENTAGE))
-        self.pause = float(PAUSE_FOR)
-        self.price_logs = PRICE_LOGS
+        self.initial_investment: float = float(cfg["INITIAL_INVESTMENT"])
+        self.investment: float = float(cfg["INITIAL_INVESTMENT"])
+        self.soft_limit_holding_time: int = int(cfg["SOFT_LIMIT_HOLDING_TIME"])
+        self.hard_limit_holding_time: int = int(cfg["HARD_LIMIT_HOLDING_TIME"])
+        self.excluded_coins: str = cfg["EXCLUDED_COINS"]
+        self.buy_at_percentage:float = 100 + float(cfg["BUY_AT_PERCENTAGE"])
+        self.sell_at_percentage:float = 100 + float(cfg["SELL_AT_PERCENTAGE"])
+        self.stop_loss_at_percentage: float = 100 + float(cfg["STOP_LOSS_AT_PERCENTAGE"])
+        self.pause: float = float(cfg["PAUSE_FOR"])
+        self.price_logs: List = cfg["PRICE_LOGS"]
         self.coins: Dict[str, Coin] = {}
         self.wins: int = 0
         self.losses: int = 0
         self.stales: int = 0
         self.profit: float = 0
         self.wallet: List = []  # store the coin we own
-        self.tickers_file: str = TICKERS_FILE
-        self.tickers: List  = [line.strip() for line in open(TICKERS_FILE)]
-        self.mode: str = MODE
-        self.trading_fee: float = TRADING_FEE
-        self.debug: bool = DEBUG
-        self.max_coins: int = MAX_COINS
-        self.pairing: str = PAIRING
+        self.tickers_file: str = cfg["TICKERS_FILE"]
+        self.tickers: List  = [line.strip() for line in open(cfg['TICKERS_FILE'])]
+        self.mode: str = cfg["MODE"]
+        self.trading_fee: float = float(cfg["TRADING_FEE"])
+        self.debug: bool = bool(cfg["DEBUG"])
+        self.max_coins: int = int(cfg["MAX_COINS"])
+        self.pairing: str = cfg["PAIRING"]
         self.fees: float = 0
-        self.clear_coin_stats_at_boot: bool = CLEAR_COIN_STATS_AT_BOOT
-        self.trail_target_sell_percentage: float = float(100) + float(
-            TRAIL_TARGET_SELL_PERCENTAGE
+        self.clear_coin_stats_at_boot: bool = bool(cfg["CLEAR_COIN_STATS_AT_BOOT"])
+        self.trail_target_sell_percentage: float = 100 + float(
+            cfg["TRAIL_TARGET_SELL_PERCENTAGE"]
         )
-        self.trail_recovery_percentage: float = float(100) + float(TRAIL_RECOVERY_PERCENTAGE)
-        self.naughty_timeout: int = NAUGHTY_TIMEOUT
-        self.clean_coin_stats_at_sale: bool = CLEAR_COIN_STATS_AT_SALE
-        self.strategy: str = STRATEGY
-        self.sell_as_soon_it_drops: bool = SELL_AS_SOON_IT_DROPS
+        self.trail_recovery_percentage: float = 100 + float(cfg["TRAIL_RECOVERY_PERCENTAGE"])
+        self.naughty_timeout: int = int(cfg["NAUGHTY_TIMEOUT"])
+        self.clean_coin_stats_at_sale: bool = bool(cfg["CLEAR_COIN_STATS_AT_SALE"])
+        self.strategy: str = cfg["STRATEGY"]
+        self.sell_as_soon_it_drops: bool = bool(cfg["SELL_AS_SOON_IT_DROPS"])
 
     def run_strategy(self, *args, **kwargs) -> None:
         if len(self.wallet) != self.max_coins:
@@ -701,7 +675,7 @@ class Bot:
                     # reads, causing a similar effect if we were only
                     # probing prices every PAUSE_FOR seconds
                     read_counter = read_counter + 1
-                    if read_counter != PAUSE_FOR:
+                    if read_counter != self.pause:
                         continue
 
                     read_counter = 0
@@ -763,16 +737,35 @@ class Bot:
 
 if __name__ == "__main__":
     try:
-        client = Client(ACCESS_KEY, SECRET_KEY)
-        bot = Bot(client)
+        parser = argparse.ArgumentParser()
+        parser.add_argument('-c', '--config', help='config.yaml file')
+        parser.add_argument('-s', '--secrets', help='secrets.yaml file')
+        parser.add_argument(
+            '-m',
+            '--mode',
+            help='bot mode ["live", "backtesting", "testnet"]'
+        )
+        args = parser.parse_args()
+
+        with open(args.config) as f:
+            cfg = yaml.safe_load(f.read())
+        with open(args.secrets) as f:
+            secrets = yaml.safe_load(f.read())
+        cfg['MODE'] = args.mode
+
+        client = Client(
+            secrets['ACCESS_KEY'],
+            secrets['SECRET_KEY']
+        )
+        bot = Bot(client, cfg)
 
         startup_msg = (
-            f"buy_at:{BUY_AT_PERCENTAGE} "
-            + f"sell_at:{SELL_AT_PERCENTAGE} "
-            + f"stop_loss:{STOP_LOSS_AT_PERCENTAGE} "
-            + f"max_coins:{MAX_COINS} "
-            + f"soft_limit_holding_time:{SOFT_LIMIT_HOLDING_TIME} "
-            + f"hard_limit_holding_time:{HARD_LIMIT_HOLDING_TIME} "
+            f"buy_at:{cfg['BUY_AT_PERCENTAGE']} "
+            + f"sell_at:{cfg['SELL_AT_PERCENTAGE']} "
+            + f"stop_loss:{cfg['STOP_LOSS_AT_PERCENTAGE']} "
+            + f"max_coins:{cfg['MAX_COINS']} "
+            + f"soft_limit_holding_time:{cfg['SOFT_LIMIT_HOLDING_TIME']} "
+            + f"hard_limit_holding_time:{cfg['HARD_LIMIT_HOLDING_TIME']} "
         )
         print(f"running in {bot.mode} mode with {startup_msg}")
 

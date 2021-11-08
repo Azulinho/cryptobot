@@ -43,4 +43,4 @@ ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims/:$PATH"
 COPY --from=builder /cryptobot/.python-version /cryptobot/
 COPY --from=builder /cryptobot/app.py /cryptobot/
 COPY --from=builder /cryptobot/.pyenv/ /cryptobot/.pyenv/
-CMD python -u app.py
+ENTRYPOINT ["python", "-u",  "app.py"]

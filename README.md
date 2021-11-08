@@ -1,30 +1,54 @@
-# cryptobot
+# CryptoBot - Binance Trading Bot
 
 ## Usage:
 
-Generate a *config.py*, see the example configs in *examples/*
+Generate a *config.yaml*, see the example configs in *examples/*
+And add your Binance credentials to *.secrets.yaml*.
 
 then,
 
 ```
-BOT_CONFIG_PY=configs/my-config.py \
-  DOCKER_USER="$(id -u):$(id -g)" docker-compose up
+docker run -it \
+    -u `id -u` \
+    -v $PWD/configs/:/cryptobot/configs/:ro  \
+    -v $PWD/log:/cryptobot/log:rw  \
+    -v $PWD/.secrets.yaml:/cryptobot/.secrets.yaml  \
+    -v $PWD/tickers:/cryptobot/tickers  \
+    azulinho/cryptobot -s .secrets.yaml -c configs/config.yaml -m live
+
+```
+
+To run the bot in logmode only,
+
+```
+docker run -it \
+    -u `id -u` \
+    -v $PWD/configs/:/cryptobot/configs/:ro  \
+    -v $PWD/log:/cryptobot/log:rw  \
+    -v $PWD/.secrets.yaml:/cryptobot/.secrets.yaml  \
+    -v $PWD/tickers:/cryptobot/tickers  \
+    azulinho/cryptobot -s .secrets.yaml -c configs/config.yaml -m backtesting
+
+```
+
+## Secrets:
+
+
+```
+ACCESS_KEY: "ACCESS_KEY"
+SECRET_KEY: "SECRET_KEY"
+
 ```
 
 ## Config settings:
 
-
-```
-ACCESS_KEY = "ACCESS_KEY"
-SECRET_KEY = "SECRET_KEY"
-```
 If using TESTNET generate a set of keys at https://testnet.binance.vision/
 Note that TESTNET is only suitable for bot development and nothing else.
 Otherwise use your Binance production keys.
 
 
 ```
-MODE = "live"
+MODE: "live"
 ```
 Set the mode where this bot is running,
 Options are: *live*, *backtesting*, *testnet*
@@ -43,14 +67,14 @@ The pairing use use to buy crypto with. Available options in Binance are,
 
 
 ```
-INITIAL_INVESTMENT = 100
+INITIAL_INVESTMENT: 100
 ```
 This sets the initial investment to use to buy coin, this amount must be available in
 the pairing set in *PAIRING*.
 
 
 ```
-PAUSE_FOR = 1
+PAUSE_FOR: 1
 ```
 How long to pause in seconds before checking Binance prices again.
 
@@ -81,7 +105,7 @@ uphill.
 
 
 ```
-BUY_AT_PERCENTAGE = -20
+BUY_AT_PERCENTAGE: -20
 ```
 The percentage at which we look into start buying a coin.
 In the *buy_drop_recovery_strategy* this is the percentage drop in price over
@@ -92,7 +116,7 @@ PAUSE_FOR of 3600 seconds, then the bot will buy it.
 
 
 ```
-SELL_AT_PERCENTAGE = +10
+SELL_AT_PERCENTAGE: +10
 ```
 The profit percentage at which the bot will consider selling the coin. At this
 point the bot will monitor the price until the price drops, at which it will
@@ -100,14 +124,14 @@ then sell.
 
 
 ```
-STOP_LOSS_AT_PERCENTAGE = -25
+STOP_LOSS_AT_PERCENTAGE: -25
 ```
 The price at which the bot will sell a coin straight away to avoid further
 losses.
 
 
 ```
-TRAIL_TARGET_SELL_PERCENTAGE = -1.5
+TRAIL_TARGET_SELL_PERCENTAGE: -1.5
 ```
 This is the percentage drop in price at which when a coin in profit is sold.
 This allows to deal with flutuations in price and avoid selling a coin too soon.
@@ -115,7 +139,7 @@ When the price is likely to increase again.
 
 
 ```
-TRAIL_RECOVERY_PERCENTAGE = +1.5
+TRAIL_RECOVERY_PERCENTAGE: +1.5
 ```
 This is the percentage at which in the strategy
 *buy_drop_sell_recovery_strategy* the bot will buy a coin. This reflects the
@@ -126,14 +150,14 @@ essentially is the *recovery* phase of a coin after a large drop in price.
 
 
 ```
-HARD_LIMIT_HOLDING_TIME = 604800
+HARD_LIMIT_HOLDING_TIME: 604800
 ```
 This settings sets the maximum *age* in seconds that we will hold a coin. At the
 end of this period the bot will sell a coin regardless of its value.
 
 
 ```
-SOFT_LIMIT_HOLDING_TIME = 7200
+SOFT_LIMIT_HOLDING_TIME: 7200
 ```
 The *SELL_AT_PERCENTAGE* sets the value at a coin is suitable to be sold at a
 profit. If this profit percentage is too high the coin won't sell.
@@ -143,7 +167,7 @@ time, until it reaches the *HARD_LIMIT_HOLDING_TIME*.
 Therefore increasing the chances of a possible sale at profit.
 
 ```
-CLEAR_COIN_STATS_AT_BOOT = True
+CLEAR_COIN_STATS_AT_BOOT: True
 ```
 The bot saves a couple of files during execution, *.coins.pickle* and
 *.wallet.pickle*. These files contain the list of coins the bot bought and
@@ -152,14 +176,14 @@ minimum price, dips, and tips. This setting specifies if that data should be
 discarded at boot time.
 
 ```
-NAUGHTY_TIMEOUT = 28800
+NAUGHTY_TIMEOUT: 28800
 ```
 This setting tells the bot how long to ignore a coin after that coin sold at a
 loss.
 
 
 ```
-CLEAR_COIN_STATS_AT_SALE = True
+CLEAR_COIN_STATS_AT_SALE: True
 ```
 The bot continuously records the minimum and maximum price of all coins.
 This option resets the maximum and minimum price of all coins after a sale.
@@ -173,7 +197,7 @@ waiting for another drop.
 
 
 ```
-SELL_AS_SOON_IT_DROPS = True
+SELL_AS_SOON_IT_DROPS: True
 ```
 
 When the price drops just below the *SELL_AT_PERCENTAGE* if this flag is
@@ -182,39 +206,39 @@ enabled, the bot will sell the coin, instead of relying on the
 
 
 ```
-DEBUG = False
+DEBUG: False
 ```
 Enables debug on the bot.
 
 
 ```
-MAX_COINS = 3
+MAX_COINS: 3
 ```
 The maximum number of coins the bot will hold at any time.
 
 
 ```
-TICKERS_FILE = "tickers/all.txt"
+TICKERS_FILE: "tickers/all.txt"
 ```
 Sets the list of coins the bot monitors for prices and trades.
 This list must contain pairings as set in the *PAIRING* setting.
 
 
 ```
-TRADING_FEE = 0.01
+TRADING_FEE: 0.01
 ```
 The trading fee in percentage that binance will charge on each buy or sell
 operation.
 
 
 ```
-PRICE_LOGS = [""]
+PRICE_LOGS: [""]
 ```
 The list of price logs to be used for backtesting.
 
 
 ```
-EXCLUDED_COINS = [
+EXCLUDED_COINS: [
     'DOWNUSDT',
     'UPUSDT',
 ]
