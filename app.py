@@ -41,6 +41,7 @@ from config import (
     TRAIL_RECOVERY_PERCENTAGE,
     NAUGHTY_TIMEOUT,
     STRATEGY,
+    SELL_AS_SOON_IT_DROPS
 )
 
 
@@ -170,6 +171,7 @@ class Bot:
         self.naughty_timeout: int = NAUGHTY_TIMEOUT
         self.clean_coin_stats_at_sale: bool = CLEAR_COIN_STATS_AT_SALE
         self.strategy: str = STRATEGY
+        self.sell_as_soon_it_drops: bool = SELL_AS_SOON_IT_DROPS
 
     def run_strategy(self, *args, **kwargs) -> None:
         if len(self.wallet) != self.max_coins:
@@ -603,7 +605,7 @@ class Bot:
 
         # coin was above sell_at_percentage and dropped below
         # lets' sell it ASAP
-        if self.coin_gone_up_and_dropped(coin):
+        if self.coin_gone_up_and_dropped(coin) and self.sell_as_soon_it_drops:
             return (True, 'GONE_UP_AND_DROPPED')
 
         # possible sale

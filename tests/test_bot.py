@@ -240,8 +240,9 @@ class TestBotCheckForSaleConditions:
         result = bot.check_for_sale_conditions(coin)
         assert result == (True, 'STALE')
 
-    def test_returns_early_on_coing_gone_up_and_dropped(self, bot, coin):
+    def test_returns_early_on_coing_gone_up_and_dropped_when_flagged_on(self, bot, coin):
         bot.wallet = ["BTCUSDT"]
+        bot.sell_as_soon_it_drops = True
         coin.status = "TARGET_SELL"
         coin.price = 100.5
         coin.last = 120

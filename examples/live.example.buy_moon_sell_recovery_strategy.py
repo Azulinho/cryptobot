@@ -17,6 +17,7 @@ TRAIL_RECOVERY_PERCENTAGE = +3.0
 NAUGHTY_TIMEOUT = 28800
 CLEAR_COIN_STATS_AT_SALE = True
 DEBUG = False
+SELL_AS_SOON_IT_DROPS = False
 
 #STRATEGY="buy_moon_sell_recovery_strategy"
 STRATEGY="buy_drop_sell_recovery_strategy"

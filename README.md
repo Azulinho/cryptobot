@@ -171,6 +171,16 @@ Essentially, we start with a clean state after a sale, and monitor coin prices
 waiting for another drop.
 
 
+
+```
+SELL_AS_SOON_IT_DROPS = True
+```
+
+When the price drops just below the *SELL_AT_PERCENTAGE* if this flag is
+enabled, the bot will sell the coin, instead of relying on the
+*TRAIL_TARGET_SELL_PERCENTAGE*
+
+
 ```
 DEBUG = False
 ```
