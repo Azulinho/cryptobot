@@ -232,7 +232,7 @@ The maximum number of coins the bot will hold at any time.
 
 
 ```
-TICKERS_FILE: "tickers/all.txt"
+TICKERS: {}
 ```
 Sets the list of coins the bot monitors for prices and trades.
 This list must contain pairings as set in the *PAIRING* setting.
