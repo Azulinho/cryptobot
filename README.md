@@ -15,7 +15,7 @@ docker run -it \
     -v $PWD/log:/cryptobot/log:rw  \
     -v $PWD/.secrets.yaml:/cryptobot/.secrets.yaml  \
     -v $PWD/tickers:/cryptobot/tickers  \
-    azulinho/cryptobot -s .secrets.yaml -c configs/config.yaml -m live
+    ghcr.io/azulinho/cryptobot:master -s .secrets.yaml -c configs/config.yaml -m live
 
 ```
 
@@ -28,7 +28,7 @@ docker run -it \
     -v $PWD/log:/cryptobot/log:rw  \
     -v $PWD/.secrets.yaml:/cryptobot/.secrets.yaml  \
     -v $PWD/tickers:/cryptobot/tickers  \
-    azulinho/cryptobot -s .secrets.yaml -c configs/config.yaml -m backtesting
+    ghcr.io/azulinho/cryptobot -s .secrets.yaml -c configs/config.yaml -m backtesting
 
 ```
 
