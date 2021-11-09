@@ -2,74 +2,49 @@ PAUSE_FOR: 1
 INITIAL_INVESTMENT: 100
 MAX_COINS: 2
 PAIRING: USDT
-SOFT_LIMIT_HOLDING_TIME: 3600
-HARD_LIMIT_HOLDING_TIME: 7200
-BUY_AT_PERCENTAGE: -5.0
-SELL_AT_PERCENTAGE: +1
-STOP_LOSS_AT_PERCENTAGE: -9
 CLEAR_COIN_STATS_AT_BOOT: True
-TRAIL_TARGET_SELL_PERCENTAGE: -0.1  # when profit goes down the tip by %, sell
-TRAIL_RECOVERY_PERCENTAGE: +0.5 # when recovery goes over the dip by %, buy
-NAUGHTY_TIMEOUT: 28800
 CLEAR_COIN_STATS_AT_SALE: True
-DEBUG: False
-SELL_AS_SOON_IT_DROPS: True
+DEBUG: True
+TRADING_FEE: 0.1
+SELL_AS_SOON_IT_DROPS: False
 
 #STRATEGY="buy_moon_sell_recovery_strategy"
 STRATEGY: buy_drop_sell_recovery_strategy
 
-TICKERS_FILE: "tickers/all.txt"
-TRADING_FEE: 0.1
+ANCHORS: &defaults
+  SOFT_LIMIT_HOLDING_TIME: 3600
+  HARD_LIMIT_HOLDING_TIME: 7200
+  BUY_AT_PERCENTAGE: -5.0
+  SELL_AT_PERCENTAGE: +3
+  STOP_LOSS_AT_PERCENTAGE: -10
+  TRAIL_TARGET_SELL_PERCENTAGE: -0.5
+  TRAIL_RECOVERY_PERCENTAGE: +1.0
+  NAUGHTY_TIMEOUT: 28800
 
-PRICE_LOGS:
-  - "log/20210922.log.lz4"
-  - "log/20210923.log.lz4"
-  - "log/20210924.log.lz4"
-  - "log/20210925.log.lz4"
-  - "log/20210926.log.lz4"
-  - "log/20210927.log.lz4"
-  - "log/20210928.log.lz4"
-  - "log/20210929.log.lz4"
-  - "log/20210930.log.lz4"
-  - "log/20211001.log.lz4"
-  - "log/20211002.log.lz4"
-  - "log/20211003.log.lz4"
-  - "log/20211004.log.lz4"
-  - "log/20211005.log.lz4"
-  - "log/20211006.log.lz4"
-  - "log/20211007.log.lz4"
-  - "log/20211008.log.lz4"
-  - "log/20211009.log.lz4"
-  - "log/20211010.log.lz4"
-  - "log/20211011.log.lz4"
-  - "log/20211012.log.lz4"
-  - "log/20211013.log.lz4"
-  - "log/20211014.log.lz4"
-  - "log/20211015.log.lz4"
-  - "log/20211016.log.lz4"
-  - "log/20211017.log.lz4"
-  - "log/20211018.log.lz4"
-  - "log/20211019.log.lz4"
-  - "log/20211020.log.lz4"
-  - "log/20211021.log.lz4"
-  - "log/20211022.log.lz4"
-  - "log/20211023.log.lz4"
-  - "log/20211024.log.lz4"
-  - "log/20211025.log.lz4"
-  - "log/20211025.log.lz4"
-  - "log/20211026.log.lz4"
-  - "log/20211027.log.lz4"
-  - "log/20211028.log.lz4"
-  - "log/20211029.log.lz4"
-  - "log/20211030.log.lz4"
-  - "log/20211031.log.lz4"
-  - "log/20211101.log.lz4"
-  - "log/20211102.log.lz4"
-  - "log/20211103.log.lz4"
-  - "log/20211104.log.lz4"
-  - "log/20211105.log.lz4"
-  - "log/20211106.log.lz4"
-  - "log/20211107.log.lz4"
+
+TICKERS:
+  BTCUSDT:
+    <<: *defaults
+
+  ETHUSDT:
+    <<: *defaults
+
+  BNBUSDT:
+    <<: *defaults
+
+  DOTUSDT:
+    <<: *defaults
+
+  ADAUSDT:
+    <<: *defaults
+    BUY_AT_PERCENTAGE: -9.0
+    SELL_AT_PERCENTAGE: +5
+    STOP_LOSS_AT_PERCENTAGE: -9
+    TRAIL_TARGET_SELL_PERCENTAGE: -1.0
+    TRAIL_RECOVERY_PERCENTAGE: +2.5
+
+
+PRICE_LOGS: []
 
 EXCLUDED_COINS:
   - 'DOWNUSDT'
