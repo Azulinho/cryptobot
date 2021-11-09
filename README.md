@@ -3,6 +3,7 @@
 ## Usage:
 
 Generate a *config.yaml*, see the example configs in *examples/*
+
 And add your Binance credentials to *.secrets.yaml*.
 
 then,
@@ -43,6 +44,7 @@ SECRET_KEY: "SECRET_KEY"
 ## Config settings:
 
 If using TESTNET generate a set of keys at https://testnet.binance.vision/
+
 Note that TESTNET is only suitable for bot development and nothing else.
 Otherwise use your Binance production keys.
 
@@ -51,10 +53,13 @@ Otherwise use your Binance production keys.
 MODE: "live"
 ```
 Set the mode where this bot is running,
+
 Options are: *live*, *backtesting*, *testnet*
 
 *live* is the production mode, where the bot will buy and sell with real money.
+
 *backtesting* uses a set of price.log files to simulate buy, sell trades.
+
 *logmode* simply logs all prices into *price.log* files, that can then be used
 for backtesting.
 
@@ -94,12 +99,14 @@ buy coins that dropped their price over a percentage against their maximum price
 In this mode, the bot won't buy a coin as soon the price drops, but will keep
 monitoring its price allowing the price to go further down and only buy when the
 price raises again by a certain percentage amount.
+
 This works so that we are buying the coin after a downhill period as finished
 and the coin started its recovery.
 
 In both strategies, the bot when holding a coin that achieved its target price,
 won't sell the coin straight away but let it go up in price. And only when the
 price has decreased by a certain percentange, it will then sell the coin.
+
 This allows for ignoring small drops in a coin whose price is slowly going
 uphill.
 
@@ -108,8 +115,10 @@ uphill.
 BUY_AT_PERCENTAGE: -20
 ```
 The percentage at which we look into start buying a coin.
+
 In the *buy_drop_recovery_strategy* this is the percentage drop in price over
 the maximum recorded.
+
 In the *buy_moon_sell_recovery_strategy* this is the price percentage difference
 between two periods (PAUSE_FOR). When a coin goes over, lets say +1 in a
 PAUSE_FOR of 3600 seconds, then the bot will buy it.
@@ -134,6 +143,7 @@ losses.
 TRAIL_TARGET_SELL_PERCENTAGE: -1.5
 ```
 This is the percentage drop in price at which when a coin in profit is sold.
+
 This allows to deal with flutuations in price and avoid selling a coin too soon.
 When the price is likely to increase again.
 
@@ -161,9 +171,11 @@ SOFT_LIMIT_HOLDING_TIME: 7200
 ```
 The *SELL_AT_PERCENTAGE* sets the value at a coin is suitable to be sold at a
 profit. If this profit percentage is too high the coin won't sell.
+
 This setting deals with those scenarios by reducing both the
 *TRAIL_RECOVERY_PERCENTAGE* and the *SELL_AT_PERCENTAGE* values slowly over
 time, until it reaches the *HARD_LIMIT_HOLDING_TIME*.
+
 Therefore increasing the chances of a possible sale at profit.
 
 ```
@@ -187,10 +199,12 @@ CLEAR_COIN_STATS_AT_SALE: True
 ```
 The bot continuously records the minimum and maximum price of all coins.
 This option resets the maximum and minimum price of all coins after a sale.
+
 This creates a new candle window starting at the moment of the last coin sold,
 avoiding a situation where a coin that had a large increase in price in the past
 and dropped won't be continuously bought by the bot as its price is below the
 *BUY_AT_PERCENTAGE* quite often.
+
 Essentially, we start with a clean state after a sale, and monitor coin prices
 waiting for another drop.
 
