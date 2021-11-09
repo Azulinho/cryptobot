@@ -10,17 +10,18 @@ from unittest import mock
 
 from binance.client import Client
 
-with open("tests/config.yaml") as f:
-    cfg = yaml.safe_load(f.read())
-
-cfg["MODE"] = "backtesting"
-
+@pytest.fixture()
+def cfg():
+    with open("tests/config.yaml") as f:
+        config = yaml.safe_load(f.read())
+        config["MODE"] = "backtesting"
+        return config
 
 def test_percent():
     assert app.percent(0.1, 100.0) == 0.1
 
 @pytest.fixture()
-def bot():
+def bot(cfg):
     with mock.patch('binance.client.Client', new_callable=mock.PropertyMock
     ) as mock1:
         mock1.return_value = None
@@ -31,23 +32,24 @@ def bot():
 
             bot = app.Bot(client, cfg)
             bot.client.API_URL = "https://www.google.com"
-            bot.tickers = ["BTCUSDT"]
             yield bot
             del(bot)
 
 @pytest.fixture()
-def coin():
+def coin(bot):
     client = "fake"
     coin = app.Coin(
         client=client,
         symbol="BTCUSDT",
         date="2021",
         market_price=100.00,
-        buy_at=100 + float(cfg['BUY_AT_PERCENTAGE']),
-        sell_at=100 + float(cfg['SELL_AT_PERCENTAGE']),
-        stop_loss=100 + float(cfg['STOP_LOSS_AT_PERCENTAGE']),
-        trail_target_sell_percentage=100 + float(cfg['TRAIL_TARGET_SELL_PERCENTAGE']),
-        trail_recovery_percentage=100 + float(cfg['TRAIL_RECOVERY_PERCENTAGE'])
+        buy_at=float(bot.tickers['BTCUSDT']['BUY_AT_PERCENTAGE']),
+        sell_at=float(bot.tickers['BTCUSDT']['SELL_AT_PERCENTAGE']),
+        stop_loss=float(bot.tickers['BTCUSDT']['STOP_LOSS_AT_PERCENTAGE']),
+        trail_target_sell_percentage=float(bot.tickers['BTCUSDT']['TRAIL_TARGET_SELL_PERCENTAGE']),
+        trail_recovery_percentage=float(bot.tickers['BTCUSDT']['TRAIL_RECOVERY_PERCENTAGE']),
+        soft_limit_holding_time=int(bot.tickers['BTCUSDT']['SOFT_LIMIT_HOLDING_TIME']),
+        hard_limit_holding_time=int(bot.tickers['BTCUSDT']['HARD_LIMIT_HOLDING_TIME'])
     )
     yield coin
     del(coin)
@@ -123,7 +125,7 @@ class TestBot:
     def test_get_binance_prices(self, bot, coin):
         pass
 
-    def test_init_or_update_coin(self, bot, coin):
+    def test_init_or_update_coin(self, bot, coin, cfg):
         binance_data = {"symbol":"BTCUSDT","price":"101.000"}
 
         result = bot.init_or_update_coin(binance_data)
@@ -131,19 +133,19 @@ class TestBot:
 
         assert float(bot.coins['BTCUSDT'].price) == float(101.0)
         assert bot.coins['BTCUSDT'].buy_at_percentage == float(
-            100 + cfg['BUY_AT_PERCENTAGE']
+            100 + cfg['TICKERS']['BTCUSDT']['BUY_AT_PERCENTAGE']
         )
         assert bot.coins['BTCUSDT'].stop_loss_at_percentage == float(
-            100 + cfg['STOP_LOSS_AT_PERCENTAGE']
+            100 + cfg['TICKERS']['BTCUSDT']['STOP_LOSS_AT_PERCENTAGE']
         )
         assert bot.coins['BTCUSDT'].sell_at_percentage == float(
-            100 + cfg['SELL_AT_PERCENTAGE']
+            100 + cfg['TICKERS']['BTCUSDT']['SELL_AT_PERCENTAGE']
         )
         assert bot.coins['BTCUSDT'].trail_target_sell_percentage == float(
-            100 + cfg['TRAIL_TARGET_SELL_PERCENTAGE']
+            100 + cfg['TICKERS']['BTCUSDT']['TRAIL_TARGET_SELL_PERCENTAGE']
         )
         assert bot.coins['BTCUSDT'].trail_recovery_percentage == float(
-            100 + cfg['TRAIL_RECOVERY_PERCENTAGE']
+            100 + cfg['TICKERS']['BTCUSDT']['TRAIL_RECOVERY_PERCENTAGE']
         )
 
 
@@ -429,7 +431,7 @@ class TestCoinStatus:
                 assert bot.profit == 99.7
                 assert round(bot.investment, 1) == round(199.7, 1)
 
-    def test_past_hard_limit(self, bot, coin):
+    def test_past_hard_limit(self, bot, coin, cfg):
         bot.wallet = ["BTCUSDT"]
         coin.bought_at = 100
         coin.cost = 100
@@ -467,7 +469,7 @@ class TestCoinStatus:
                 assert result == True
                 assert bot.stales == 1
                 assert bot.profit == 99.7
-                assert coin.naughty_timeout == cfg['NAUGHTY_TIMEOUT']
+                assert coin.naughty_timeout == cfg['TICKERS']['BTCUSDT']['NAUGHTY_TIMEOUT']
                 assert round(bot.investment, 1) == round(199.7, 1)
 
     def test_past_soft_limit(self, bot, coin):
@@ -522,7 +524,7 @@ class TestCoinStatus:
         assert bot.coins['BTCUSDT'].status == ""
         assert bot.coins['ETHUSDT'].status == ""
 
-    def test_clear_coin_stats(self, bot, coin):
+    def test_clear_coin_stats(self, bot, coin, cfg):
         coin.status = "DIRTY"
         coin.holding_time = 999
         coin.buy_at_percentage = 999
@@ -540,12 +542,12 @@ class TestCoinStatus:
         result = bot.clear_coin_stats(coin)
         assert result == None
         assert coin.status == ""
-        assert coin.holding_time == 0
-        assert coin.buy_at_percentage == bot.buy_at_percentage
-        assert coin.sell_at_percentage == bot.sell_at_percentage
-        assert coin.stop_loss_at_percentage == bot.stop_loss_at_percentage
-        assert coin.trail_target_sell_percentage == bot.trail_target_sell_percentage
-        assert coin.trail_recovery_percentage == bot.trail_recovery_percentage
+        assert coin.holding_time == 1
+        assert coin.buy_at_percentage == 100 + cfg['TICKERS']['BTCUSDT']['BUY_AT_PERCENTAGE']
+        assert coin.sell_at_percentage == 100 + cfg['TICKERS']['BTCUSDT']['SELL_AT_PERCENTAGE']
+        assert coin.stop_loss_at_percentage == 100 + cfg['TICKERS']['BTCUSDT']['STOP_LOSS_AT_PERCENTAGE']
+        assert coin.trail_target_sell_percentage == 100 + cfg['TICKERS']['BTCUSDT']['TRAIL_TARGET_SELL_PERCENTAGE']
+        assert coin.trail_recovery_percentage == 100 + cfg['TICKERS']['BTCUSDT']['TRAIL_RECOVERY_PERCENTAGE']
         assert coin.bought_at == float(0)
         assert coin.dip == float(0)
         assert coin.tip == float(0)
