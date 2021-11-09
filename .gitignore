@@ -9,3 +9,4 @@ log/*
 testlogs/
 tickers/*
 configs/*
+tickers/all.txt tickers/binance-alts-eth.txt tickers/binance-bnb.top8.txt tickers/binance-bnb.txt tickers/binance-btc.top8.txt tickers/binance-btc.txt tickers/binance-eth.top8.txt tickers/cfx.txt tickers/dotbnb.txt tickers/icp.txt tickers/tickers.bnbeth.txt tickers/tickers.btc.txt tickers/tickers.BTC.txt tickers/tickers.dot.txt tickers/tickers.eth.txt tickers/tickers.highvol.safe.txt tickers/tickers.highvol.txt tickers/tickers.keepusdt.txt tickers/tickers.maticbnb.txt tickers/tickers.matic.txt tickers/tickers.next9.txt tickers/tickers.sol.txt tickers/tickers.top2.txt tickers/tickers.top4.txt tickers/tickers.top8.txt tickers/tickers.top9.txt tickers/tickers.txt tickers/tickers.txt.72 tickers/top3bnb.txt tickers/top5usdt.txt
