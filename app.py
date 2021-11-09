@@ -370,10 +370,10 @@ class Bot:
     def get_binance_prices(self) -> List[Dict[str, str]]:
         return self.client.get_all_tickers()
 
-    def write_log(self, symbol: str) -> None:
+    def write_log(self, symbol: str, price: str) -> None:
         price_log = f"log/{datetime.now().strftime('%Y%m%d')}.log"
         with open(price_log, "a") as f:
-            f.write(f"{datetime.now()} {symbol} {self.coins[symbol].price}\n")
+            f.write(f"{datetime.now()} {symbol} {price}\n")
 
     def init_or_update_coin(self, binance_data: Dict[str, Any]) -> None:
         symbol = binance_data["symbol"]
@@ -401,21 +401,24 @@ class Bot:
         # look for coins that are ready for buying, or selling
         for binance_data in self.get_binance_prices():
             coin_symbol = binance_data["symbol"]
-            self.init_or_update_coin(binance_data)
+            price = binance_data["price"]
 
             if self.mode in ["live", "logmode"]:
-                self.write_log(coin_symbol)
+                self.write_log(coin_symbol, price)
 
             if self.mode not in ["live", "backtesting", "testnet"]:
                 continue
 
-            if self.pairing in coin_symbol:
-                if self.coins[coin_symbol].naughty_timeout < 1:
-                    if not any(sub in coin_symbol for sub in self.excluded_coins):
-                        if coin_symbol in self.tickers or coin_symbol in self.wallet:
-                            self.run_strategy(self.coins[coin_symbol])
-                        if coin_symbol in self.wallet:
-                            self.log_debug_coin(self.coins[coin_symbol])
+            if coin_symbol in self.tickers:
+                self.init_or_update_coin(binance_data)
+
+                if self.pairing in coin_symbol:
+                    if self.coins[coin_symbol].naughty_timeout < 1:
+                        if not any(sub in coin_symbol for sub in self.excluded_coins):
+                            if coin_symbol in self.tickers or coin_symbol in self.wallet:
+                                self.run_strategy(self.coins[coin_symbol])
+                            if coin_symbol in self.wallet:
+                                self.log_debug_coin(self.coins[coin_symbol])
 
     def stop_loss(self, coin: Coin) -> bool:
         # oh we already own this one, lets check prices
