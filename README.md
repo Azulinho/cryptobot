@@ -1,4 +1,4 @@
-# CryptoBot - Binance Trading Bot
+jzRryptoBot - Binance Trading Bot
 
 A python based trading bot for Binance, which relies heavily on backtesting.
 
@@ -53,10 +53,16 @@ TICKERS:
 In order to test the different 'profiles' for different coins, this bot is
 designed to rely mainly on backtesting. For backtesting, this bot provides two
 modes for running.
+
 In the *logmode* it records price.logs for all available coins in binance and
 store them in the log directory. These logs can then be consumed in
 *backtesting* mode.
 
+Just to get started, there are some logfiles available for testing at:
+http://cryptobot-sample-logs.azulinho.com:5555/
+
+Don't decompress these files, as the bot consumes them compressed in the lz4
+format.
 
 
 ## Riot/Matrix:
@@ -86,6 +92,8 @@ docker run -it \
 ```
 To run the bot in backtesting, which will perform backtesting on all collected
 price logs based on the provided config.yaml.
+
+All logs should be compressed in *lz4* format, prior to backtesting.
 
 ```
 docker run -it \
