@@ -1,5 +1,61 @@
 # CryptoBot - Binance Trading Bot
 
+A python based trading bot for Binance.
+
+Currently provides two strategies, *buy_drop_sell_recovery_strategy* and
+*buy_moon_sell_recovery_strategy*. How these strategies work is described below.
+
+This bot only buys coins specifically listed in its configuration,
+the way this works is that each coin is giving its own set of settings,
+lets call it a 'profile'.
+
+These profiles is what the bot uses to buy and sell coins, for example when
+using the *buy_drop_sell_recovery_strategy* I specify that I want the bot to
+buy *BTCUSDT* when the price initially drops by at least 10%,
+followed by a recovery of at least 1%. And that it then looks into selling that
+coin at at a 6% profit upwards, and that the bot will sell the coin when the
+price then drops by at least 1%.
+
+To prevent loss, I set the STOP LOSS at -10% over the price paid for the coin.
+
+To avoid periods of volatility, in case after a stop-loss I set that I don't
+want to buy any more BTCUSDT for at least 86400 seconds. After than the bot will
+start looking at buying this coin again.
+
+Some coins might be slow recovering from the price we paid, and take sometime
+for its price to raise all the way to the 6% profit we aim for.
+
+To avoid having a bot coin slot locked forever, we set set a TimeToLive on the coins
+the bot buys. we call this the *HARD_LIMIT_HOLDING_TIME*. The bot will
+forcefully sell the coin regardless of its price when this period expires.
+
+To improve the chances of selling a coin during a slow recovery, we decrease
+the target profit percentage gradually until we reach that *HARD_LIMIT_HOLDING_TIME*.
+
+This is done through the *SOFT_LIMIT_HOLDING_TIME*, with this setting we the
+number of seconds to wait before the bot starts decreasing the profit target
+percentage.
+
+
+```
+TICKERS:
+  BTCUSDT:
+      SOFT_LIMIT_HOLDING_TIME: 3600
+      HARD_LIMIT_HOLDING_TIME: 7200
+      BUY_AT_PERCENTAGE: -10.0
+      SELL_AT_PERCENTAGE: +6
+      STOP_LOSS_AT_PERCENTAGE: -10
+      TRAIL_TARGET_SELL_PERCENTAGE: -1.0
+      TRAIL_RECOVERY_PERCENTAGE: +1.0
+      NAUGHTY_TIMEOUT: 604800
+```
+
+
+## Riot/Matrix:
+
+Join on: https://matrix.to/#/#cryptobot:matrix.org
+
+
 ## Usage:
 
 Generate a *config.yaml*, see the example configs in *examples/*
