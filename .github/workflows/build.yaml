@@ -33,6 +33,9 @@ jobs:
         uses: docker/metadata-action@v3
         with:
           images: ghcr.io/azulinho/cryptobot
+        tags: |
+          type=type=semver,pattern={{version}}
+
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
