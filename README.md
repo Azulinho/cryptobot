@@ -1,6 +1,6 @@
 # CryptoBot - Binance Trading Bot
 
-A python based trading bot for Binance.
+A python based trading bot for Binance, which relies heavily on backtesting.
 
 Currently provides two strategies, *buy_drop_sell_recovery_strategy* and
 *buy_moon_sell_recovery_strategy*. How these strategies work is described below.
@@ -50,6 +50,14 @@ TICKERS:
       NAUGHTY_TIMEOUT: 604800
 ```
 
+In order to test the different 'profiles' for different coins, this bot is
+designed to rely mainly on backtesting. For backtesting, this bot provides two
+modes for running.
+In the *logmode* it records price.logs for all available coins in binance and
+store them in the log directory. These logs can then be consumed in
+*backtesting* mode.
+
+
 
 ## Riot/Matrix:
 
@@ -62,7 +70,35 @@ Generate a *config.yaml*, see the example configs in *examples/*
 
 And add your Binance credentials to *.secrets.yaml*.
 
-then,
+
+To run the bot in logmode only, which will generate price logs while its
+running.
+
+```
+docker run -it \
+    -u `id -u` \
+    -v $PWD/configs/:/cryptobot/configs/:ro  \
+    -v $PWD/log:/cryptobot/log:rw  \
+    -v $PWD/.secrets.yaml:/cryptobot/.secrets.yaml  \
+    -v $PWD/tickers:/cryptobot/tickers  \
+    ghcr.io/azulinho/cryptobot -s .secrets.yaml -c configs/config.yaml -m logmode
+
+```
+To run the bot in backtesting, which will perform backtesting on all collected
+price logs based on the provided config.yaml.
+
+```
+docker run -it \
+    -u `id -u` \
+    -v $PWD/configs/:/cryptobot/configs/:ro  \
+    -v $PWD/log:/cryptobot/log:rw  \
+    -v $PWD/.secrets.yaml:/cryptobot/.secrets.yaml  \
+    -v $PWD/tickers:/cryptobot/tickers  \
+    ghcr.io/azulinho/cryptobot -s .secrets.yaml -c configs/config.yaml -m backtesting
+
+```
+
+Finally, to run in live trading mode,
 
 ```
 docker run -it \
@@ -75,18 +111,6 @@ docker run -it \
 
 ```
 
-To run the bot in logmode only,
-
-```
-docker run -it \
-    -u `id -u` \
-    -v $PWD/configs/:/cryptobot/configs/:ro  \
-    -v $PWD/log:/cryptobot/log:rw  \
-    -v $PWD/.secrets.yaml:/cryptobot/.secrets.yaml  \
-    -v $PWD/tickers:/cryptobot/tickers  \
-    ghcr.io/azulinho/cryptobot -s .secrets.yaml -c configs/config.yaml -m backtesting
-
-```
 
 ## Secrets:
 
