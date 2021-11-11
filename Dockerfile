@@ -28,7 +28,7 @@ RUN curl https://pyenv.run | bash
 ENV PYENV_ROOT="$HOME/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims/:$PATH"
 ADD .python-version .
-RUN CONFIGURE_OPTS=--enable-shared pyenv install
+RUN CONFIGURE_OPTS="--enable-shared --fno-semantic-interposition --enable-optimizations --with-lto --with-pgo" pyenv install
 ADD requirements.txt .
 RUN pip install -r requirements.txt
 ADD app.py .

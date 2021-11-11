@@ -690,12 +690,12 @@ class Bot:
                         continue
 
                     parts = line.split(" ")
-                    date = " ".join(parts[0:2])
                     symbol = parts[2]
-                    market_price = float(parts[3])
-
                     if symbol not in self.tickers:
                         continue
+                    date = " ".join(parts[0:2])
+                    market_price = float(parts[3])
+
 
                     # implements a PAUSE_FOR pause while reading from
                     # our price logs.
