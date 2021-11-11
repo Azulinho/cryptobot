@@ -490,6 +490,13 @@ class Bot:
                 ( coin.hard_limit_holding_time - coin.soft_limit_holding_time)
             )) #
 
+            coin.sell_at_percentage = add_100(
+                percent(
+                    ttl,
+                    self.tickers[coin.symbol]['SELL_AT_PERCENTAGE']
+                )
+            )
+
             if coin.sell_at_percentage < add_100(2 * float(self.trading_fee)):
                 coin.sell_at_percentage == add_100(2* float(self.trading_fee))
 

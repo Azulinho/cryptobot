@@ -481,7 +481,7 @@ class TestCoinStatus:
         coin.profit = 100
         coin.value = 200
         coin.volume = 1
-        coin.holding_time = 9999999
+        coin.holding_time = 5400
         with mock.patch.object(
             bot.client, 'create_order', return_value={
                 "symbol": "BTCUSDT",
@@ -508,6 +508,8 @@ class TestCoinStatus:
                 result = bot.past_soft_limit(coin)
                 assert result == True
                 assert coin.naughty_timeout == 0
+                assert coin.sell_at_percentage == 101.5
+                assert coin.trail_target_sell_percentage == 99.749
 
     def test_clear_all_coins_stats(self, bot, coin):
         coin1 = coin
