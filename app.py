@@ -581,6 +581,7 @@ class Bot:
 
         # finally apply the current settings in the config file
         for symbol in self.coins:
+            print(f"overriding values for {symbol} from config")
             self.coins[symbol].buy_at_percentage = add_100(
                 self.tickers[symbol]['BUY_AT_PERCENTAGE']
             )
@@ -590,7 +591,18 @@ class Bot:
             self.coins[symbol].stop_loss_at_percentage = add_100(
                 self.tickers[symbol]['STOP_LOSS_AT_PERCENTAGE']
             )
-
+            self.coins[symbol].soft_limit_holding_time = int(
+                self.tickers[symbol]['SOFT_LIMIT_HOLDING_TIME']
+            )
+            self.coins[symbol].hard_limit_holding_time = int(
+                self.tickers[symbol]['HARD_LIMIT_HOLDING_TIME']
+            )
+            self.coins[symbol].trail_target_sell_percentage = add_100(
+                self.tickers[symbol]['TRAIL_TARGET_SELL_PERCENTAGE']
+            )
+            self.coins[symbol].trail_recovery_percentage = add_100(
+                self.tickers[symbol]['TRAIL_RECOVERY_PERCENTAGE']
+            )
 
     # TODO: THIS function is not doing anything
     def check_for_sale_conditions(self, coin: Coin) -> Tuple[bool, str]:
