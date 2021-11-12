@@ -64,6 +64,25 @@ http://cryptobot-sample-logs.azulinho.com:5555/
 Don't decompress these files, as the bot consumes them compressed in the lz4
 format.
 
+Processing each daily logfile takes around 30 seconds, so for a large number of
+price log files this can take a long time to run backtesting simulations.
+A workaround is to test out each coin individually by generating a price.log
+file containing just the coins we care about.
+
+```
+rm -f MYCOINS.log
+for ta in logs/2021*.lz4
+do
+lz4cat ${ta} |  egrep -E 'BTCUSDT|ETHUSDT|BNBUSDT|DOTUSDT'>> MYCOINS.log
+done
+lz4 MYCOINS.log
+
+```
+
+and then use that *MYCOINS.log.lz4* in the PRICE_LOGS configuration setting.
+This way each simulation takes just a few seconds.
+
+All backtests are logged into log/backtesting.log.
 
 ## Riot/Matrix:
 
