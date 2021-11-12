@@ -371,7 +371,10 @@ class Bot:
         return self.client.get_all_tickers()
 
     def write_log(self, symbol: str, price: str) -> None:
-        price_log = f"log/{datetime.now().strftime('%Y%m%d')}.log"
+        if self.mode == "testnet":
+            price_log = "log/testnet.log"
+        else:
+            price_log = f"log/{datetime.now().strftime('%Y%m%d')}.log"
         with open(price_log, "a") as f:
             f.write(f"{datetime.now()} {symbol} {price}\n")
 
@@ -403,7 +406,7 @@ class Bot:
             coin_symbol = binance_data["symbol"]
             price = binance_data["price"]
 
-            if self.mode in ["live", "logmode"]:
+            if self.mode in ["live", "logmode", "testnet"]:
                 self.write_log(coin_symbol, price)
 
             if self.mode not in ["live", "backtesting", "testnet"]:
