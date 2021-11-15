@@ -4,8 +4,8 @@ A python based trading bot for Binance, which relies heavily on backtesting.
 
 1. [Overview](#overview)
 2. [Riot/Matrix:](#riot/matrix:)
-3. [Usage:](#usage:)
-4. [Config settings:](#config-settings:)
+3. [Usage](#usage)
+4. [Config settings](#config-settings)
 
 ## Overview
 
@@ -148,7 +148,7 @@ DO NOT USE github issues to ask for help. I have no time for you. You'll be told
 Also: *NO TORIES or BREXITERS*, this is not negotiable.
 
 
-## Usage:
+## Usage
 
 1. Install docker as per https://docs.docker.com/get-docker/
 
@@ -251,7 +251,7 @@ U="$(id -u)" G="$(id -g)" docker-compose run cryptobot \
 ```
 
 
-## Config settings:
+## Config settings
 
 Full list of config settings and their use described below:
 
