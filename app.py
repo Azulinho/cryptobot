@@ -90,7 +90,7 @@ class Coin:
         self.profit = float(0)
         self.soft_limit_holding_time: int = int(soft_limit_holding_time)
         self.hard_limit_holding_time: int = int(hard_limit_holding_time)
-        # TODO: this must support PAUSE times
+        # TODO: this must support PAUSE_FOR values different than 1s
         self.averages: dict = {
             "counters": {
                 "s": 0,
@@ -271,7 +271,7 @@ class Bot:
         cprint(
             f"{coin.date}: [{coin.symbol}] {coin.status} {coin.holding_time}s "
             + f"U:{coin.volume} P:{coin.price} T:{coin.value:.3f} "
-            + f"sell_at:{coin.price * coin.sell_at_percentage /100} "
+            + f"sell_at:{coin.price * coin.sell_at_percentage /100:.3f} "
             + f"({len(self.wallet)}/{self.max_coins})",
             "magenta",
         )
@@ -323,8 +323,8 @@ class Bot:
             + f"U:{coin.volume} "
             + f"P:{coin.price} T:{coin.value:.3f} and "
             + f"{message}:{coin.profit:.3f} "
-            + f"sell_at:{coin.sell_at_percentage:.3f} "
-            + f"trail_sell:{coin.trail_target_sell_percentage:.3f}"
+            + f"sell_at:{coin.price * coin.sell_at_percentage / 100:.3f} "
+            + f"trail_sell:{coin.price * coin.trail_target_sell_percentage/ 100:.3f}"
             + f" ({len(self.wallet)}/{self.max_coins})",
             ink,
         )
