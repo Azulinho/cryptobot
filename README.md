@@ -58,8 +58,9 @@ In the *logmode* it records price.logs for all available coins in binance and
 store them in the log directory. These logs can then be consumed in
 *backtesting* mode.
 
-Just to get started, there are some logfiles available for testing at:
-http://cryptobot-sample-logs.azulinho.com:5555/
+Just to get started, here is a
+[logfile](https://www.dropbox.com/s/1kftndfctc67lje/MYCOINS.log.lz4?dl=0)
+for testing at containing a small set of coins
 
 Don't decompress these files, as the bot consumes them compressed in the lz4
 format.
