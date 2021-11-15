@@ -140,8 +140,7 @@ class Coin:
             if float(market_price) < float(self.dip):
                 self.dip = market_price
 
-
-        self.averages['s'].append(market_price)
+        self.averages['s'].append(float(market_price))
         self.averages['counters']['s'] += 1
 
         # TODO: this needs to work with PAUSE values
