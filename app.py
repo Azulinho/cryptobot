@@ -101,7 +101,6 @@ class Coin:
         self.last = self.price
         self.price = float(market_price)
 
-        # don't age our coin, unless we're waiting to sell it.
         if self.status in ["TARGET_SELL", "HOLD"]:
             self.holding_time = self.holding_time + 1
 
@@ -154,8 +153,8 @@ class Coin:
 
 
 class Bot:
-    def __init__(self, client, cfg) -> None:
-        self.client = client
+    def __init__(self, conn, cfg) -> None:
+        self.client = conn
         self.initial_investment: float = float(cfg["INITIAL_INVESTMENT"])
         self.investment: float = float(cfg["INITIAL_INVESTMENT"])
         self.excluded_coins: str = cfg["EXCLUDED_COINS"]
@@ -630,7 +629,6 @@ class Bot:
                 self.tickers[symbol]['TRAIL_RECOVERY_PERCENTAGE']
             )
 
-    # TODO: THIS function is not doing anything
     def check_for_sale_conditions(self, coin: Coin) -> Tuple[bool, str]:
         # return early if no work left to do
         if coin.symbol not in self.wallet:
@@ -662,7 +660,6 @@ class Bot:
 
         return (False, 'HOLD')
 
-    # TODO: stale is not being consumed here
     def buy_drop_sell_recovery_strategy(self, coin: Coin) -> bool:
         # has the price gone down by x% on a coin we don't own?
         if (
