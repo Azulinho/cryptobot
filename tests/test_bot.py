@@ -115,38 +115,48 @@ class TestCoin:
         coin.update('now', 120.00)
         assert 120.00 in coin.averages['s']
         assert len(coin.averages['s']) == 1
+        assert coin.averages['counters']['s'] == 1
+        assert list(coin.averages['s']) == [120.0]
 
     def test_update_coin_updates_minutes_averages(self, coin):
         for x in range(60):
             coin.update('now', 100)
 
-        assert len(coin.averages['s']) == 0
+        assert coin.averages['counters']['s'] == 0
+        assert len(coin.averages['s']) == 60
+
+        assert coin.averages['counters']['m'] == 1
         assert len(coin.averages['m']) == 1
-        assert coin.averages['s'] == []
-        assert coin.averages['m'] == [100.0]
+
+        assert list(coin.averages['s']) == [100 for x in range(60)]
+        assert list(coin.averages['m']) == [100.0]
 
     def test_update_coin_updates_hour_averages(self, coin):
         for x in range(3600):
             coin.update('now', 100)
 
-        assert coin.averages['s'] == []
-        assert coin.averages['m'] == []
-        assert coin.averages['h'] == [100.0]
-        assert len(coin.averages['s']) == 0
-        assert len(coin.averages['m']) == 0
-        assert len(coin.averages['h']) == 1
+        assert coin.averages['counters']['s'] == 0
+        assert list(coin.averages['s']) == [100 for x in range(60)]
+
+        assert coin.averages['counters']['m'] == 0
+        assert list(coin.averages['m']) == [100 for x in range(60)]
+
+        assert coin.averages['counters']['h'] == 1
+        assert list(coin.averages['h']) == [100.0]
 
     def test_update_coin_updates_days_averages(self, coin):
         for x in range(86400):
             coin.update('now', 100)
 
-        assert coin.averages['s'] == []
-        assert coin.averages['m'] == []
-        assert coin.averages['h'] == []
-        assert coin.averages['d'] == [100.0]
-        assert len(coin.averages['s']) == 0
-        assert len(coin.averages['m']) == 0
-        assert len(coin.averages['h']) == 0
+        assert coin.averages['counters']['s'] == 0
+        assert list(coin.averages['s']) == [100 for x in range(60)]
+
+        assert coin.averages['counters']['m'] == 0
+        assert list(coin.averages['m']) == [100 for x in range(60)]
+
+        assert coin.averages['counters']['h'] == 0
+        assert list(coin.averages['h']) == [100 for x in range(24)]
+
         assert len(coin.averages['d']) == 1
 
 class TestBot:

@@ -20,6 +20,7 @@ from neotermcolor import colored, cprint
 from requests.exceptions import ReadTimeout, ConnectionError
 from tenacity import retry, wait_exponential
 from numpy import mean
+from collections import deque
 
 def timing(f):
     @wraps(f)
@@ -89,10 +90,16 @@ class Coin:
         self.profit = float(0)
         self.soft_limit_holding_time: int = int(soft_limit_holding_time)
         self.hard_limit_holding_time: int = int(hard_limit_holding_time)
+        # TODO: this must support PAUSE times
         self.averages: dict = {
-            "s": [],
-            "m": [],
-            "h": [],
+            "counters": {
+                "s": 0,
+                "m": 0,
+                "h": 0,
+            },
+            "s": deque([], maxlen=60),
+            "m": deque([], maxlen=60),
+            "h": deque([], maxlen=24),
             "d": [],
         }
 
@@ -135,21 +142,24 @@ class Coin:
 
 
         self.averages['s'].append(market_price)
+        self.averages['counters']['s'] += 1
 
         # TODO: this needs to work with PAUSE values
-        if len(self.averages['s']) == 60:
+        if self.averages['counters']['s'] == 60:
             last_s_avg = mean(self.averages['s'])
-            self.averages['s'] = []
+            self.averages['counters']['s'] = 0
             self.averages['m'].append(last_s_avg)
+            self.averages['counters']['m'] += 1
 
-        if len(self.averages['m']) == 60:
+        if self.averages['counters']['m'] == 60:
             last_m_avg = mean(self.averages['m'])
-            self.averages['m'] = []
+            self.averages['counters']['m'] = 0
             self.averages['h'].append(last_m_avg)
+            self.averages['counters']['h'] += 1
 
-        if len(self.averages['h']) == 24:
+        if self.averages['counters']['h'] == 24:
             last_h_avg = mean(self.averages['h'])
-            self.averages['h'] = []
+            self.averages['counters']['h'] = 0
             self.averages['d'].append(last_h_avg)
 
 
