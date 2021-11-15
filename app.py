@@ -123,6 +123,7 @@ class Coin:
                 self.sell_at_percentage, self.bought_at
             ):
                 self.status = "TARGET_SELL"
+                print(f"{self.date}: {self.symbol} [HOLD] -> [TARGET_SELL]")
 
         if self.status == "TARGET_SELL":
             if float(market_price) > float(self.tip):
@@ -473,6 +474,7 @@ class Bot:
             coin.sell_at_percentage, coin.bought_at
         ):
             coin.status = "GONE_UP_AND_DROPPED"
+            print(f"{coin.date} {coin.symbol} [TARGET_SELL] -> [GONE_UP_AND_DROPPED]")
             self.sell_coin(coin)
             self.wins = self.wins + 1
             return True
@@ -659,6 +661,7 @@ class Bot:
 
         # This coin is past our soft limit
         # we apply a sliding window to the buy profit
+        # TODO: make PAST_SOFT_LIMIT a full grown-up coin status
         if self.past_soft_limit(coin):
             return (False, 'PAST_SOFT_LIMIT')
 
@@ -670,6 +673,7 @@ class Bot:
             float(coin.price) < percent(coin.buy_at_percentage, coin.max)
         ) and coin.status == "":
             coin.dip = coin.price
+            print(f"{coin.date}: {coin.symbol} [{coin.status}] -> [TARGET_DIP]")
             coin.status = "TARGET_DIP"
 
         if coin.status != "TARGET_DIP":
