@@ -134,13 +134,9 @@ A workaround is to test out each coin individually by generating a price.log
 file containing just the coins we care about.
 
 ```
-rm -f MYCOINS.log
-for ta in logs/2021*.lz4
-do
-docker run --user=`id -u` -it -v $PWD/log:/log azulinho/lz4 lz4cat ${ta} |  egrep -E 'BTCUSDT|ETHUSDT|BNBUSDT|DOTUSDT'>> MYCOINS.log
-done
-lz4 MYCOINS.log
-
+rm -f log/MYCOINS.log
+docker run -it --user=`id -u` -v $PWD/log:/log --workdir /log azulinho/lz4 sh -c "ls *.log.lz4| xargs -i lz4cat {} |egrep -E 'BTCUSDT|ETHUSDT|BNBUSDT|DOTUSDT' >> MYCOINS.log"
+docker run -it --user=`id -u` -v $PWD/log:/log --workdir /log azulinho/lz4 sh -c "lz4 MYCOINS.log"
 ```
 
 Then we can use that *MYCOINS.log.lz4* in the *PRICE_LOGS* configuration setting.
@@ -217,7 +213,7 @@ run a new instance of the bot in *backtesting* mode.
 5. Compress all the logs, except for the current live logfile in *lz4* format.
 
 ```
-docker run --user=`id -u` -it -v $PWD/log:/log azulinho/lz4 lz4 /log/*.log
+docker run -it --user=`id -u` -v $PWD/log:/log --workdir /log azulinho/lz4 sh -c "ls *.log| xargs -i lz4 {}"
 ```
 
 6. Update the config.yaml file and include the list of logfiles we are using for
