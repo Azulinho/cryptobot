@@ -6,6 +6,26 @@ A python based trading bot for Binance, which relies heavily on backtesting.
 2. [Riot/Matrix:](#riot/matrix:)
 3. [Usage](#usage)
 4. [Config settings](#config-settings)
+   * [PAIRING](#pairing)
+   * [INITIAL_INVESTMENT](#initial_investment)
+   * [PAUSE_FOR](#pause_for)
+   * [STRATEGY](#strategy)
+   * [BUY_AT_PERCENTAGE](#buy_at_percentage)
+   * [SELL_AT_PERCENTAGE](#sell_at_percentage)
+   * [STOP_LOSS_AT_PERCENTAGE](#stop_loss_at_percentage)
+   * [TRAIL_TARGET_SELL_PERCENTAGE](#trail_target_sell_percentage)
+   * [TRAIL_RECOVERY_PERCENTAGE](#trail_recovery_percentage)
+   * [HARD_LIMIT_HOLDING_TIME](#hard_limit_holding_time)
+   * [SOFT_LIMIT_HOLDING_TIME](#soft_limit_holding_time)
+   * [CLEAR_COIN_STATS_AT_BOOT](#clear_coin_stats_at_boot)
+   * [NAUGHTY_TIMEOUT](#naughty_timeout)
+   * [CLEAR_COIN_STATS_AT_SALE](#clear_coin_stats_at_sale)
+   * [SELL_AS_SOON_AS_IT_DROPS](#sell_as_soon_as_it_drops)
+   * [DEBUG](#debug)
+   * [MAX_COINS](#max_coins)
+   * [TICKERS](#tickers)
+   * [TRADING_FEE](#trading_fee)
+   * [PRICE_LOGS](#price_logs)
 
 ## Overview
 
@@ -260,6 +280,7 @@ If using TESTNET generate a set of keys at https://testnet.binance.vision/
 Note that TESTNET is only suitable for bot development and nothing else.
 Otherwise use your Binance production keys.
 
+### PAIRING
 
 ```
 PAIRING="USDT"
@@ -268,6 +289,8 @@ The pairing use use to buy crypto with. Available options in Binance are,
 *USDT*, *BTC*, *ETH*, *BNB*, *TRX*, *XRP*, *DOGE*
 
 
+### INITIAL_INVESTMENT
+
 ```
 INITIAL_INVESTMENT: 100
 ```
@@ -275,11 +298,15 @@ This sets the initial investment to use to buy coin, this amount must be availab
 the pairing set in *PAIRING*.
 
 
+### PAUSE_FOR
+
 ```
 PAUSE_FOR: 1
 ```
 How long to pause in seconds before checking Binance prices again.
 
+
+### STRATEGY
 
 ```
 STRATEGY="buy_drop_sell_recovery_strategy"
@@ -313,6 +340,8 @@ development in order for the stored averages to work with *PAUSE_FOR* values
 different than 1 second.
 
 
+### BUY_AT_PERCENTAGE
+
 ```
 BUY_AT_PERCENTAGE: -20
 ```
@@ -326,6 +355,8 @@ between two periods (PAUSE_FOR). When a coin goes over, lets say +1 in a
 PAUSE_FOR of 3600 seconds, then the bot will buy it.
 
 
+### SELL_AT_PERCENTAGE
+
 ```
 SELL_AT_PERCENTAGE: +10
 ```
@@ -334,12 +365,16 @@ point the bot will monitor the price until the price drops, at which it will
 then sell.
 
 
+### STOP_LOSS_AT_PERCENTAGE
+
 ```
 STOP_LOSS_AT_PERCENTAGE: -25
 ```
 The price at which the bot will sell a coin straight away to avoid further
 losses.
 
+
+### TRAIL_TARGET_SELL_PERCENTAGE
 
 ```
 TRAIL_TARGET_SELL_PERCENTAGE: -1.5
@@ -349,6 +384,8 @@ This is the percentage drop in price at which when a coin in profit is sold.
 This allows to deal with flutuations in price and avoid selling a coin too soon.
 When the price is likely to increase again.
 
+
+### TRAIL_RECOVERY_PERCENTAGE
 
 ```
 TRAIL_RECOVERY_PERCENTAGE: +1.5
@@ -360,6 +397,7 @@ allows the bot to wait for a coin to drop over time before buying it, this
 essentially is the *recovery* phase of a coin after a large drop in price.
 
 
+### HARD_LIMIT_HOLDING_TIME
 
 ```
 HARD_LIMIT_HOLDING_TIME: 604800
@@ -367,6 +405,8 @@ HARD_LIMIT_HOLDING_TIME: 604800
 This settings sets the maximum *age* in seconds that we will hold a coin. At the
 end of this period the bot will sell a coin regardless of its value.
 
+
+### SOFT_LIMIT_HOLDING_TIME
 
 ```
 SOFT_LIMIT_HOLDING_TIME: 7200
@@ -380,6 +420,8 @@ time, until it reaches the *HARD_LIMIT_HOLDING_TIME*.
 
 Therefore increasing the chances of a possible sale at profit.
 
+### CLEAR_COIN_STATS_AT_BOOT
+
 ```
 CLEAR_COIN_STATS_AT_BOOT: True
 ```
@@ -389,12 +431,16 @@ holds, and the different values for all those coins, things like maximum price,
 minimum price, dips, and tips. This setting specifies if that data should be
 discarded at boot time.
 
+### NAUGHTY_TIMEOUT
+
 ```
 NAUGHTY_TIMEOUT: 28800
 ```
 This setting tells the bot how long to ignore a coin after that coin sold at a
 loss.
 
+
+### CLEAR_COIN_STATS_AT_SALE
 
 ```
 CLEAR_COIN_STATS_AT_SALE: True
@@ -412,6 +458,8 @@ waiting for another drop.
 
 
 
+### SELL_AS_SOON_AS_IT_DROPS
+
 ```
 SELL_AS_SOON_IT_DROPS: True
 ```
@@ -421,17 +469,23 @@ enabled, the bot will sell the coin, instead of relying on the
 *TRAIL_TARGET_SELL_PERCENTAGE*
 
 
+### DEBUG
+
 ```
 DEBUG: False
 ```
 Enables debug on the bot.
 
 
+### MAX_COINS
+
 ```
 MAX_COINS: 3
 ```
 The maximum number of coins the bot will hold at any time.
 
+
+### TICKERS
 
 ```
 TICKERS: {}
@@ -440,6 +494,8 @@ Sets the list of coins the bot monitors for prices and trades.
 This list must contain pairings as set in the *PAIRING* setting.
 
 
+### TRADING_FEE
+
 ```
 TRADING_FEE: 0.01
 ```
@@ -447,16 +503,9 @@ The trading fee in percentage that binance will charge on each buy or sell
 operation.
 
 
+### PRICE_LOGS
+
 ```
 PRICE_LOGS: [""]
 ```
 The list of price logs to be used for backtesting.
-
-
-```
-EXCLUDED_COINS: [
-    'DOWNUSDT',
-    'UPUSDT',
-]
-```
-List of coins that the bot will ignore.
