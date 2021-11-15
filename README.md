@@ -2,7 +2,6 @@
 
 A python based trading bot for Binance, which relies heavily on backtesting.
 
-
 1. [Overview](#overview)
 2. [Riot/Matrix:](#riot/matrix:)
 3. [Usage:](#usage:)
