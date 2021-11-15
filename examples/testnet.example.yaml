@@ -33,9 +33,4 @@ TICKERS:
   BNBUSDT:
     <<: *defaults
 
-
 PRICE_LOGS: []
-
-EXCLUDED_COINS:
-  - 'DOWNUSDT'
-  - 'UPUSDT'

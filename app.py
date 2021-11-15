@@ -168,7 +168,6 @@ class Bot:
         self.client = conn
         self.initial_investment: float = float(cfg["INITIAL_INVESTMENT"])
         self.investment: float = float(cfg["INITIAL_INVESTMENT"])
-        self.excluded_coins: str = cfg["EXCLUDED_COINS"]
         self.pause: float = float(cfg["PAUSE_FOR"])
         self.price_logs: List = cfg["PRICE_LOGS"]
         self.coins: Dict[str, Coin] = {}
@@ -455,13 +454,10 @@ class Bot:
             if self.coins[coin_symbol].naughty_timeout > 0:
                 continue
 
-            # TODO: the check below might not be required anymore
-            # as include coins in tickers, so we don't need excluded_coins anymore
-            if not any(sub in coin_symbol for sub in self.excluded_coins):
-                if coin_symbol in self.tickers or coin_symbol in self.wallet:
-                    self.run_strategy(self.coins[coin_symbol])
-                if coin_symbol in self.wallet:
-                    self.log_debug_coin(self.coins[coin_symbol])
+            if coin_symbol in self.tickers or coin_symbol in self.wallet:
+                self.run_strategy(self.coins[coin_symbol])
+            if coin_symbol in self.wallet:
+                self.log_debug_coin(self.coins[coin_symbol])
 
     def stop_loss(self, coin: Coin) -> bool:
         # oh we already own this one, lets check prices
