@@ -55,6 +55,62 @@ def coin(bot):
     del(coin)
 
 class TestCoin:
+    def test_update_coin_wont_age_if_not_owned(self, coin):
+        coin.holding_time = 0
+        coin.status = ""
+        coin.update('now', 100.0)
+        assert coin.holding_time == 0
+
+    def test_update_coin_in_target_sell_status_will_age(self, coin):
+        coin.holding_time = 0
+        coin.status = "TARGET_SELL"
+        coin.update('now', 100.0)
+        assert coin.holding_time == 1
+
+    def test_update_coin_in_hold_status_will_age(self, coin):
+        coin.holding_time = 0
+        coin.status = "HOLD"
+        coin.update('now', 100.0)
+        assert coin.holding_time == 1
+
+    def test_update_coin_not_in_naughty_corner(self, coin):
+        coin.naughty_timeout = 0
+        coin.update('now', 100.0)
+        assert coin.naughty_timeout == 0
+
+    def test_update_coin_in_naughty_corner(self, coin):
+        coin.naughty_timeout = 3
+        coin.update('now', 100.0)
+        assert coin.naughty_timeout == 2
+
+    def test_update_reached_new_min(self, coin):
+        coin.min = 200
+        coin.update('now', 100.0)
+        assert coin.min == 100
+
+    def test_update_reached_new_max(self, coin):
+        coin.max = 100
+        coin.update('now', 200.0)
+        assert coin.max == 200
+
+    def test_update_value_is_set(self, coin):
+        coin.volume = 2
+        coin.update('now', 100.0)
+        assert coin.value == 200
+
+    def test_update_coin_change_status_from_hold_to_target_sell(self, coin):
+        coin.status = "HOLD"
+        coin.sell_at_percentage = 3
+        coin.bought_at = 100
+        coin.update('now', 120.00)
+        assert coin.status == "TARGET_SELL"
+
+    def test_update_coin_updates_state_dip(self, coin):
+        coin.status = "TARGET_DIP"
+        coin.dip = 150
+        coin.update('now', 120.00)
+        assert coin.dip == 120.00
+
     def test_update_coin_updates_seconds_averages(self, coin):
         coin.update('now', 120.00)
         assert 120.00 in coin.averages['s']
