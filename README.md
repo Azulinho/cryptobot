@@ -1,41 +1,81 @@
-jzRryptoBot - Binance Trading Bot
+# CryptoBot - Binance Trading Bot
 
 A python based trading bot for Binance, which relies heavily on backtesting.
 
-Currently provides two strategies, *buy_drop_sell_recovery_strategy* and
-*buy_moon_sell_recovery_strategy*. How these strategies work is described below.
 
-This bot only buys coins specifically listed in its configuration,
-the way this works is that each coin is giving its own set of settings,
-lets call it a 'profile'.
+1. [Overview](#overview)
+2. [Riot/Matrix:](#riot/matrix:)
+3. [Usage:](#usage:)
+4. [Config settings:](#config-settings:)
 
-These profiles is what the bot uses to buy and sell coins, for example when
-using the *buy_drop_sell_recovery_strategy* I specify that I want the bot to
-buy *BTCUSDT* when the price initially drops by at least 10%,
-followed by a recovery of at least 1%. And that it then looks into selling that
-coin at at a 6% profit upwards, and that the bot will sell the coin when the
-price then drops by at least 1%.
+## Overview
 
-To prevent loss, I set the STOP LOSS at -10% over the price paid for the coin.
+The bot while running saves the current market price for all coins available in
+binance into *price.log* logfiles. These logfiles are used to simulate different
+backtesting scenarios and manipulate how the bot buys/sells crypto.
+
+
+This bot currently provides two strategies:
+
+- *buy_drop_sell_recovery_strategy*
+- *buy_moon_sell_recovery_strategy*
+
+The way these strategies work is described later in this README.
+
+While the price for every available coin is recorded in the *price.log*
+logfiles, the bot will only act to buy or sell coins for coins listed
+specifically on its configuration.
+
+Each coin is defined in the configuration which a set of values for when to
+buy and sell. This allows us to tell the Bot how it handles different coins in
+regards to their current state. For example, a high volatily coin that drops 10%
+in price is likely to continue dropping further, versus a coin like BTCUSDT that
+is relatively stable in price.
+
+With that in mind, we can for example tell the Bot to when this coin drops *x%*
+buy it, and when that coin drops *y%* buy it.
+
+We could also let the bot do the opposite, for coins that are going on through
+an uptrend, we can tell the bot to as soon a coin increases in value by % over a
+period of time, we tell the bot to buy them.
+
+For these different settings we apply to each coin, lets call them profiles for
+now. These profile is essentially how the bot makes decisions on which coins to
+buy and sell.
+
+So for example for the *buy_drop_sell_recovery_strategy*:
+
+I specify that I want the bot to buy *BTCUSDT* when the price initially drops
+by at least 10%, followed by a recovery of at least 1%.
+
+It should then look into selling that coin at at a 6% profit upwards,
+and that when it reaches 6% profit, the bot will sell the coin when the price
+then drops by at least 1%.
+
+To prevent loss, in case something goes wrong in the market.
+I set the STOP LOSS at -10% over the price paid for the coin.
 
 To avoid periods of volatility, in case after a stop-loss I set that I don't
 want to buy any more BTCUSDT for at least 86400 seconds. After than the bot will
 start looking at buying this coin again.
 
-Some coins might be slow recovering from the price we paid, and take sometime
-for its price to raise all the way to the 6% profit we aim for.
+Some coins might be slow recovering from the price we paid, and take some time
+for their price to raise all the way to the 6% profit we aim for.
 
-To avoid having a bot coin slot locked forever, we set set a TimeToLive on the coins
-the bot buys. we call this the *HARD_LIMIT_HOLDING_TIME*. The bot will
-forcefully sell the coin regardless of its price when this period expires.
+To avoid having a bot coin slot locked forever, we set set a kind of TimeToLive
+on the coins the bot buys. we call this limit *HARD_LIMIT_HOLDING_TIME*.
+The bot will forcefully sell the coin regardless of its price when this period expires.
 
 To improve the chances of selling a coin during a slow recovery, we decrease
 the target profit percentage gradually until we reach that *HARD_LIMIT_HOLDING_TIME*.
 
-This is done through the *SOFT_LIMIT_HOLDING_TIME*, with this setting we the
-number of seconds to wait before the bot starts decreasing the profit target
-percentage.
+This is done through a setting called *SOFT_LIMIT_HOLDING_TIME*, with this
+setting we set the number of seconds to wait before the bot starts decreasing
+the profit target percentage. Essentially we reduce the target profit until it
+meets the current price of the coin.
 
+
+Below in an example of a *profile* for BTCUSDT,
 
 ```
 TICKERS:
@@ -51,8 +91,12 @@ TICKERS:
 ```
 
 In order to test the different 'profiles' for different coins, this bot is
-designed to rely mainly on backtesting. For backtesting, this bot provides two
-modes for running.
+designed to rely mainly on backtesting.
+
+For backtesting, this bot provides two modes of operation:
+
+* logmode
+* backtesting
 
 In the *logmode* it records price.logs for all available coins in binance and
 store them in the log directory. These logs can then be consumed in
@@ -60,10 +104,10 @@ store them in the log directory. These logs can then be consumed in
 
 Just to get started, here is a
 [logfile](https://www.dropbox.com/s/1kftndfctc67lje/MYCOINS.log.lz4?dl=0)
-for testing at containing a small set of coins
+for testing containing a small set of coins
 
-Don't decompress these files, as the bot consumes them compressed in the lz4
-format.
+Don't bother decompressing these files, as the bot consumes them compressed
+in the lz4 format.
 
 Processing each daily logfile takes around 30 seconds, so for a large number of
 price log files this can take a long time to run backtesting simulations.
@@ -74,73 +118,57 @@ file containing just the coins we care about.
 rm -f MYCOINS.log
 for ta in logs/2021*.lz4
 do
-lz4cat ${ta} |  egrep -E 'BTCUSDT|ETHUSDT|BNBUSDT|DOTUSDT'>> MYCOINS.log
+docker run --user=`id -u` -it -v $PWD/log:/log azulinho/lz4 lz4cat ${ta} |  egrep -E 'BTCUSDT|ETHUSDT|BNBUSDT|DOTUSDT'>> MYCOINS.log
 done
 lz4 MYCOINS.log
 
 ```
 
-and then use that *MYCOINS.log.lz4* in the PRICE_LOGS configuration setting.
+Then we can use that *MYCOINS.log.lz4* in the *PRICE_LOGS* configuration setting.
 This way each simulation takes just a few seconds.
 
-All backtests are logged into log/backtesting.log.
+```
+PRICE_LOGS:
+  - "log/MYCOINS.log.lz4"
+
+```
+
+So that we can review the different backtesting results according to their
+applied configurations, all backtests are logged into a file called *log/backtesting.log*.
+
 
 ## Riot/Matrix:
+
+If you need help, bring snacks and pop over at:
 
 Join on: https://matrix.to/#/#cryptobot:matrix.org
 
 
+DO NOT USE github issues to ask for help. I have no time for you. You'll be told off.
+
+Also: *NO TORIES or BREXITERS*, this is not negotiable.
+
+
 ## Usage:
 
-Generate a *config.yaml*, see the example configs in *examples/*
+1. Install docker as per https://docs.docker.com/get-docker/
 
-And add your Binance credentials to *.secrets.yaml*.
+2. Install docker-compose as per: https://docs.docker.com/compose/install/
 
-
-To run the bot in logmode only, which will generate price logs while its
-running.
+3. Clone this repository:
 
 ```
-docker run -it \
-    -u `id -u` \
-    -v $PWD/configs/:/cryptobot/configs/:ro  \
-    -v $PWD/log:/cryptobot/log:rw  \
-    -v $PWD/.secrets.yaml:/cryptobot/.secrets.yaml  \
-    -v $PWD/tickers:/cryptobot/tickers  \
-    ghcr.io/azulinho/cryptobot -s .secrets.yaml -c configs/config.yaml -m logmode
-
-```
-To run the bot in backtesting, which will perform backtesting on all collected
-price logs based on the provided config.yaml.
-
-All logs should be compressed in *lz4* format, prior to backtesting.
-
-```
-docker run -it \
-    -u `id -u` \
-    -v $PWD/configs/:/cryptobot/configs/:ro  \
-    -v $PWD/log:/cryptobot/log:rw  \
-    -v $PWD/.secrets.yaml:/cryptobot/.secrets.yaml  \
-    -v $PWD/tickers:/cryptobot/tickers  \
-    ghcr.io/azulinho/cryptobot -s .secrets.yaml -c configs/config.yaml -m backtesting
-
+git clone https://github.com/Azulinho/cryptobot.git
 ```
 
-Finally, to run in live trading mode,
+4. generate a *config.yaml*, see the example configs in the
+[examples](https://github.com/Azulinho/cryptobot/tree/master/examples) folder.
 
-```
-docker run -it \
-    -u `id -u` \
-    -v $PWD/configs/:/cryptobot/configs/:ro  \
-    -v $PWD/log:/cryptobot/log:rw  \
-    -v $PWD/.secrets.yaml:/cryptobot/.secrets.yaml  \
-    -v $PWD/tickers:/cryptobot/tickers  \
-    ghcr.io/azulinho/cryptobot -s .secrets.yaml -c configs/config.yaml -m live
+Place your new config.yaml file into the *configs/* folder.
 
-```
-
-
-## Secrets:
+5. Add your Binance credentials to */secrets/prod.yaml*.
+   See the [example
+   secrets.yaml](https://github.com/Azulinho/cryptobot/blob/master/examples/secrets.yaml) file
 
 
 ```
@@ -149,27 +177,89 @@ SECRET_KEY: "SECRET_KEY"
 
 ```
 
+When running the bot for the first time, you'll need to generate some
+   *price.log* files for backtesting.
+
+You can use the sample [logfile](https://www.dropbox.com/s/1kftndfctc67lje/MYCOINS.log.lz4?dl=0)
+for testing containing a small set of coins
+
+6. Run the bot in *logmode* only, which will generate price logs while its
+running. But not buy or sell anything.
+
+```
+U="$(id -u)" G="$(id -g)" docker-compose run cryptobot \
+    -s /secrets/prod.yaml \
+    -c /configs/config.yaml -m logmode
+```
+
+When there is enough data for backtesting in our price.log files, we can now
+run a new instance of the bot in *backtesting* mode.
+
+5. Compress all the logs, except for the current live logfile in *lz4* format.
+
+```
+docker run --user=`id -u` -it -v $PWD/log:/log azulinho/lz4 lz4 /log/*.log
+```
+
+6. Update the config.yaml file and include the list of logfiles we are using for
+our backtesting.
+
+```
+PRICE_LOGS:
+  - "log/20210922.log.lz4"
+  - "log/20210923.log.lz4"
+```
+
+7. run the bot in backtesting mode, which will perform simulated buys/sells on
+all collected price logs based on the provided config.yaml.
+
+
+```
+U="$(id -u)" G="$(id -g)" docker-compose run cryptobot \
+    -s /secrets/prod.yaml \
+    -c /configs/config.yaml -m backtesting
+```
+
+8. Update your config.yaml until you are happy with the results and re-run the
+   backtesting.
+
+   Some pointers:
+
+   if your coins hit *STOP LOSS*, adjust the following:
+
+   * BUY_AT_PERCENTAGE
+   * STOP_LOSS_AT_PERCENTAGE
+   * TRAIL_RECOVERY_PERCENTAGE
+   * SELL_AT_PERCENTAGE
+
+   if your coins hit *STALE*, adjust the following:
+
+   * SELL_AT_PERCENTAGE
+   * HARD_LIMIT_HOLDING_TIME
+   * SOFT_LIMIT_HOLDING_TIME
+
+   if the bot buys coins too early, while a coin is still going down, adjust:
+
+   * BUY_AT_PERCENTAGE
+   * TRAIL_RECOVERY_PERCENTAGE
+
+9. Finally, when happy run in live trading mode,
+
+```
+U="$(id -u)" G="$(id -g)" docker-compose run cryptobot \
+    -s /secrets/prod.yaml \
+    -c /configs/config.yaml -m live
+```
+
+
 ## Config settings:
+
+Full list of config settings and their use described below:
 
 If using TESTNET generate a set of keys at https://testnet.binance.vision/
 
 Note that TESTNET is only suitable for bot development and nothing else.
 Otherwise use your Binance production keys.
-
-
-```
-MODE: "live"
-```
-Set the mode where this bot is running,
-
-Options are: *live*, *backtesting*, *testnet*
-
-*live* is the production mode, where the bot will buy and sell with real money.
-
-*backtesting* uses a set of price.log files to simulate buy, sell trades.
-
-*logmode* simply logs all prices into *price.log* files, that can then be used
-for backtesting.
 
 
 ```
@@ -190,7 +280,6 @@ the pairing set in *PAIRING*.
 PAUSE_FOR: 1
 ```
 How long to pause in seconds before checking Binance prices again.
-
 
 
 ```
@@ -217,6 +306,12 @@ price has decreased by a certain percentange, it will then sell the coin.
 
 This allows for ignoring small drops in a coin whose price is slowly going
 uphill.
+
+The bot currently records the last 60 seconds, 60 minutes, 24 hours, and
+multiple days price averages for evvery coin. However those averages are not yet
+setup to be consumed by any bot strategy. The bot requires some additional
+development in order for the stored averages to work with *PAUSE_FOR* values
+different than 1 second.
 
 
 ```

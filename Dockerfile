@@ -18,7 +18,8 @@ RUN install_packages \
 	libffi-dev \
 	liblzma-dev \
 	git \
-	ca-certificates
+	ca-certificates \
+	lz4
 
 RUN useradd -d /cryptobot -u 1001 -ms /bin/bash cryptobot
 USER cryptobot

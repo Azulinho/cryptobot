@@ -1,0 +1,12 @@
+version: '3'
+services:
+  cryptobot:
+    image: ghcr.io/azulinho/cryptobot
+    user: "${U}:${G}"
+    build: ./
+
+    volumes:
+      - ./configs:/configs
+      - ./secrets:/secrets
+      - ./log:/cryptobot/log:rw
+      - ./state:/cryptobot/state:rw

@@ -594,19 +594,19 @@ class Bot:
             coin.max = coin.price
 
     def save_coins(self) -> None:
-        with open(".coins.pickle", "wb") as f:
+        with open("state/coins.pickle", "wb") as f:
             pickle.dump(self.coins, f)
-        with open(".wallet.pickle", "wb") as f:
+        with open("state/wallet.pickle", "wb") as f:
             pickle.dump(self.wallet, f)
 
     def load_coins(self) -> None:
         if exists(".coins.pickle"):
-            print("found .coins.pickle, loading coins")
-            with open(".coins.pickle", "rb") as f:
+            print("found coins.pickle, loading coins")
+            with open("state/coins.pickle", "rb") as f:
                 self.coins = pickle.load(f)
         if exists(".wallet.pickle"):
-            print("found .wallet.pickle, loading wallet")
-            with open(".wallet.pickle", "rb") as f:
+            print("found wallet.pickle, loading wallet")
+            with open("state/wallet.pickle", "rb") as f:
                 self.wallet = pickle.load(f)
             print(f"wallet contains {self.wallet}")
 
