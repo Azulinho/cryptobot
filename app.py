@@ -336,43 +336,28 @@ class Bot:
 
     def extract_order_data(self, order_details, coin) -> Dict[str, Any]:
         # TODO: review this whole mess
-        transactionInfo = {}
-        # Market orders are not always filled at one price,
-        # we need to find the averages of all 'parts' (fills) of this order.
+
         fills_total: float = 0
         fills_qty: float = 0
         fills_fee: float = 0
 
-        # loop through each 'fill':
         for fills in order_details["fills"]:
             fill_price = float(fills["price"])
             fill_qty = float(fills["qty"])
             fills_fee += float(fills["commission"])
 
-            # quantity of fills * price
             fills_total += fill_price * fill_qty
-            # add to running total of fills quantity
             fills_qty += fill_qty
-            # increase fills array index by 1
 
-        # calculate average fill price:
         fill_avg = fills_total / fills_qty
         tradeFeeApprox = float(fill_avg) * (float(self.trading_fee) / 100)
 
-        # the volume size is sometimes outside of precision, correct it
         volume = float(self.calculate_volume_size(coin))
 
-        # create object with received data from Binance
-        transactionInfo = {
-            "symbol": order_details["symbol"],
-            "orderId": order_details["orderId"],
-            "timestamp": order_details["transactTime"],
+        return {
             "avgPrice": float(fill_avg),
             "volume": float(volume),
-            "tradeFeeBNB": float(fills_fee),
-            "tradeFeeUnit": tradeFeeApprox,
         }
-        return transactionInfo
 
     @lru_cache()
     @retry(wait=wait_exponential(multiplier=1, max=10))
