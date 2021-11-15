@@ -3,7 +3,7 @@
 A python based trading bot for Binance, which relies heavily on backtesting.
 
 1. [Overview](#overview)
-2. [Riot/Matrix:](#riot/matrix:)
+2. [Riot/Matrix](#riot/matrix)
 3. [Usage](#usage)
 4. [Config settings](#config-settings)
    * [PAIRING](#pairing)
@@ -152,7 +152,7 @@ So that we can review the different backtesting results according to their
 applied configurations, all backtests are logged into a file called *log/backtesting.log*.
 
 
-## Riot/Matrix:
+## Riot/Matrix
 
 If you need help, bring snacks and pop over at:
 
