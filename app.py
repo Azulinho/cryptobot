@@ -19,6 +19,7 @@ from binance.helpers import round_step_size
 from neotermcolor import colored, cprint
 from requests.exceptions import ReadTimeout, ConnectionError
 from tenacity import retry, wait_exponential
+from numpy import mean
 
 def timing(f):
     @wraps(f)
@@ -88,6 +89,12 @@ class Coin:
         self.profit = float(0)
         self.soft_limit_holding_time: int = int(soft_limit_holding_time)
         self.hard_limit_holding_time: int = int(hard_limit_holding_time)
+        self.averages: dict = {
+            "s": [],
+            "m": [],
+            "h": [],
+            "d": [],
+        }
 
     def update(self, date: str, market_price: float) -> None:
         self.date = date
@@ -125,6 +132,25 @@ class Coin:
         if self.status == "TARGET_DIP":
             if float(market_price) < float(self.dip):
                 self.dip = market_price
+
+
+        self.averages['s'].append(market_price)
+
+        # TODO: this needs to work with PAUSE values
+        if len(self.averages['s']) == 60:
+            last_s_avg = mean(self.averages['s'])
+            self.averages['s'] = []
+            self.averages['m'].append(last_s_avg)
+
+        if len(self.averages['m']) == 60:
+            last_m_avg = mean(self.averages['m'])
+            self.averages['m'] = []
+            self.averages['h'].append(last_m_avg)
+
+        if len(self.averages['h']) == 24:
+            last_h_avg = mean(self.averages['h'])
+            self.averages['h'] = []
+            self.averages['d'].append(last_h_avg)
 
 
 class Bot:

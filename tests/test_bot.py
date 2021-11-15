@@ -54,10 +54,44 @@ def coin(bot):
     yield coin
     del(coin)
 
-#  class TestCoin:
-#      def test_update(self):
-#          assert False
-#
+class TestCoin:
+    def test_update_coin_updates_seconds_averages(self, coin):
+        coin.update('now', 120.00)
+        assert 120.00 in coin.averages['s']
+        assert len(coin.averages['s']) == 1
+
+    def test_update_coin_updates_minutes_averages(self, coin):
+        for x in range(60):
+            coin.update('now', 100)
+
+        assert len(coin.averages['s']) == 0
+        assert len(coin.averages['m']) == 1
+        assert coin.averages['s'] == []
+        assert coin.averages['m'] == [100.0]
+
+    def test_update_coin_updates_hour_averages(self, coin):
+        for x in range(3600):
+            coin.update('now', 100)
+
+        assert coin.averages['s'] == []
+        assert coin.averages['m'] == []
+        assert coin.averages['h'] == [100.0]
+        assert len(coin.averages['s']) == 0
+        assert len(coin.averages['m']) == 0
+        assert len(coin.averages['h']) == 1
+
+    def test_update_coin_updates_days_averages(self, coin):
+        for x in range(86400):
+            coin.update('now', 100)
+
+        assert coin.averages['s'] == []
+        assert coin.averages['m'] == []
+        assert coin.averages['h'] == []
+        assert coin.averages['d'] == [100.0]
+        assert len(coin.averages['s']) == 0
+        assert len(coin.averages['m']) == 0
+        assert len(coin.averages['h']) == 0
+        assert len(coin.averages['d']) == 1
 
 class TestBot:
     def test_sell_coin_in_testnet(self, bot, coin):
