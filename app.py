@@ -437,16 +437,20 @@ class Bot:
             if self.mode not in ["live", "backtesting", "testnet"]:
                 continue
 
-            if coin_symbol in self.tickers:
-                self.init_or_update_coin(binance_data)
+            if coin_symbol not in self.tickers:
+                continue
 
-                if self.pairing in coin_symbol:
-                    if self.coins[coin_symbol].naughty_timeout < 1:
-                        if not any(sub in coin_symbol for sub in self.excluded_coins):
-                            if coin_symbol in self.tickers or coin_symbol in self.wallet:
-                                self.run_strategy(self.coins[coin_symbol])
-                            if coin_symbol in self.wallet:
-                                self.log_debug_coin(self.coins[coin_symbol])
+            self.init_or_update_coin(binance_data)
+            if self.coins[coin_symbol].naughty_timeout > 0:
+                continue
+
+            # TODO: the check below might not be required anymore
+            # as include coins in tickers, so we don't need excluded_coins anymore
+            if not any(sub in coin_symbol for sub in self.excluded_coins):
+                if coin_symbol in self.tickers or coin_symbol in self.wallet:
+                    self.run_strategy(self.coins[coin_symbol])
+                if coin_symbol in self.wallet:
+                    self.log_debug_coin(self.coins[coin_symbol])
 
     def stop_loss(self, coin: Coin) -> bool:
         # oh we already own this one, lets check prices
