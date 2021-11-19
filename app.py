@@ -554,7 +554,7 @@ class Bot:
             )
 
             if coin.sell_at_percentage < add_100(2 * float(self.trading_fee)):
-                coin.sell_at_percentage == add_100(2 * float(self.trading_fee))
+                coin.sell_at_percentage = add_100(2 * float(self.trading_fee))
 
             coin.trail_target_sell_percentage = (
                 add_100(
