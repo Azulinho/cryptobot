@@ -312,9 +312,9 @@ class Bot:
             + f"U:{coin.volume} "
             + f"P:{coin.price} T:{coin.value} and "
             + f"{message}:{coin.profit:.3f} "
-            + f"sell_at:{coin.price * coin.sell_at_percentage / 100} "
-            + f"trail_sell:{coin.price * coin.trail_target_sell_percentage/ 100}"
-            + f" ({len(self.wallet)}/{self.max_coins})",
+            + f"sell_at:{coin.sell_at_percentage:.3f}% "
+            + f"trail_sell:{coin.trail_target_sell_percentage:.3f}% "
+            + f"({len(self.wallet)}/{self.max_coins})",
             ink,
         )
         coin.status = ""
