@@ -21,16 +21,6 @@ from requests.exceptions import ReadTimeout, ConnectionError
 from tenacity import retry, wait_exponential
 from collections import deque
 
-def timing(f):
-    @wraps(f)
-    def wrap(*args, **kw):
-        ts = time()
-        result = f(*args, **kw)
-        te = time()
-        print("func:%r args:[%r, %r] took: %2.4f sec" % (f.__name__, args, kw, te - ts))
-        return result
-
-    return wrap
 
 def mean(a):
     return sum(a) / len(a)
