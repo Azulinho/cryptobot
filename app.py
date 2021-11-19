@@ -19,7 +19,6 @@ from binance.helpers import round_step_size
 from neotermcolor import colored, cprint
 from requests.exceptions import ReadTimeout, ConnectionError
 from tenacity import retry, wait_exponential
-from numpy import mean
 from collections import deque
 
 def timing(f):
@@ -33,6 +32,8 @@ def timing(f):
 
     return wrap
 
+def mean(a):
+    return sum(a) / len(a)
 
 def percent(part: float, whole: float) -> float:
     result = float(whole) / 100 * float(part)
