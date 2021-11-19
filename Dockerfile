@@ -32,7 +32,6 @@ ADD .python-version .
 RUN CONFIGURE_OPTS="--enable-shared --fno-semantic-interposition --enable-optimizations --with-lto --with-pgo" pyenv install
 ADD requirements.txt .
 RUN pip install -r requirements.txt
-ADD app.py .
 
 FROM bitnami/minideb:bullseye AS cryptobot
 RUN useradd -d /cryptobot -u 1001 -ms /bin/bash cryptobot
@@ -42,6 +41,6 @@ WORKDIR /cryptobot
 ENV PYENV_ROOT="$HOME/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims/:$PATH"
 COPY --from=builder /cryptobot/.python-version /cryptobot/
-COPY --from=builder /cryptobot/app.py /cryptobot/
 COPY --from=builder /cryptobot/.pyenv/ /cryptobot/.pyenv/
+ADD app.py .
 ENTRYPOINT ["python", "-u",  "app.py"]
