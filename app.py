@@ -25,12 +25,15 @@ from tenacity import retry, wait_exponential
 def mean(a):
     return sum(a) / len(a)
 
+
 def percent(part: float, whole: float) -> float:
     result = float(whole) / 100 * float(part)
     return result
 
+
 def add_100(number):
     return float(100 + number)
+
 
 class Coin:
     def __init__(
@@ -59,16 +62,10 @@ class Coin:
         self.lot_size = float(0)
         self.cost = float(0)
         self.last = market_price
-        self.buy_at_percentage: float= add_100(
-            buy_at
-        )
-        self.sell_at_percentage: float = add_100(
-            sell_at
-        )
-        self.stop_loss_at_percentage: float = add_100(
-            stop_loss
-        )
-        self.status = ''
+        self.buy_at_percentage: float = add_100(buy_at)
+        self.sell_at_percentage: float = add_100(sell_at)
+        self.stop_loss_at_percentage: float = add_100(stop_loss)
+        self.status = ""
         self.trail_recovery_percentage: float = add_100(
             trail_recovery_percentage
         )
@@ -131,26 +128,26 @@ class Coin:
             if float(market_price) < float(self.dip):
                 self.dip = market_price
 
-        self.averages['s'].append(float(market_price))
-        self.averages['counters']['s'] += 1
+        self.averages["s"].append(float(market_price))
+        self.averages["counters"]["s"] += 1
 
         # TODO: this needs to work with PAUSE values
-        if self.averages['counters']['s'] == 60:
-            last_s_avg = mean(self.averages['s'])
-            self.averages['counters']['s'] = 0
-            self.averages['m'].append(last_s_avg)
-            self.averages['counters']['m'] += 1
+        if self.averages["counters"]["s"] == 60:
+            last_s_avg = mean(self.averages["s"])
+            self.averages["counters"]["s"] = 0
+            self.averages["m"].append(last_s_avg)
+            self.averages["counters"]["m"] += 1
 
-        if self.averages['counters']['m'] == 60:
-            last_m_avg = mean(self.averages['m'])
-            self.averages['counters']['m'] = 0
-            self.averages['h'].append(last_m_avg)
-            self.averages['counters']['h'] += 1
+        if self.averages["counters"]["m"] == 60:
+            last_m_avg = mean(self.averages["m"])
+            self.averages["counters"]["m"] = 0
+            self.averages["h"].append(last_m_avg)
+            self.averages["counters"]["h"] += 1
 
-        if self.averages['counters']['h'] == 24:
-            last_h_avg = mean(self.averages['h'])
-            self.averages['counters']['h'] = 0
-            self.averages['d'].append(last_h_avg)
+        if self.averages["counters"]["h"] == 24:
+            last_h_avg = mean(self.averages["h"])
+            self.averages["counters"]["h"] = 0
+            self.averages["d"].append(last_h_avg)
 
 
 class Bot:
@@ -166,7 +163,7 @@ class Bot:
         self.stales: int = 0
         self.profit: float = 0
         self.wallet: List = []  # store the coin we own
-        self.tickers: dict  = dict(cfg['TICKERS'])
+        self.tickers: dict = dict(cfg["TICKERS"])
         self.mode: str = cfg["MODE"]
         self.trading_fee: float = float(cfg["TRADING_FEE"])
         self.debug: bool = bool(cfg["DEBUG"])
@@ -176,11 +173,11 @@ class Bot:
         self.clear_coin_stats_at_boot: bool = bool(
             cfg["CLEAR_COIN_STATS_AT_BOOT"]
         )
-        self.clean_coin_stats_at_sale: bool = bool(cfg["CLEAR_COIN_STATS_AT_SALE"])
-        self.strategy: str = cfg["STRATEGY"]
-        self.sell_as_soon_it_drops: bool = bool(
-            cfg["SELL_AS_SOON_IT_DROPS"]
+        self.clean_coin_stats_at_sale: bool = bool(
+            cfg["CLEAR_COIN_STATS_AT_SALE"]
         )
+        self.strategy: str = cfg["STRATEGY"]
+        self.sell_as_soon_it_drops: bool = bool(cfg["SELL_AS_SOON_IT_DROPS"])
 
     def run_strategy(self, *args, **kwargs) -> None:
         if len(self.wallet) != self.max_coins:
@@ -238,11 +235,17 @@ class Bot:
                     + "calling the API again..."
                 )
 
-                orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
+                orders = self.client.get_all_orders(
+                    symbol=coin.symbol, limit=1
+                )
                 sleep(1)
 
-            coin.bought_at = self.extract_order_data(order_details, coin)["avgPrice"]
-            coin.volume = self.extract_order_data(order_details, coin)["volume"]
+            coin.bought_at = self.extract_order_data(order_details, coin)[
+                "avgPrice"
+            ]
+            coin.volume = self.extract_order_data(order_details, coin)[
+                "volume"
+            ]
             coin.value = float(coin.bought_at) * float(coin.volume)
             coin.cost = float(coin.bought_at) * float(coin.volume)
 
@@ -264,7 +267,6 @@ class Bot:
             + f"({len(self.wallet)}/{self.max_coins})",
             "magenta",
         )
-
 
     def sell_coin(self, coin) -> None:
         if coin.symbol not in self.wallet:
@@ -291,10 +293,14 @@ class Bot:
                     + "calling the API again..."
                 )
 
-                orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
+                orders = self.client.get_all_orders(
+                    symbol=coin.symbol, limit=1
+                )
                 sleep(1)
 
-            coin.price = self.extract_order_data(order_details, coin)["avgPrice"]
+            coin.price = self.extract_order_data(order_details, coin)[
+                "avgPrice"
+            ]
             coin.date = datetime.now()
 
         coin.value = float(float(coin.volume) * float(coin.price))
@@ -398,17 +404,24 @@ class Bot:
                 symbol,
                 str(datetime.now()),
                 market_price,
-                buy_at=self.tickers[symbol]['BUY_AT_PERCENTAGE'],
-                sell_at=self.tickers[symbol]['SELL_AT_PERCENTAGE'],
-                stop_loss=self.tickers[symbol]['STOP_LOSS_AT_PERCENTAGE'],
-                trail_target_sell_percentage=self.tickers[symbol]['TRAIL_TARGET_SELL_PERCENTAGE'],
-                trail_recovery_percentage=self.tickers[symbol]['TRAIL_RECOVERY_PERCENTAGE'],
-                soft_limit_holding_time=self.tickers[symbol]['SOFT_LIMIT_HOLDING_TIME'],
-                hard_limit_holding_time=self.tickers[symbol]['HARD_LIMIT_HOLDING_TIME']
+                buy_at=self.tickers[symbol]["BUY_AT_PERCENTAGE"],
+                sell_at=self.tickers[symbol]["SELL_AT_PERCENTAGE"],
+                stop_loss=self.tickers[symbol]["STOP_LOSS_AT_PERCENTAGE"],
+                trail_target_sell_percentage=self.tickers[symbol][
+                    "TRAIL_TARGET_SELL_PERCENTAGE"
+                ],
+                trail_recovery_percentage=self.tickers[symbol][
+                    "TRAIL_RECOVERY_PERCENTAGE"
+                ],
+                soft_limit_holding_time=self.tickers[symbol][
+                    "SOFT_LIMIT_HOLDING_TIME"
+                ],
+                hard_limit_holding_time=self.tickers[symbol][
+                    "HARD_LIMIT_HOLDING_TIME"
+                ],
             )
         else:
             self.coins[symbol].update(str(datetime.now()), market_price)
-
 
     def process_coins(self) -> None:
         # look for coins that are ready for buying, or selling
@@ -437,7 +450,9 @@ class Bot:
     def stop_loss(self, coin: Coin) -> bool:
         # oh we already own this one, lets check prices
         # deal with STOP_LOSS
-        if float(coin.price) < percent(coin.stop_loss_at_percentage, coin.bought_at):
+        if float(coin.price) < percent(
+            coin.stop_loss_at_percentage, coin.bought_at
+        ):
             coin.status = "STOP_LOSS"
             cprint(
                 f"{coin.date} [{coin.symbol}] {coin.status} now: {coin.price} bought: {coin.bought_at}",
@@ -446,7 +461,9 @@ class Bot:
             self.sell_coin(coin)
             self.losses = self.losses + 1
             # and block this coin for a while
-            coin.naughty_timeout = int(self.tickers[coin.symbol]['NAUGHTY_TIMEOUT'])
+            coin.naughty_timeout = int(
+                self.tickers[coin.symbol]["NAUGHTY_TIMEOUT"]
+            )
             return True
         return False
 
@@ -455,7 +472,9 @@ class Bot:
             coin.sell_at_percentage, coin.bought_at
         ):
             coin.status = "GONE_UP_AND_DROPPED"
-            print(f"{coin.date} {coin.symbol} [TARGET_SELL] -> [GONE_UP_AND_DROPPED]")
+            print(
+                f"{coin.date} {coin.symbol} [TARGET_SELL] -> [GONE_UP_AND_DROPPED]"
+            )
             self.sell_coin(coin)
             self.wins = self.wins + 1
             return True
@@ -490,37 +509,45 @@ class Bot:
             self.stales = self.stales + 1
 
             # and block this coin for today:
-            coin.naughty_timeout = int(self.tickers[coin.symbol]['NAUGHTY_TIMEOUT'])
+            coin.naughty_timeout = int(
+                self.tickers[coin.symbol]["NAUGHTY_TIMEOUT"]
+            )
             return True
         return False
 
     def past_soft_limit(self, coin: Coin) -> bool:
         # This coin is past our soft limit
         # we apply a sliding window to the buy profit
-        if (
-            coin.holding_time > coin.soft_limit_holding_time
-        ):
-            ttl = 100 * ( 1 - float(
-                (coin.holding_time - coin.soft_limit_holding_time) /
-                ( coin.hard_limit_holding_time - coin.soft_limit_holding_time)
-            )) #
+        if coin.holding_time > coin.soft_limit_holding_time:
+            ttl = 100 * (
+                1
+                - float(
+                    (coin.holding_time - coin.soft_limit_holding_time)
+                    / (
+                        coin.hard_limit_holding_time
+                        - coin.soft_limit_holding_time
+                    )
+                )
+            )  #
 
             coin.sell_at_percentage = add_100(
-                percent(
-                    ttl,
-                    self.tickers[coin.symbol]['SELL_AT_PERCENTAGE']
-                )
+                percent(ttl, self.tickers[coin.symbol]["SELL_AT_PERCENTAGE"])
             )
 
             if coin.sell_at_percentage < add_100(2 * float(self.trading_fee)):
-                coin.sell_at_percentage == add_100(2* float(self.trading_fee))
+                coin.sell_at_percentage == add_100(2 * float(self.trading_fee))
 
-            coin.trail_target_sell_percentage = add_100(
-                percent(
-                    ttl,
-                    self.tickers[coin.symbol]['TRAIL_TARGET_SELL_PERCENTAGE']
+            coin.trail_target_sell_percentage = (
+                add_100(
+                    percent(
+                        ttl,
+                        self.tickers[coin.symbol][
+                            "TRAIL_TARGET_SELL_PERCENTAGE"
+                        ],
+                    )
                 )
-            ) - 0.001
+                - 0.001
+            )
 
             self.log_debug_coin(coin)
             return True
@@ -532,7 +559,6 @@ class Bot:
                 f"{coin.date} {coin.symbol} {coin.status} age:{coin.holding_time} now:{coin.price} bought:{coin.bought_at} sell:{coin.sell_at_percentage:.4f}% trail_target_sell:{coin.trail_target_sell_percentage:.4f}%"
             )
 
-
     def clear_all_coins_stats(self) -> None:
         for coin in self.coins:
             if coin not in self.wallet:
@@ -541,19 +567,19 @@ class Bot:
     def clear_coin_stats(self, coin: Coin) -> None:
         coin.holding_time = 1
         coin.buy_at_percentage = add_100(
-            self.tickers[coin.symbol]['BUY_AT_PERCENTAGE']
+            self.tickers[coin.symbol]["BUY_AT_PERCENTAGE"]
         )
         coin.sell_at_percentage = add_100(
-            self.tickers[coin.symbol]['SELL_AT_PERCENTAGE']
+            self.tickers[coin.symbol]["SELL_AT_PERCENTAGE"]
         )
         coin.stop_loss_at_percentage = add_100(
-            self.tickers[coin.symbol]['STOP_LOSS_AT_PERCENTAGE']
+            self.tickers[coin.symbol]["STOP_LOSS_AT_PERCENTAGE"]
         )
         coin.trail_target_sell_percentage = add_100(
-            self.tickers[coin.symbol]['TRAIL_TARGET_SELL_PERCENTAGE']
+            self.tickers[coin.symbol]["TRAIL_TARGET_SELL_PERCENTAGE"]
         )
         coin.trail_recovery_percentage = add_100(
-            self.tickers[coin.symbol]['TRAIL_RECOVERY_PERCENTAGE']
+            self.tickers[coin.symbol]["TRAIL_RECOVERY_PERCENTAGE"]
         )
         coin.bought_at = float(0)
         coin.dip = float(0)
@@ -595,58 +621,58 @@ class Bot:
         for symbol in self.coins:
             print(f"overriding values for {symbol} from config")
             self.coins[symbol].buy_at_percentage = add_100(
-                self.tickers[symbol]['BUY_AT_PERCENTAGE']
+                self.tickers[symbol]["BUY_AT_PERCENTAGE"]
             )
             self.coins[symbol].sell_at_percentage = add_100(
-                self.tickers[symbol]['SELL_AT_PERCENTAGE']
+                self.tickers[symbol]["SELL_AT_PERCENTAGE"]
             )
             self.coins[symbol].stop_loss_at_percentage = add_100(
-                self.tickers[symbol]['STOP_LOSS_AT_PERCENTAGE']
+                self.tickers[symbol]["STOP_LOSS_AT_PERCENTAGE"]
             )
             self.coins[symbol].soft_limit_holding_time = int(
-                self.tickers[symbol]['SOFT_LIMIT_HOLDING_TIME']
+                self.tickers[symbol]["SOFT_LIMIT_HOLDING_TIME"]
             )
             self.coins[symbol].hard_limit_holding_time = int(
-                self.tickers[symbol]['HARD_LIMIT_HOLDING_TIME']
+                self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"]
             )
             self.coins[symbol].trail_target_sell_percentage = add_100(
-                self.tickers[symbol]['TRAIL_TARGET_SELL_PERCENTAGE']
+                self.tickers[symbol]["TRAIL_TARGET_SELL_PERCENTAGE"]
             )
             self.coins[symbol].trail_recovery_percentage = add_100(
-                self.tickers[symbol]['TRAIL_RECOVERY_PERCENTAGE']
+                self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"]
             )
 
     def check_for_sale_conditions(self, coin: Coin) -> Tuple[bool, str]:
         # return early if no work left to do
         if coin.symbol not in self.wallet:
-            return (False, 'EMPTY_WALLET')
+            return (False, "EMPTY_WALLET")
 
         # oh we already own this one, lets check prices
         # deal with STOP_LOSS first
         if self.stop_loss(coin):
-            return (True, 'STOP_LOSS')
+            return (True, "STOP_LOSS")
 
         # This coin is too old, sell it
         if self.past_hard_limit(coin):
-            return (True, 'STALE')
+            return (True, "STALE")
 
         # coin was above sell_at_percentage and dropped below
         # lets' sell it ASAP
         if self.sell_as_soon_it_drops:
             if self.coin_gone_up_and_dropped(coin):
-                return (True, 'GONE_UP_AND_DROPPED')
+                return (True, "GONE_UP_AND_DROPPED")
 
         # possible sale
         if self.possible_sale(coin):
-            return (True, 'TARGET_SELL')
+            return (True, "TARGET_SELL")
 
         # This coin is past our soft limit
         # we apply a sliding window to the buy profit
         # TODO: make PAST_SOFT_LIMIT a full grown-up coin status
         if self.past_soft_limit(coin):
-            return (False, 'PAST_SOFT_LIMIT')
+            return (False, "PAST_SOFT_LIMIT")
 
-        return (False, 'HOLD')
+        return (False, "HOLD")
 
     def buy_drop_sell_recovery_strategy(self, coin: Coin) -> bool:
         # has the price gone down by x% on a coin we don't own?
@@ -654,7 +680,9 @@ class Bot:
             float(coin.price) < percent(coin.buy_at_percentage, coin.max)
         ) and coin.status == "":
             coin.dip = coin.price
-            print(f"{coin.date}: {coin.symbol} [{coin.status}] -> [TARGET_DIP]")
+            print(
+                f"{coin.date}: {coin.symbol} [{coin.status}] -> [TARGET_DIP]"
+            )
             coin.status = "TARGET_DIP"
 
         if coin.status != "TARGET_DIP":
@@ -723,7 +751,6 @@ class Bot:
                     date = " ".join(parts[0:2])
                     market_price = float(parts[3])
 
-
                     # implements a PAUSE_FOR pause while reading from
                     # our price logs.
                     # we essentially skip a number of iterations between
@@ -741,13 +768,15 @@ class Bot:
                             symbol,
                             date,
                             market_price,
-                            self.tickers[symbol]['BUY_AT_PERCENTAGE'],
-                            self.tickers[symbol]['SELL_AT_PERCENTAGE'],
-                            self.tickers[symbol]['STOP_LOSS_AT_PERCENTAGE'],
-                            self.tickers[symbol]['TRAIL_TARGET_SELL_PERCENTAGE'],
-                            self.tickers[symbol]['TRAIL_RECOVERY_PERCENTAGE'],
-                            self.tickers[symbol]['SOFT_LIMIT_HOLDING_TIME'],
-                            self.tickers[symbol]['HARD_LIMIT_HOLDING_TIME']
+                            self.tickers[symbol]["BUY_AT_PERCENTAGE"],
+                            self.tickers[symbol]["SELL_AT_PERCENTAGE"],
+                            self.tickers[symbol]["STOP_LOSS_AT_PERCENTAGE"],
+                            self.tickers[symbol][
+                                "TRAIL_TARGET_SELL_PERCENTAGE"
+                            ],
+                            self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"],
+                            self.tickers[symbol]["SOFT_LIMIT_HOLDING_TIME"],
+                            self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"],
                         )
                     else:
                         self.coins[symbol].update(date, market_price)
@@ -781,12 +810,10 @@ class Bot:
 if __name__ == "__main__":
     try:
         parser = argparse.ArgumentParser()
-        parser.add_argument('-c', '--config', help='config.yaml file')
-        parser.add_argument('-s', '--secrets', help='secrets.yaml file')
+        parser.add_argument("-c", "--config", help="config.yaml file")
+        parser.add_argument("-s", "--secrets", help="secrets.yaml file")
         parser.add_argument(
-            '-m',
-            '--mode',
-            help='bot mode ["live", "backtesting", "testnet"]'
+            "-m", "--mode", help='bot mode ["live", "backtesting", "testnet"]'
         )
         args = parser.parse_args()
 
@@ -794,15 +821,14 @@ if __name__ == "__main__":
             cfg = yaml.safe_load(f.read())
         with open(args.secrets) as f:
             secrets = yaml.safe_load(f.read())
-        cfg['MODE'] = args.mode
+        cfg["MODE"] = args.mode
 
-        client = Client(
-            secrets['ACCESS_KEY'],
-            secrets['SECRET_KEY']
-        )
+        client = Client(secrets["ACCESS_KEY"], secrets["SECRET_KEY"])
         bot = Bot(client, cfg)
 
-        print(f"running in {bot.mode} mode with {json.dumps(args.config, indent=4)}")
+        print(
+            f"running in {bot.mode} mode with {json.dumps(args.config, indent=4)}"
+        )
 
         if bot.mode == "backtesting":
             bot.backtesting()
