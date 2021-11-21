@@ -47,7 +47,7 @@ While the price for every available coin is recorded in the *price.log*
 logfiles, the bot will only act to buy or sell coins for coins listed
 specifically on its configuration.
 
-Each coin is defined in the configuration which a set of values for when to
+Each coin is defined in the configuration with a set of values for when to
 buy and sell. This allows us to tell the Bot how it handles different coins in
 regards to their current state. For example, a high volatily coin that drops 10%
 in price is likely to continue dropping further, versus a coin like BTCUSDT that
