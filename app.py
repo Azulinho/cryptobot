@@ -49,6 +49,7 @@ class Coin:
         trail_recovery_percentage: float,
         soft_limit_holding_time: int,
         hard_limit_holding_time: int,
+        downtrend_days: int,
     ) -> None:
         """Coin object"""
         self.symbol = symbol
@@ -91,6 +92,7 @@ class Coin:
             "h": deque([], maxlen=24),
             "d": [],
         }
+        self.downtrend_days: int = int(downtrend_days)
 
     def update(self, date: str, market_price: float) -> None:
         """updates a coin object with latest market values"""
@@ -191,6 +193,9 @@ class Bot:
                 self.buy_drop_sell_recovery_strategy(*argvs, **kwargs)
             if self.strategy == "buy_moon_sell_recovery_strategy":
                 self.buy_moon_sell_recovery_strategy(*argvs, **kwargs)
+            if self.strategy == "buy_on_recovery_after_n_days_downtrend_strategy":
+                self.buy_on_recovery_after_n_days_downtrend_strategy(
+                    *argvs, **kwargs)
         if len(self.wallet) != 0:
             self.check_for_sale_conditions(*argvs, **kwargs)
 
@@ -276,6 +281,9 @@ class Bot:
             + f"({len(self.wallet)}/{self.max_coins})",
             "magenta",
         )
+        if self.debug:
+            print(f"averages[d]: {coin.averages['d']}")
+            print(f"averages[h]: {coin.averages['h']}")
 
     def sell_coin(self, coin) -> None:
         """calls Binance to sell a coin"""
@@ -433,6 +441,7 @@ class Bot:
                 hard_limit_holding_time=self.tickers[symbol][
                     "HARD_LIMIT_HOLDING_TIME"
                 ],
+                downtrend_days=self.tickers[symbol]['DOWNTREND_DAYS']
             )
         else:
             self.coins[symbol].update(str(datetime.now()), market_price)
@@ -673,6 +682,9 @@ class Bot:
             self.coins[symbol].trail_recovery_percentage = add_100(
                 self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"]
             )
+            self.coins[symbol].downtrend_days = int(
+                self.tickers[symbol]["DOWNTREND_DAYS"]
+            )
 
     def check_for_sale_conditions(self, coin: Coin) -> Tuple[bool, str]:
         """checks for multiple sale conditions for a coin"""
@@ -733,6 +745,33 @@ class Bot:
                 self.buy_coin(coin)
                 return True
         return False
+
+    # buy on recovery after long downtrend
+    def buy_on_recovery_after_n_days_downtrend_strategy(
+        self, coin: Coin) -> bool:
+        """bot buy strategy"""
+
+        #  # pass this as a paramter
+        last_days = list(coin.averages['d'])[-coin.downtrend_days:]
+        if len(last_days) < coin.downtrend_days:
+            return
+
+        last_day = last_days[0]
+        # if the price keeps going down, then buy
+        for n in last_days:
+            if n > last_day:
+                return False
+            last_day = n
+
+        if (
+            float(coin.price) > percent(
+                coin.trail_recovery_percentage, last_day
+            )
+        ):
+            self.buy_coin(coin)
+            return True
+        return False
+
 
     def buy_moon_sell_recovery_strategy(self, coin: Coin) -> bool:
         """bot buy strategy"""
@@ -816,6 +855,7 @@ class Bot:
                             self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"],
                             self.tickers[symbol]["SOFT_LIMIT_HOLDING_TIME"],
                             self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"],
+                            self.tickers[symbol]['DOWNTREND_DAYS']
                         )
                     else:
                         self.coins[symbol].update(date, market_price)

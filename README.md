@@ -17,6 +17,7 @@ A python based trading bot for Binance, which relies heavily on backtesting.
    * [TRAIL_RECOVERY_PERCENTAGE](#trail_recovery_percentage)
    * [HARD_LIMIT_HOLDING_TIME](#hard_limit_holding_time)
    * [SOFT_LIMIT_HOLDING_TIME](#soft_limit_holding_time)
+   * [DOWNTREND_DAYS](#downtrend_days)
    * [CLEAR_COIN_STATS_AT_BOOT](#clear_coin_stats_at_boot)
    * [NAUGHTY_TIMEOUT](#naughty_timeout)
    * [CLEAR_COIN_STATS_AT_SALE](#clear_coin_stats_at_sale)
@@ -34,10 +35,11 @@ binance into *price.log* logfiles. These logfiles are used to simulate different
 backtesting scenarios and manipulate how the bot buys/sells crypto.
 
 
-This bot currently provides two strategies:
+This bot currently provides three strategies:
 
 - *buy_drop_sell_recovery_strategy*
 - *buy_moon_sell_recovery_strategy*
+- *buy_on_recovery_after_n_days_downtrend_strategy*
 
 The way these strategies work is described later in this README.
 
@@ -107,6 +109,7 @@ TICKERS:
       TRAIL_TARGET_SELL_PERCENTAGE: -1.0
       TRAIL_RECOVERY_PERCENTAGE: +1.0
       NAUGHTY_TIMEOUT: 604800
+      DOWNTREND_DAYS: 0 # unused on this strategy
 ```
 
 In order to test the different 'profiles' for different coins, this bot is
@@ -279,7 +282,7 @@ Otherwise use your Binance production keys.
 ### PAIRING
 
 ```
-PAIRING="USDT"
+PAIRING: "USDT"
 ```
 The pairing use use to buy crypto with. Available options in Binance are,
 *USDT*, *BTC*, *ETH*, *BNB*, *TRX*, *XRP*, *DOGE*
@@ -305,13 +308,29 @@ How long to pause in seconds before checking Binance prices again.
 ### STRATEGY
 
 ```
-STRATEGY="buy_drop_sell_recovery_strategy"
+STRATEGY: "buy_drop_sell_recovery_strategy"
 ```
 Describes which strategy to use when buying/selling coins, available options are
-*buy_moon_sell_recovery_strategy*, *buy_drop_sell_recovery_strategy*.
+*buy_moon_sell_recovery_strategy*, *buy_drop_sell_recovery_strategy*,
+*buy_on_recovery_after_n_days_downtrend_strategy*
 
 In the *moon_sell_recovery_strategy*, the bot monitors coin prices and will
 buy coins that raised their price over a percentage since the last check.
+
+```
+PAUSE_FOR: 3600
+TICKERS:
+  BTCUSDT:
+      SOFT_LIMIT_HOLDING_TIME: 4
+      HARD_LIMIT_HOLDING_TIME: 96
+      BUY_AT_PERCENTAGE: +1
+      SELL_AT_PERCENTAGE: +6
+      STOP_LOSS_AT_PERCENTAGE: -9
+      TRAIL_TARGET_SELL_PERCENTAGE: -1.0
+      TRAIL_RECOVERY_PERCENTAGE: +1.0
+      NAUGHTY_TIMEOUT: 28800
+      DOWNTREND_DAYS: 0 # unused in this strategy
+```
 
 In the *buy_drop_recovery_strategy*, the bot monitors coin prices and will
 buy coins that dropped their price over a percentage against their maximum price.
@@ -329,12 +348,47 @@ price has decreased by a certain percentange, it will then sell the coin.
 This allows for ignoring small drops in a coin whose price is slowly going
 uphill.
 
+Example:
+
+```
+TICKERS:
+  BTCUSDT:
+      SOFT_LIMIT_HOLDING_TIME: 3600
+      HARD_LIMIT_HOLDING_TIME: 7200
+      BUY_AT_PERCENTAGE: -9
+      SELL_AT_PERCENTAGE: +6
+      STOP_LOSS_AT_PERCENTAGE: -9
+      TRAIL_TARGET_SELL_PERCENTAGE: -1.0
+      TRAIL_RECOVERY_PERCENTAGE: +1.0
+      NAUGHTY_TIMEOUT: 28800
+      DOWNTREND_DAYS: 0 # unused in this strategy
+```
+
+The *buy_on_recovery_after_n_days_downtrend_strategy* relies on averaged prices
+from the last *DOWNTREND_DAYS* days. It will look to buy a coin which price has
+gone down for a certain number of days, and as now recovered in a percentage
+higher than *TRAIL_RECOVERY_PERCENTAGE* over the average of the last day.
+
 The bot currently records the last 60 seconds, 60 minutes, 24 hours, and
-multiple days price averages for evvery coin. However those averages are not yet
-setup to be consumed by any bot strategy. The bot requires some additional
+multiple days price averages for evvery coin. The bot requires some additional
 development in order for the stored averages to work with *PAUSE_FOR* values
 different than 1 second.
 
+Example:
+
+```
+TICKERS:
+  BTCUSDT:
+      SOFT_LIMIT_HOLDING_TIME: 3600
+      HARD_LIMIT_HOLDING_TIME: 600000
+      BUY_AT_PERCENTAGE: -99999.0 # unused
+      SELL_AT_PERCENTAGE: +6
+      STOP_LOSS_AT_PERCENTAGE: -9
+      TRAIL_TARGET_SELL_PERCENTAGE: -1.0
+      TRAIL_RECOVERY_PERCENTAGE: +1.0
+      NAUGHTY_TIMEOUT: 604800
+      DOWNTREND_DAYS: 3
+```
 
 ### BUY_AT_PERCENTAGE
 
@@ -415,6 +469,12 @@ This setting deals with those scenarios by reducing both the
 time, until it reaches the *HARD_LIMIT_HOLDING_TIME*.
 
 Therefore increasing the chances of a possible sale at profit.
+
+### DOWNTREND_DAYS
+
+Sets the number of days where the bot looks for a downtrend in prices, before
+buying a coin.
+This works together with the *TRAIL_RECOVERY_PERCENTAGE* option.
 
 ### CLEAR_COIN_STATS_AT_BOOT
 
