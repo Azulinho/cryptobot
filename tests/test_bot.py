@@ -49,7 +49,8 @@ def coin(bot):
         trail_target_sell_percentage=float(bot.tickers['BTCUSDT']['TRAIL_TARGET_SELL_PERCENTAGE']),
         trail_recovery_percentage=float(bot.tickers['BTCUSDT']['TRAIL_RECOVERY_PERCENTAGE']),
         soft_limit_holding_time=int(bot.tickers['BTCUSDT']['SOFT_LIMIT_HOLDING_TIME']),
-        hard_limit_holding_time=int(bot.tickers['BTCUSDT']['HARD_LIMIT_HOLDING_TIME'])
+        hard_limit_holding_time=int(bot.tickers['BTCUSDT']['HARD_LIMIT_HOLDING_TIME']),
+        downtrend_days=int(bot.tickers['BTCUSDT']['DOWNTREND_DAYS'])
     )
     yield coin
     del(coin)
