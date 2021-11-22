@@ -366,8 +366,10 @@ TICKERS:
 
 The *buy_on_recovery_after_n_days_downtrend_strategy* relies on averaged prices
 from the last *DOWNTREND_DAYS* days. It will look to buy a coin which price has
-gone down for a certain number of days, and as now recovered in a percentage
-higher than *TRAIL_RECOVERY_PERCENTAGE* over the average of the last day.
+gone down for a certain number of days, and its price has gone down further
+in below the *BUY_AT_PERCENTAGE* over the last day.
+The bot will then buy this coin as soon this
+coin recovers about the *TRAIL_RECOVERY_PERCENTAGE* price point.
 
 The bot currently records the last 60 seconds, 60 minutes, 24 hours, and
 multiple days price averages for evvery coin. The bot requires some additional
@@ -381,11 +383,11 @@ TICKERS:
   BTCUSDT:
       SOFT_LIMIT_HOLDING_TIME: 3600
       HARD_LIMIT_HOLDING_TIME: 600000
-      BUY_AT_PERCENTAGE: -99999.0 # unused
+      BUY_AT_PERCENTAGE: -9.0
       SELL_AT_PERCENTAGE: +6
       STOP_LOSS_AT_PERCENTAGE: -9
       TRAIL_TARGET_SELL_PERCENTAGE: -1.0
-      TRAIL_RECOVERY_PERCENTAGE: +1.0
+      TRAIL_RECOVERY_PERCENTAGE: +3.0
       NAUGHTY_TIMEOUT: 604800
       DOWNTREND_DAYS: 3
 ```

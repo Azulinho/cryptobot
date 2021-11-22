@@ -751,7 +751,6 @@ class Bot:
         self, coin: Coin) -> bool:
         """bot buy strategy"""
 
-        #  # pass this as a paramter
         last_days = list(coin.averages['d'])[-coin.downtrend_days:]
         if len(last_days) < coin.downtrend_days:
             return
@@ -763,13 +762,29 @@ class Bot:
                 return False
             last_day = n
 
+        # has the price gone down by x% on a coin we don't own?
         if (
-            float(coin.price) > percent(
-                coin.trail_recovery_percentage, last_day
+            float(coin.price) < percent(coin.buy_at_percentage, last_day)
+        ) and coin.status == "":
+            coin.dip = coin.price
+            print(
+                f"{coin.date}: {coin.symbol} [{coin.status}] -> [TARGET_DIP]"
             )
-        ):
-            self.buy_coin(coin)
-            return True
+            coin.status = "TARGET_DIP"
+
+        if coin.status != "TARGET_DIP":
+            return False
+
+        # do some gimmicks, and don't buy the coin straight away
+        # but only buy it when the price is now higher than the last
+        # price recorded. This way we ensure that we got the dip
+        self.log_debug_coin(coin)
+        if float(coin.price) > float(coin.last):
+            if float(coin.price) > percent(
+                float(coin.trail_recovery_percentage), coin.dip
+            ):
+                self.buy_coin(coin)
+                return True
         return False
 
 
