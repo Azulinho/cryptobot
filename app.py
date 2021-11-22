@@ -638,11 +638,11 @@ class Bot:
 
     def load_coins(self) -> None:
         """loads coins and wallet from a local pickle file"""
-        if exists(".coins.pickle"):
+        if exists("state/coins.pickle"):
             print("found coins.pickle, loading coins")
             with open("state/coins.pickle", "rb") as f:
                 self.coins = pickle.load(f)
-        if exists(".wallet.pickle"):
+        if exists("state/wallet.pickle"):
             print("found wallet.pickle, loading wallet")
             with open("state/wallet.pickle", "rb") as f:
                 self.wallet = pickle.load(f)
