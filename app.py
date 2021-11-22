@@ -300,7 +300,7 @@ class Bot:
                 )
             # error handling here in case position cannot be placed
             except Exception as error_msg:
-                print(f"sell() exception: {errot_msg}")
+                print(f"sell() exception: {error_msg}")
                 print(f"tried to sell: {coin.volume} of {coin.symbol}")
                 return
 
