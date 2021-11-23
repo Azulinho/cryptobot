@@ -7,3 +7,13 @@ extend-exclude = '''
 # in the root of the project.
 ^/foo.py  # exclude a file named foo.py in the root of the project (in addition to the defaults)
 '''
+
+[tool.pylint.'MESSAGES CONTROL']
+disable = [
+  "too-many-public-methods",
+  "too-many-return-statements",
+  "too-many-instance-attributes",
+  "too-many-arguments"
+  "fixme",
+]
+

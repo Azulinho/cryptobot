@@ -36,6 +36,7 @@ def add_100(number: float) -> float:
 
 
 class Coin:
+    """ Coin Class"""
     def __init__(
         self,
         client,
@@ -122,7 +123,10 @@ class Coin:
                 self.sell_at_percentage, self.bought_at
             ):
                 self.status = "TARGET_SELL"
-                print(f"{self.date}: {self.symbol} [HOLD] -> [TARGET_SELL]")
+                print(
+                    f"{self.date}: {self.symbol} [HOLD] "
+                    + f"-> [TARGET_SELL] ({self.price})"
+                )
 
         if self.status == "TARGET_SELL":
             if float(market_price) > float(self.tip):
@@ -155,6 +159,7 @@ class Coin:
 
 
 class Bot:
+    """ Bot Class """
     def __init__(self, conn, config) -> None:
         """Bot object"""
         self.client = conn
@@ -193,9 +198,13 @@ class Bot:
                 self.buy_drop_sell_recovery_strategy(*argvs, **kwargs)
             if self.strategy == "buy_moon_sell_recovery_strategy":
                 self.buy_moon_sell_recovery_strategy(*argvs, **kwargs)
-            if self.strategy == "buy_on_recovery_after_n_days_downtrend_strategy":
+            if (
+                self.strategy
+                == "buy_on_recovery_after_n_days_downtrend_strategy"
+            ):
                 self.buy_on_recovery_after_n_days_downtrend_strategy(
-                    *argvs, **kwargs)
+                    *argvs, **kwargs
+                )
         if len(self.wallet) != 0:
             self.check_for_sale_conditions(*argvs, **kwargs)
 
@@ -275,11 +284,11 @@ class Bot:
         coin.tip = coin.price
 
         cprint(
-            f"{coin.date}: [{coin.symbol}] {coin.status} {coin.holding_time}s "
+            f"{coin.date}: {coin.symbol} [{coin.status}] {coin.holding_time}s "
             + f"U:{coin.volume} P:{coin.price} T:{coin.value} "
             + f"sell_at:{coin.price * coin.sell_at_percentage /100} "
             + f"({len(self.wallet)}/{self.max_coins})",
-            "magenta",
+            "blue",
         )
         if self.debug:
             print(f"averages[d]: {coin.averages['d']}")
@@ -332,12 +341,12 @@ class Bot:
             message = "profit"
 
         cprint(
-            f"{coin.date}: [{coin.symbol}] {coin.status} A:{coin.holding_time}s "
+            f"{coin.date}: {coin.symbol} [{coin.status}] A:{coin.holding_time}s "
             + f"U:{coin.volume} "
             + f"P:{coin.price} T:{coin.value} and "
             + f"{message}:{coin.profit:.3f} "
-            + f"sell_at:{coin.sell_at_percentage:.3f}% "
-            + f"trail_sell:{coin.trail_target_sell_percentage:.3f}% "
+            + f"sell_at:{(coin.sell_at_percentage -100):.3f}% "
+            + f"trail_sell:-{(100 - coin.trail_target_sell_percentage):.3f}% "
             + f"({len(self.wallet)}/{self.max_coins})",
             ink,
         )
@@ -347,6 +356,11 @@ class Bot:
         self.update_investment()
         self.clear_coin_stats(coin)
         self.clear_all_coins_stats()
+
+        print(
+            f"{coin.date}: INVESTMENT: {self.investment} "
+            + f"PROFIT: {self.profit} WALLET: {self.wallet}"
+        )
 
     def extract_order_data(self, order_details, coin) -> Dict[str, Any]:
         """calculate average price and volume for a buy order"""
@@ -441,7 +455,7 @@ class Bot:
                 hard_limit_holding_time=self.tickers[symbol][
                     "HARD_LIMIT_HOLDING_TIME"
                 ],
-                downtrend_days=self.tickers[symbol]['DOWNTREND_DAYS']
+                downtrend_days=self.tickers[symbol]["DOWNTREND_DAYS"],
             )
         else:
             self.coins[symbol].update(str(datetime.now()), market_price)
@@ -727,7 +741,8 @@ class Bot:
         ) and coin.status == "":
             coin.dip = coin.price
             print(
-                f"{coin.date}: {coin.symbol} [{coin.status}] -> [TARGET_DIP]"
+                f"{coin.date}: {coin.symbol} [{coin.status}] "
+                + f"-> [TARGET_DIP] ({coin.price})"
             )
             coin.status = "TARGET_DIP"
 
@@ -748,12 +763,13 @@ class Bot:
 
     # buy on recovery after long downtrend
     def buy_on_recovery_after_n_days_downtrend_strategy(
-        self, coin: Coin) -> bool:
+        self, coin: Coin
+    ) -> bool:
         """bot buy strategy"""
 
-        last_days = list(coin.averages['d'])[-coin.downtrend_days:]
+        last_days = list(coin.averages["d"])[-coin.downtrend_days :]
         if len(last_days) < coin.downtrend_days:
-            return
+            return False
 
         last_day = last_days[0]
         # if the price keeps going down, then buy
@@ -768,7 +784,8 @@ class Bot:
         ) and coin.status == "":
             coin.dip = coin.price
             print(
-                f"{coin.date}: {coin.symbol} [{coin.status}] -> [TARGET_DIP]"
+                f"{coin.date}: {coin.symbol} [{coin.status}] "
+                + f"-> [TARGET_DIP] ({coin.price})"
             )
             coin.status = "TARGET_DIP"
 
@@ -786,7 +803,6 @@ class Bot:
                 self.buy_coin(coin)
                 return True
         return False
-
 
     def buy_moon_sell_recovery_strategy(self, coin: Coin) -> bool:
         """bot buy strategy"""
@@ -870,7 +886,7 @@ class Bot:
                             self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"],
                             self.tickers[symbol]["SOFT_LIMIT_HOLDING_TIME"],
                             self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"],
-                            self.tickers[symbol]['DOWNTREND_DAYS']
+                            self.tickers[symbol]["DOWNTREND_DAYS"],
                         )
                     else:
                         self.coins[symbol].update(date, market_price)
@@ -940,18 +956,24 @@ if __name__ == "__main__":
         print(json.dumps(cfg, indent=4))
 
         for symbol in bot.wallet:
-            cprint(f"still holding {symbol}", "red")
             holding = bot.coins[symbol]
-            cprint(f" cost: {holding.volume * holding.bought_at}", "green")
-            cprint(f" value: {holding.volume * holding.price}", "red")
+            cost = holding.volume * holding.bought_at
+            value = holding.volume * holding.price
+            age = holding.holding_time
 
-        print(f"total profit: {bot.profit:.3f}")
-        print(f"total fees: {bot.fees:.3f}")
+            cprint(
+                f"WALLET: {symbol} age:{age} cost:{cost} value:{value}", "red"
+            )
+
+        print(f"final profit: {bot.profit:.3f} fees: {bot.fees:.3f}")
         print(
-            f"initial investment: {int(bot.initial_investment)} "
-            + f"final investment: {int(bot.investment)}"
+            f"investment: start: {int(bot.initial_investment)} "
+            + f"end: {int(bot.investment)}"
         )
-        print(f"wins:{bot.wins} losses:{bot.losses} stales:{bot.stales}")
+        print(
+            f"wins:{bot.wins} losses:{bot.losses} "
+            + f"stales:{bot.stales} holds:{len(bot.wallet)}"
+        )
 
     except:
         print(traceback.format_exc())
