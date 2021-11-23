@@ -10,22 +10,26 @@ jobs:
         uses: actions/checkout@v2
 
       - name: setup python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
 
-      - name: pip installs requirements.txt
-        run: pip install -r requirements.txt
-
-      - name: pip installs requirements-dev.txt
-        run: pip install -r requirements-dev.txt
+      - name: pip install
+        run: |
+          set -e
+          pip install --upgrade pip
+          pip install wheel
+          pip install -r requirements.txt
+          pip installs requirements-dev.txt
 
       - name: pylint
-        run: pylint app.pyt
+        run: pylint app.py
 
       - name: pytest
         run: pytest tests/
 
-      - name: pip installs docker-compose
-        run: pip install docker-compose
-
       - name: local docker-compose build
-        run: docker-compose build
+        run: |
+          set -e
+          pip install docker-compose
+          docker-compose build

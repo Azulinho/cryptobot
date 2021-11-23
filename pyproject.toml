@@ -13,7 +13,7 @@ disable = [
   "too-many-public-methods",
   "too-many-return-statements",
   "too-many-instance-attributes",
-  "too-many-arguments"
+  "too-many-arguments",
   "fixme",
   "redefined-outer-name"
 ]

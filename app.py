@@ -953,8 +953,6 @@ if __name__ == "__main__":
         if bot.mode == "live":
             bot.run()
 
-        print(json.dumps(cfg, indent=4))
-
         for symbol in bot.wallet:
             holding = bot.coins[symbol]
             cost = holding.volume * holding.bought_at
