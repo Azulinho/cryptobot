@@ -15,5 +15,6 @@ disable = [
   "too-many-instance-attributes",
   "too-many-arguments"
   "fixme",
+  "redefined-outer-name"
 ]
 
