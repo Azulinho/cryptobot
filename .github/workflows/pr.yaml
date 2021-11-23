@@ -23,3 +23,9 @@ jobs:
 
       - name: pytest
         run: pytest tests/
+
+      - name: pip installs docker-compose
+        run: pip install docker-compose
+
+      - name: local docker-compose build
+        run: docker-compose build
