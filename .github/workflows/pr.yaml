@@ -1,0 +1,25 @@
+name: Run PR tests
+on: pull_request
+
+jobs:
+  tests:
+    name: Run PR tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+
+      - name: setup python
+        uses: actions/setup-python@v1
+
+      - name: pip installs requirements.txt
+        run: pip install -r requirements.txt
+
+      - name: pip installs requirements-dev.txt
+        run: pip install -r requirements-dev.txt
+
+      - name: pylint
+        run: pylint app.pyt
+
+      - name: pytest
+        run: pytest tests/
