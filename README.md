@@ -125,11 +125,11 @@ store them in the log directory. These logs can then be consumed in
 *backtesting* mode.
 
 Just to get started, here is a
-[logfile](https://www.dropbox.com/s/1kftndfctc67lje/MYCOINS.log.lz4?dl=0)
+[logfile](https://www.dropbox.com/s/dqpma82vc4ug7l9/MYCOINS.log.gz?dl=0)
 for testing containing a small set of coins
 
 Don't bother decompressing these files, as the bot consumes them compressed
-in the lz4 format.
+in the .gz format.
 
 Processing each daily logfile takes around 30 seconds, so for a large number of
 price log files this can take a long time to run backtesting simulations.
@@ -138,16 +138,16 @@ file containing just the coins we care about.
 
 ```
 rm -f log/MYCOINS.log
-docker run -it --user=`id -u` -v $PWD/log:/log --workdir /log azulinho/lz4 sh -c "ls *.log.lz4| xargs -i lz4cat {} |egrep -E 'BTCUSDT|ETHUSDT|BNBUSDT|DOTUSDT' >> MYCOINS.log"
-docker run -it --user=`id -u` -v $PWD/log:/log --workdir /log azulinho/lz4 sh -c "lz4 MYCOINS.log"
+ls *.log.gz| xargs -i gzcat {} |egrep -E 'BTCUSDT|ETHUSDT|BNBUSDT|DOTUSDT' >> MYCOINS.log"
+gzip MYCOINS.log
 ```
 
-Then we can use that *MYCOINS.log.lz4* in the *PRICE_LOGS* configuration setting.
+Then we can use that *MYCOINS.log.gz* in the *PRICE_LOGS* configuration setting.
 This way each simulation takes just a few seconds.
 
 ```
 PRICE_LOGS:
-  - "log/MYCOINS.log.lz4"
+  - "log/MYCOINS.log.gz"
 
 ```
 
@@ -198,7 +198,8 @@ SECRET_KEY: "SECRET_KEY"
 When running the bot for the first time, you'll need to generate some
    *price.log* files for backtesting.
 
-You can use the sample [logfile](https://www.dropbox.com/s/1kftndfctc67lje/MYCOINS.log.lz4?dl=0)
+You can use the sample
+[logfile](https://www.dropbox.com/s/dqpma82vc4ug7l9/MYCOINS.log.gz?dl=0)
 for testing containing a small set of coins
 
 6. Run the bot in *logmode* only, which will generate price logs while its
@@ -213,10 +214,10 @@ U="$(id -u)" G="$(id -g)" docker-compose run cryptobot \
 When there is enough data for backtesting in our price.log files, we can now
 run a new instance of the bot in *backtesting* mode.
 
-5. Compress all the logs, except for the current live logfile in *lz4* format.
+5. Compress all the logs, except for the current live logfile in *gz* format.
 
 ```
-docker run -it --user=`id -u` -v $PWD/log:/log --workdir /log azulinho/lz4 sh -c "ls *.log| xargs -i lz4 {}"
+ls *.log| xargs -i gzip {}"
 ```
 
 6. Update the config.yaml file and include the list of logfiles we are using for
@@ -224,8 +225,8 @@ our backtesting.
 
 ```
 PRICE_LOGS:
-  - "log/20210922.log.lz4"
-  - "log/20210923.log.lz4"
+  - "log/20210922.log.gz"
+  - "log/20210923.log.gz"
 ```
 
 7. run the bot in backtesting mode, which will perform simulated buys/sells on

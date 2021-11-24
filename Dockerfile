@@ -19,7 +19,22 @@ RUN install_packages \
 	liblzma-dev \
 	git \
 	ca-certificates \
-	lz4
+	gzip \
+	pigz \
+	bzip2 \
+	pbzip2 \
+	isal \
+	libisal-dev \
+	libisal2 \
+	autoconf \
+	automake \
+	shtool \
+	coreutils \
+	autogen \
+	libtool \
+	shtool \
+	nasm
+
 
 RUN useradd -d /cryptobot -u 1001 -ms /bin/bash cryptobot
 USER cryptobot
