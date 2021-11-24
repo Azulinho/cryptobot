@@ -27,6 +27,7 @@ A python based trading bot for Binance, which relies heavily on backtesting.
    * [TICKERS](#tickers)
    * [TRADING_FEE](#trading_fee)
    * [PRICE_LOGS](#price_logs)
+5. [Development/New features](#development/new-features)
 
 ## Overview
 
@@ -568,3 +569,12 @@ operation.
 PRICE_LOGS: [""]
 ```
 The list of price logs to be used for backtesting.
+
+
+## Development/New features
+
+Want this bot to do something it doesn't do today?
+
+Easy, fork it, make the changes you need, add tests, raise a PR.
+
+
