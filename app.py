@@ -317,7 +317,7 @@ class Bot:
             + f"A:{coin.holding_time}s "
             + f"U:{coin.volume} P:{coin.price} T:{coin.value} "
             + f"SP:{coin.price * coin.sell_at_percentage /100} "
-            + f"S:{percent(coin.trail_target_sell_percentage, coin.sell_at_percentage):.3f}% "
+            + f"S:+{percent(coin.trail_target_sell_percentage,coin.sell_at_percentage) - 100:.3f}% "
             + f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}% "
             + f"({len(self.wallet)}/{self.max_coins})"
         )
@@ -375,7 +375,8 @@ class Bot:
             + f"U:{coin.volume} P:{coin.price} T:{coin.value} "
             + f"{message}:{coin.profit:.3f} "
             + f"SP:{coin.price * coin.sell_at_percentage /100} "
-            + f"S:{percent(coin.trail_target_sell_percentage, coin.sell_at_percentage):.3f}% "
+            + f"TP:{100 - (coin.bought_at / coin.price * 100):.2f}% "
+            + f"S:+{percent(coin.trail_target_sell_percentage,coin.sell_at_percentage) - 100:.3f}% "
             + f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}% "
             + f"({len(self.wallet)}/{self.max_coins})",
         )
