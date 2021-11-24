@@ -12,12 +12,12 @@ from os.path import exists
 from time import sleep
 from typing import Any, Dict, List, Tuple
 
-import lz4.frame
 import yaml
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
 from neotermcolor import cprint
 from tenacity import retry, wait_exponential
+from xopen import xopen
 
 
 def mean(values: list) -> float:
@@ -847,7 +847,7 @@ class Bot:
         print(f"backtesting: {price_log}")
         print(f"wallet: {self.wallet}")
         read_counter = 0
-        with lz4.frame.open(price_log, "rt") as f:
+        with xopen(price_log, "rt") as f:
             while True:
                 try:
                     line = f.readline()

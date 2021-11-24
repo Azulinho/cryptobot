@@ -48,5 +48,5 @@ TICKERS:
 
 
 PRICE_LOGS:
-  - "log/20210922.log.lz4"
-  - "log/20210923.log.lz4"
+  - "log/20210922.log.gz"
+  - "log/20210923.log.gz"
