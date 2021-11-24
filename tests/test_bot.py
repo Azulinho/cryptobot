@@ -37,9 +37,7 @@ def bot(cfg):
 
 @pytest.fixture()
 def coin(bot):
-    client = "fake"
     coin = app.Coin(
-        client=client,
         symbol="BTCUSDT",
         date="2021",
         market_price=100.00,

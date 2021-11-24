@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Tuple
 import lz4.frame
 import yaml
 from binance.client import Client
+from binance.exceptions import BinanceAPIException
 from neotermcolor import cprint
 from tenacity import retry, wait_exponential
 
@@ -35,11 +36,10 @@ def add_100(number: float) -> float:
     return float(100 + number)
 
 
-class Coin:
+class Coin: # pylint: disable=too-few-public-methods
     """ Coin Class"""
     def __init__(
         self,
-        client,
         symbol: str,
         date: str,
         market_price: float,
@@ -136,6 +136,11 @@ class Coin:
             if float(market_price) < float(self.dip):
                 self.dip = market_price
 
+        self.consolidate_averages(market_price)
+
+
+    def consolidate_averages(self, market_price: float) -> None:
+        """ consolidates all coin price averages over the different buckets """
         self.averages["s"].append(float(market_price))
         self.averages["counters"]["s"] += 1
 
@@ -246,16 +251,16 @@ class Bot:
                 )
 
             # error handling here in case position cannot be placed
-            except Exception as error_msg:
-                print(f"buy() exception: {error_msg}")
-                print(f"tried to buy: {volume} of {coin.symbol}")
+            except BinanceAPIException as error_msg:
+                cprint(f"buy() exception: {error_msg}", "red")
+                cprint(f"tried to buy: {volume} of {coin.symbol}", "red")
                 return
 
             orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
             while orders == []:
-                print(
+                cprint(
                     "Binance is being slow in returning the order, "
-                    + "calling the API again..."
+                    + "calling the API again...", "red"
                 )
 
                 orders = self.client.get_all_orders(
@@ -308,9 +313,9 @@ class Bot:
                     quantity=coin.volume,
                 )
             # error handling here in case position cannot be placed
-            except Exception as error_msg:
-                print(f"sell() exception: {error_msg}")
-                print(f"tried to sell: {coin.volume} of {coin.symbol}")
+            except BinanceAPIException as error_msg:
+                cprint(f"sell() exception: {error_msg}", "red")
+                cprint(f"tried to sell: {coin.volume} of {coin.symbol}", "red")
                 return
 
             orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
@@ -369,9 +374,9 @@ class Bot:
         total: float = 0
         qty: float = 0
 
-        for item in order_details["fills"]:
-            item_price = float(item["price"])
-            item_qty = float(item["qty"])
+        for k in order_details["fills"]:
+            item_price = float(k["price"])
+            item_qty = float(k["qty"])
 
             total += item_price * item_qty
             qty += item_qty
@@ -391,8 +396,8 @@ class Bot:
         """retrives and caches the decimal precision for a coin in binance"""
         try:
             info = self.client.get_symbol_info(symbol)
-        except Exception as error_msg:
-            print(error_msg)
+        except BinanceAPIException as error_msg:
+            cprint(error_msg, 'red')
             return -1
 
         step_size = float(info["filters"][2]["stepSize"])
@@ -426,7 +431,7 @@ class Bot:
             price_log = "log/testnet.log"
         else:
             price_log = f"log/{datetime.now().strftime('%Y%m%d')}.log"
-        with open(price_log, "a") as f:
+        with open(price_log, "a", encoding='utf-8') as f:
             f.write(f"{datetime.now()} {symbol} {price}\n")
 
     def init_or_update_coin(self, binance_data: Dict[str, Any]) -> None:
@@ -436,7 +441,6 @@ class Bot:
         market_price = binance_data["price"]
         if symbol not in self.coins:
             self.coins[symbol] = Coin(
-                self.client,
                 symbol,
                 str(datetime.now()),
                 market_price,
@@ -873,7 +877,6 @@ class Bot:
                     # TODO: rework this
                     if symbol not in self.coins:
                         self.coins[symbol] = Coin(
-                            self.client,
                             symbol,
                             date,
                             market_price,
@@ -891,7 +894,8 @@ class Bot:
                     else:
                         self.coins[symbol].update(date, market_price)
                     self.run_strategy(self.coins[symbol])
-                except Exception as error_msg:
+                except Exception as error_msg: # pylint: disable=broad-except
+                    print("Exception:")
                     print(traceback.format_exc())
                     if error_msg == "KeyboardInterrupt":
                         sys.exit(1)
@@ -902,7 +906,7 @@ class Bot:
         for price_log in self.price_logs:
             self.backtest_logfile(price_log)
 
-        with open("log/backtesting.log", "a") as f:
+        with open("log/backtesting.log", "a", encoding='utf-8') as f:
             log_entry = "|".join(
                 [
                     f"profit:{self.profit:.3f}",
@@ -926,10 +930,10 @@ if __name__ == "__main__":
         )
         args = parser.parse_args()
 
-        with open(args.config) as f:
-            cfg = yaml.safe_load(f.read())
-        with open(args.secrets) as f:
-            secrets = yaml.safe_load(f.read())
+        with open(args.config, encoding='utf-8') as _f:
+            cfg = yaml.safe_load(_f.read())
+        with open(args.secrets, encoding='utf-8') as _f:
+            secrets = yaml.safe_load(_f.read())
         cfg["MODE"] = args.mode
 
         client = Client(secrets["ACCESS_KEY"], secrets["SECRET_KEY"])
@@ -953,14 +957,14 @@ if __name__ == "__main__":
         if bot.mode == "live":
             bot.run()
 
-        for symbol in bot.wallet:
-            holding = bot.coins[symbol]
+        for item in bot.wallet:
+            holding = bot.coins[item]
             cost = holding.volume * holding.bought_at
             value = holding.volume * holding.price
             age = holding.holding_time
 
             cprint(
-                f"WALLET: {symbol} age:{age} cost:{cost} value:{value}", "red"
+                f"WALLET: {item} age:{age} cost:{cost} value:{value}", "red"
             )
 
         print(f"final profit: {bot.profit:.3f} fees: {bot.fees:.3f}")
@@ -973,6 +977,6 @@ if __name__ == "__main__":
             + f"stales:{bot.stales} holds:{len(bot.wallet)}"
         )
 
-    except:
-        print(traceback.format_exc())
+    except Exception: # pylint: disable=broad-except
+        cprint(traceback.format_exc(), 'red')
         sys.exit(1)
