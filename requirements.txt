@@ -31,3 +31,4 @@ yarl==1.7.2
 pyyaml==6.0
 xopen==1.2.1
 colorlog==v6.6.0
+web-pdb==1.5.6

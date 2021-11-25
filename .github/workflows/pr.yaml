@@ -22,11 +22,14 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
-      - name: pylint
-        run: pylint app.py
-
       - name: pytest
         run: pytest tests/
+
+      - name: mypy
+        run: mypy app.py
+
+      - name: pylint
+        run: pylint app.py
 
       - name: local docker-compose build
         run: |

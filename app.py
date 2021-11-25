@@ -5,6 +5,7 @@ import json
 import math
 import pickle
 import sys
+import multiprocessing
 import traceback
 from collections import deque
 from datetime import datetime
@@ -14,6 +15,7 @@ from time import sleep
 from typing import Any, Dict, List, Tuple
 
 import colorlog
+import web_pdb
 import yaml
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
@@ -944,6 +946,11 @@ class Bot:
             f.write(f"{log_entry}\n")
 
 
+def control_center():
+    """ pdb web endpoint """
+    web_pdb.set_trace()
+
+
 if __name__ == "__main__":
     try:
         parser = argparse.ArgumentParser()
@@ -968,6 +975,10 @@ if __name__ == "__main__":
             + f"{json.dumps(args.config, indent=4)}"
         )
 
+        # start command-control-center (ipdb on port 5555)
+        p = multiprocessing.Process(target=control_center)
+        p.start()
+
         if bot.mode == "backtesting":
             bot.backtesting()
 
@@ -981,6 +992,7 @@ if __name__ == "__main__":
         if bot.mode == "live":
             bot.run()
 
+        p.terminate()
         for item in bot.wallet:
             holding = bot.coins[item]
             cost = holding.volume * holding.bought_at
