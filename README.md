@@ -27,7 +27,9 @@ A python based trading bot for Binance, which relies heavily on backtesting.
    * [TICKERS](#tickers)
    * [TRADING_FEE](#trading_fee)
    * [PRICE_LOGS](#price_logs)
-5. [Development/New features](#development/new-features)
+5. [Bot command center](#bot-command-center)
+6. [Development/New features](#development/new-features)
+
 
 ## Overview
 
@@ -207,7 +209,7 @@ for testing containing a small set of coins
 running. But not buy or sell anything.
 
 ```
-U="$(id -u)" G="$(id -g)" docker-compose run cryptobot \
+U="$(id -u)" G="$(id -g)" docker-compose run --service-ports cryptobot \
     -s /secrets/prod.yaml \
     -c /configs/config.yaml -m logmode
 ```
@@ -235,7 +237,7 @@ all collected price logs based on the provided config.yaml.
 
 
 ```
-U="$(id -u)" G="$(id -g)" docker-compose run cryptobot \
+U="$(id -u)" G="$(id -g)" docker-compose run --service-ports cryptobot \
     -s /secrets/prod.yaml \
     -c /configs/config.yaml -m backtesting
 ```
@@ -266,7 +268,7 @@ U="$(id -u)" G="$(id -g)" docker-compose run cryptobot \
 9. Finally, when happy run in live trading mode,
 
 ```
-U="$(id -u)" G="$(id -g)" docker-compose run cryptobot \
+U="$(id -u)" G="$(id -g)" docker-compose run --service-ports cryptobot \
     -s /secrets/prod.yaml \
     -c /configs/config.yaml -m live
 ```
@@ -569,6 +571,21 @@ operation.
 PRICE_LOGS: [""]
 ```
 The list of price logs to be used for backtesting.
+
+
+## Bot command center
+
+The bot is running a *pdb* endpoint on port 5555.
+
+Open a browser on http://127.0.0.1:5555
+
+And type :
+
+```
+dir(bot)
+```
+
+to see all available methods
 
 
 ## Development/New features
