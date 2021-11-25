@@ -5,7 +5,7 @@ import json
 import math
 import pickle
 import sys
-import threading
+import multiprocessing
 import traceback
 from collections import deque
 from datetime import datetime
@@ -976,7 +976,7 @@ if __name__ == "__main__":
         )
 
         # start command-control-center (ipdb on port 5555)
-        p = threading.Thread(target=control_center)
+        p = multiprocessing.Process(target=control_center)
         p.start()
 
         if bot.mode == "backtesting":
@@ -992,7 +992,7 @@ if __name__ == "__main__":
         if bot.mode == "live":
             bot.run()
 
-        p.join(1)
+        p.terminate()
         for item in bot.wallet:
             holding = bot.coins[item]
             cost = holding.volume * holding.bought_at
