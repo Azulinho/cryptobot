@@ -575,9 +575,19 @@ The list of price logs to be used for backtesting.
 
 ## Bot command center
 
-The bot is running a *pdb* endpoint on port 5555.
+The bot is running a *pdb* endpoint on container port 5555.
 
-Open a browser on http://127.0.0.1:5555
+Run the bot as listed above and check which port it is using,
+
+```
+
+ docker ps
+ CONTAINER ID   IMAGE                        COMMAND                  CREATED          STATUS          PORTS                                                NAMES
+ e6348c68072f   ghcr.io/azulinho/cryptobot   "python -u app.py -s…"   50 seconds ago   Up 49 seconds   0.0.0.0:49153->5555/tcp, :::49153->5555/tcp cryptobot_cryptobot_run_21cc0b86d73d
+```
+
+Then,
+Open a browser on http://127.0.0.1:49153
 
 And type :
 
