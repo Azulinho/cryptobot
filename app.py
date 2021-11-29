@@ -5,7 +5,7 @@ import json
 import math
 import pickle
 import sys
-import multiprocessing
+import threading
 import traceback
 from collections import deque
 from datetime import datetime
@@ -149,9 +149,18 @@ class Coin: # pylint: disable=too-few-public-methods
                 self.sell_at_percentage, self.bought_at
             ):
                 self.status = "TARGET_SELL"
+                s_value = percent(
+                    self.trail_target_sell_percentage,
+                    self.sell_at_percentage
+                ) - 100
                 logging.info(
                     f"{self.date}: {self.symbol} [HOLD] "
-                    + f"-> [TARGET_SELL] ({self.price})"
+                    + f"-> [TARGET_SELL] ({self.price}) "
+                    + f"A:{self.holding_time}s "
+                    + f"U:{self.volume} P:{self.price} T:{self.value} "
+                    + f"SP:{self.price * self.sell_at_percentage /100} "
+                    + f"S:+{s_value:.3f}% "
+                    + f"TTS:-{(100 - self.trail_target_sell_percentage):.3f}% "
                 )
 
         if self.status == "TARGET_SELL":
@@ -314,12 +323,16 @@ class Bot:
         coin.status = "HOLD"
         coin.tip = coin.price
 
+        s_value = percent(
+            coin.trail_target_sell_percentage,
+            coin.sell_at_percentage
+        ) - 100
         logging.info(
             f"{coin.date}: {coin.symbol} [{coin.status}] "
             + f"A:{coin.holding_time}s "
             + f"U:{coin.volume} P:{coin.price} T:{coin.value} "
             + f"SP:{coin.price * coin.sell_at_percentage /100} "
-            + f"S:+{percent(coin.trail_target_sell_percentage,coin.sell_at_percentage) - 100:.3f}% "
+            + f"S:+{s_value:.3f}% "
             + f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}% "
             + f"({len(self.wallet)}/{self.max_coins})"
         )
@@ -976,8 +989,9 @@ if __name__ == "__main__":
         )
 
         # start command-control-center (ipdb on port 5555)
-        p = multiprocessing.Process(target=control_center)
-        p.start()
+        t = threading.Thread(target=control_center)
+        t.daemon = True
+        t.start()
 
         if bot.mode == "backtesting":
             bot.backtesting()
@@ -992,7 +1006,6 @@ if __name__ == "__main__":
         if bot.mode == "live":
             bot.run()
 
-        p.terminate()
         for item in bot.wallet:
             holding = bot.coins[item]
             cost = holding.volume * holding.bought_at
