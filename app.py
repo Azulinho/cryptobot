@@ -161,6 +161,7 @@ class Coin: # pylint: disable=too-few-public-methods
                     + f"SP:{self.price * self.sell_at_percentage /100} "
                     + f"S:+{s_value:.3f}% "
                     + f"TTS:-{(100 - self.trail_target_sell_percentage):.3f}% "
+                    + f"LP:{(self.min):.3f} "
                 )
 
         if self.status == "TARGET_SELL":
@@ -334,7 +335,8 @@ class Bot:
             + f"SP:{coin.price * coin.sell_at_percentage /100} "
             + f"S:+{s_value:.3f}% "
             + f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}% "
-            + f"({len(self.wallet)}/{self.max_coins})"
+            + f"LP:{(coin.min):.3f} "
+            + f"({len(self.wallet)}/{self.max_coins}) "
         )
         if self.debug:
             logging.debug(f"averages[d]: {coin.averages['d']}")
@@ -393,7 +395,8 @@ class Bot:
             + f"TP:{100 - (coin.bought_at / coin.price * 100):.2f}% "
             + f"S:+{percent(coin.trail_target_sell_percentage,coin.sell_at_percentage) - 100:.3f}% "
             + f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}% "
-            + f"({len(self.wallet)}/{self.max_coins})",
+            + f"LP:{(coin.min):.3f} "
+            + f"({len(self.wallet)}/{self.max_coins}) "
         )
         coin.status = ""
         self.wallet.remove(coin.symbol)
@@ -650,7 +653,8 @@ class Bot:
                 + f"now:{coin.price} "
                 + f"bought:{coin.bought_at} "
                 + f"sell:{(coin.sell_at_percentage - 100):.4f}% "
-                + f"trail_target_sell:{(coin.trail_target_sell_percentage - 100):.4f}%"
+                + f"trail_target_sell:{(coin.trail_target_sell_percentage - 100):.4f}% "
+                + f"LP:{(coin.min):.3f} "
             )
 
     def clear_all_coins_stats(self) -> None:
