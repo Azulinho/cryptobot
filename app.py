@@ -10,6 +10,7 @@ import traceback
 from collections import deque
 from datetime import datetime
 from functools import lru_cache
+from itertools import islice
 from os.path import exists
 from time import sleep
 from typing import Any, Dict, List, Tuple
@@ -893,50 +894,51 @@ class Bot:
         with xopen(price_log, "rt") as f:
             while True:
                 try:
-                    line = f.readline()
-                    if line == "":
+                    next_n_lines = list(islice(f, 4 * 1024 * 1024))
+                    if not next_n_lines:
                         break
 
-                    if self.pairing not in line:
-                        continue
+                    for line in next_n_lines:
+                        if self.pairing not in line:
+                            continue
 
-                    parts = line.split(" ")
-                    symbol = parts[2]
-                    if symbol not in self.tickers:
-                        continue
-                    date = " ".join(parts[0:2])
-                    market_price = float(parts[3])
+                        parts = line.split(" ")
+                        symbol = parts[2]
+                        if symbol not in self.tickers:
+                            continue
+                        date = " ".join(parts[0:2])
+                        market_price = float(parts[3])
 
-                    # implements a PAUSE_FOR pause while reading from
-                    # our price logs.
-                    # we essentially skip a number of iterations between
-                    # reads, causing a similar effect if we were only
-                    # probing prices every PAUSE_FOR seconds
-                    read_counter = read_counter + 1
-                    if read_counter != self.pause:
-                        continue
+                        # implements a PAUSE_FOR pause while reading from
+                        # our price logs.
+                        # we essentially skip a number of iterations between
+                        # reads, causing a similar effect if we were only
+                        # probing prices every PAUSE_FOR seconds
+                        read_counter = read_counter + 1
+                        if read_counter != self.pause:
+                            continue
 
-                    read_counter = 0
-                    # TODO: rework this
-                    if symbol not in self.coins:
-                        self.coins[symbol] = Coin(
-                            symbol,
-                            date,
-                            market_price,
-                            self.tickers[symbol]["BUY_AT_PERCENTAGE"],
-                            self.tickers[symbol]["SELL_AT_PERCENTAGE"],
-                            self.tickers[symbol]["STOP_LOSS_AT_PERCENTAGE"],
-                            self.tickers[symbol][
-                                "TRAIL_TARGET_SELL_PERCENTAGE"
-                            ],
-                            self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"],
-                            self.tickers[symbol]["SOFT_LIMIT_HOLDING_TIME"],
-                            self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"],
-                            self.tickers[symbol]["DOWNTREND_DAYS"],
-                        )
-                    else:
-                        self.coins[symbol].update(date, market_price)
-                    self.run_strategy(self.coins[symbol])
+                        read_counter = 0
+                        # TODO: rework this
+                        if symbol not in self.coins:
+                            self.coins[symbol] = Coin(
+                                symbol,
+                                date,
+                                market_price,
+                                self.tickers[symbol]["BUY_AT_PERCENTAGE"],
+                                self.tickers[symbol]["SELL_AT_PERCENTAGE"],
+                                self.tickers[symbol]["STOP_LOSS_AT_PERCENTAGE"],
+                                self.tickers[symbol][
+                                    "TRAIL_TARGET_SELL_PERCENTAGE"
+                                ],
+                                self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"],
+                                self.tickers[symbol]["SOFT_LIMIT_HOLDING_TIME"],
+                                self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"],
+                                self.tickers[symbol]["DOWNTREND_DAYS"],
+                            )
+                        else:
+                            self.coins[symbol].update(date, market_price)
+                        self.run_strategy(self.coins[symbol])
                 except Exception as error_msg: # pylint: disable=broad-except
                     logging.error("Exception:")
                     logging.error(traceback.format_exc())
