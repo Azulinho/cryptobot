@@ -159,7 +159,7 @@ class Coin: # pylint: disable=too-few-public-methods
                     + f"-> [TARGET_SELL] ({self.price}) "
                     + f"A:{self.holding_time}s "
                     + f"U:{self.volume} P:{self.price} T:{self.value} "
-                    + f"SP:{self.price * self.sell_at_percentage /100} "
+                    + f"SP:{self.bought_at * self.sell_at_percentage /100} "
                     + f"S:+{s_value:.3f}% "
                     + f"TTS:-{(100 - self.trail_target_sell_percentage):.3f}% "
                     + f"LP:{(self.min):.3f} "
@@ -333,7 +333,8 @@ class Bot:
             f"{coin.date}: {coin.symbol} [{coin.status}] "
             + f"A:{coin.holding_time}s "
             + f"U:{coin.volume} P:{coin.price} T:{coin.value} "
-            + f"SP:{coin.price * coin.sell_at_percentage /100} "
+            + f"SP:{coin.bought_at * coin.sell_at_percentage /100} "
+            + f"SL:{coin.bought_at * coin.stop_loss_at_percentage / 100} "
             + f"S:+{s_value:.3f}% "
             + f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}% "
             + f"LP:{(coin.min):.3f} "
@@ -392,8 +393,9 @@ class Bot:
             + f"A:{coin.holding_time}s "
             + f"U:{coin.volume} P:{coin.price} T:{coin.value} "
             + f"{message}:{coin.profit:.3f} "
-            + f"SP:{coin.price * coin.sell_at_percentage /100} "
+            + f"SP:{coin.bought_at * coin.sell_at_percentage /100} "
             + f"TP:{100 - (coin.bought_at / coin.price * 100):.2f}% "
+            + f"SL:{coin.bought_at * coin.stop_loss_at_percentage/100} "
             + f"S:+{percent(coin.trail_target_sell_percentage,coin.sell_at_percentage) - 100:.3f}% "
             + f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}% "
             + f"LP:{(coin.min):.3f} "
@@ -721,8 +723,10 @@ class Bot:
             self.coins.pop(coin)
 
         # finally apply the current settings in the config file
+
+        symbols = ' '.join(self.coins.keys())
+        logging.warning(f"overriding values from config for: {symbols}")
         for symbol in self.coins:
-            logging.warning(f"overriding values for {symbol} from config")
             self.coins[symbol].buy_at_percentage = add_100(
                 self.tickers[symbol]["BUY_AT_PERCENTAGE"]
             )
