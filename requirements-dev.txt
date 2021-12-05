@@ -27,3 +27,4 @@ urllib3-mock==0.3.3
 types-PyYAML==6.0.0
 pylint
 coverage
+pytest-timeout
