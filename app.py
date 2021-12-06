@@ -20,6 +20,7 @@ import web_pdb
 import yaml
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
+from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 from xopen import xopen
 
@@ -895,59 +896,63 @@ class Bot:
         logging.info(f"backtesting: {price_log}")
         logging.info(f"wallet: {self.wallet}")
         read_counter = 0
-        with xopen(price_log, "rt") as f:
+        try:
+            if price_log.endswith('.lz4'):
+                f = lz4open(price_log, mode="rt")
+            else:
+                f = xopen(price_log, "rt")
             while True:
-                try:
-                    next_n_lines = list(islice(f, 4 * 1024 * 1024))
-                    if not next_n_lines:
-                        break
+                next_n_lines = list(islice(f, 4 * 1024 * 1024))
+                if not next_n_lines:
+                    break
 
-                    for line in next_n_lines:
-                        if self.pairing not in line:
-                            continue
+                for line in next_n_lines:
+                    if self.pairing not in line:
+                        continue
 
-                        parts = line.split(" ")
-                        symbol = parts[2]
-                        if symbol not in self.tickers:
-                            continue
-                        date = " ".join(parts[0:2])
-                        market_price = float(parts[3])
+                    parts = line.split(" ")
+                    symbol = parts[2]
+                    if symbol not in self.tickers:
+                        continue
+                    date = " ".join(parts[0:2])
+                    market_price = float(parts[3])
 
-                        # implements a PAUSE_FOR pause while reading from
-                        # our price logs.
-                        # we essentially skip a number of iterations between
-                        # reads, causing a similar effect if we were only
-                        # probing prices every PAUSE_FOR seconds
-                        read_counter = read_counter + 1
-                        if read_counter != self.pause:
-                            continue
+                    # implements a PAUSE_FOR pause while reading from
+                    # our price logs.
+                    # we essentially skip a number of iterations between
+                    # reads, causing a similar effect if we were only
+                    # probing prices every PAUSE_FOR seconds
+                    read_counter = read_counter + 1
+                    if read_counter != self.pause:
+                        continue
 
-                        read_counter = 0
-                        # TODO: rework this
-                        if symbol not in self.coins:
-                            self.coins[symbol] = Coin(
-                                symbol,
-                                date,
-                                market_price,
-                                self.tickers[symbol]["BUY_AT_PERCENTAGE"],
-                                self.tickers[symbol]["SELL_AT_PERCENTAGE"],
-                                self.tickers[symbol]["STOP_LOSS_AT_PERCENTAGE"],
-                                self.tickers[symbol][
-                                    "TRAIL_TARGET_SELL_PERCENTAGE"
-                                ],
-                                self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"],
-                                self.tickers[symbol]["SOFT_LIMIT_HOLDING_TIME"],
-                                self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"],
-                                self.tickers[symbol]["DOWNTREND_DAYS"],
-                            )
-                        else:
-                            self.coins[symbol].update(date, market_price)
-                        self.run_strategy(self.coins[symbol])
-                except Exception as error_msg: # pylint: disable=broad-except
-                    logging.error("Exception:")
-                    logging.error(traceback.format_exc())
-                    if error_msg == "KeyboardInterrupt":
-                        sys.exit(1)
+                    read_counter = 0
+                    # TODO: rework this
+                    if symbol not in self.coins:
+                        self.coins[symbol] = Coin(
+                            symbol,
+                            date,
+                            market_price,
+                            self.tickers[symbol]["BUY_AT_PERCENTAGE"],
+                            self.tickers[symbol]["SELL_AT_PERCENTAGE"],
+                            self.tickers[symbol]["STOP_LOSS_AT_PERCENTAGE"],
+                            self.tickers[symbol][
+                                "TRAIL_TARGET_SELL_PERCENTAGE"
+                            ],
+                            self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"],
+                            self.tickers[symbol]["SOFT_LIMIT_HOLDING_TIME"],
+                            self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"],
+                            self.tickers[symbol]["DOWNTREND_DAYS"],
+                        )
+                    else:
+                        self.coins[symbol].update(date, market_price)
+                    self.run_strategy(self.coins[symbol])
+            f.close()
+        except Exception as error_msg: # pylint: disable=broad-except
+            logging.error("Exception:")
+            logging.error(traceback.format_exc())
+            if error_msg == "KeyboardInterrupt":
+                sys.exit(1)
 
     def backtesting(self) -> None:
         """the bot Backtesting main loop"""
