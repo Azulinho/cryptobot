@@ -1,6 +1,7 @@
 import sys
 sys.path.insert(0, '')
 
+import json
 import app
 import pytest
 import socket
@@ -227,6 +228,8 @@ class TestBot:
     def test_init_or_update_coin(self, bot, coin, cfg):
         binance_data = {"symbol":"BTCUSDT","price":"101.000"}
 
+        bot.load_klines_for_coin = mock.Mock()
+
         result = bot.init_or_update_coin(binance_data)
         assert result == None
 
@@ -247,10 +250,12 @@ class TestBot:
             100 + cfg['TICKERS']['BTCUSDT']['TRAIL_RECOVERY_PERCENTAGE']
         )
 
-
     def test_process_coins(self, bot, coin):
+        bot.load_klines_for_coin = mock.Mock()
+
         # TODO: this should only assert that the strategy is called
         # and not verify the strategy
+
         with mock.patch.object(
             bot.client, 'create_order', return_value={
                 "symbol": "BTCUSDT",
@@ -297,6 +302,50 @@ class TestBot:
                     ) as m4:
                         bot.process_coins()
                         assert bot.wallet == []
+
+    def test_load_klines_for_coin(self, bot, coin):
+        coin.date = "2021-12-04 05:23:05.693516"
+        r = requests.models.Response()
+        r.status_code = 200
+        r.headers['Content-Type'] = "application/json"
+        line = [
+            1635307200000,
+            '100.000000',
+            '100.000000',
+            '100.000000',
+            '100.000000',
+            '3722.44662000',
+            1635310799999,
+            '227105989.39175430',
+            79789,
+            '1764.30200000',
+            '107638043.51761510',
+            '0'
+        ]
+        response = []
+        for _ in range(96):
+            response.append(line)
+
+        r._content = json.dumps(response).encode('utf-8')
+
+        with mock.patch('requests.get', return_value=r) as mock2:
+            app.open =  mock.mock_open()
+            bot.load_klines_for_coin(coin)
+
+        assert len(coin.averages['d']) == 4
+        assert len(coin.averages['h']) == 24
+        assert len(coin.averages['m']) == 60
+        assert coin.averages['counters']['m'] == 60
+        assert coin.averages['counters']['s'] == 0
+
+        assert coin.averages['d'][0] == 100
+        assert coin.averages['d'][1] == 100
+
+        for i in range(24):
+            assert coin.averages['h'][i] == 100
+
+        for i in range(60):
+            assert coin.averages['m'][i] == 100
 
 
 class TestBotCheckForSaleConditions:

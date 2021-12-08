@@ -1,21 +1,23 @@
 """ CryptoBot for Binance """
 import argparse
-import logging
 import json
+import logging
 import math
 import pickle
 import sys
 import threading
 import traceback
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import lru_cache
+from hashlib import md5
 from itertools import islice
 from os.path import exists
 from time import sleep
 from typing import Any, Dict, List, Tuple
 
 import colorlog
+import requests
 import web_pdb
 import yaml
 from binance.client import Client
@@ -24,16 +26,15 @@ from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 from xopen import xopen
 
-
 c_handler = colorlog.StreamHandler(sys.stdout)
 c_handler.setFormatter(
     colorlog.ColoredFormatter(
-        '%(log_color)s[%(levelname)s] %(message)s',
+        "%(log_color)s[%(levelname)s] %(message)s",
         log_colors={
-            'WARNING':  'yellow',
-            'ERROR':    'red',
-            'CRITICAL': 'red,bg_white',
-        }
+            "WARNING": "yellow",
+            "ERROR": "red",
+            "CRITICAL": "red,bg_white",
+        },
     )
 )
 c_handler.setLevel(logging.INFO)
@@ -44,7 +45,7 @@ f_handler.setLevel(logging.DEBUG)
 logging.basicConfig(
     level=logging.DEBUG,
     format="[%(levelname)s] %(message)s",
-    handlers=[ f_handler, c_handler ]
+    handlers=[f_handler, c_handler],
 )
 
 
@@ -64,8 +65,14 @@ def add_100(number: float) -> float:
     return float(100 + number)
 
 
-class Coin: # pylint: disable=too-few-public-methods
-    """ Coin Class"""
+def control_center():
+    """pdb web endpoint"""
+    web_pdb.set_trace()
+
+
+class Coin:  # pylint: disable=too-few-public-methods
+    """Coin Class"""
+
     def __init__(
         self,
         symbol: str,
@@ -84,8 +91,8 @@ class Coin: # pylint: disable=too-few-public-methods
         self.symbol = symbol
         self.volume: float = 0
         self.bought_at: float = 0
-        self.min = market_price
-        self.max = market_price
+        self.min = float(market_price)
+        self.max = float(market_price)
         self.date = date
         self.price = market_price
         self.holding_time = int(0)
@@ -151,10 +158,13 @@ class Coin: # pylint: disable=too-few-public-methods
                 self.sell_at_percentage, self.bought_at
             ):
                 self.status = "TARGET_SELL"
-                s_value = percent(
-                    self.trail_target_sell_percentage,
-                    self.sell_at_percentage
-                ) - 100
+                s_value = (
+                    percent(
+                        self.trail_target_sell_percentage,
+                        self.sell_at_percentage,
+                    )
+                    - 100
+                )
                 logging.info(
                     f"{self.date}: {self.symbol} [HOLD] "
                     + f"-> [TARGET_SELL] ({self.price}) "
@@ -163,7 +173,7 @@ class Coin: # pylint: disable=too-few-public-methods
                     + f"SP:{self.bought_at * self.sell_at_percentage /100} "
                     + f"S:+{s_value:.3f}% "
                     + f"TTS:-{(100 - self.trail_target_sell_percentage):.3f}% "
-                    + f"LP:{(self.min):.3f} "
+                    + f"LP:{self.min:.3f} "
                 )
 
         if self.status == "TARGET_SELL":
@@ -176,9 +186,8 @@ class Coin: # pylint: disable=too-few-public-methods
 
         self.consolidate_averages(market_price)
 
-
     def consolidate_averages(self, market_price: float) -> None:
-        """ consolidates all coin price averages over the different buckets """
+        """consolidates all coin price averages over the different buckets"""
         self.averages["s"].append(float(market_price))
         self.averages["counters"]["s"] += 1
 
@@ -202,7 +211,8 @@ class Coin: # pylint: disable=too-few-public-methods
 
 
 class Bot:
-    """ Bot Class """
+    """Bot Class"""
+
     def __init__(self, conn, config) -> None:
         """Bot object"""
         self.client = conn
@@ -326,10 +336,10 @@ class Bot:
         coin.status = "HOLD"
         coin.tip = coin.price
 
-        s_value = percent(
-            coin.trail_target_sell_percentage,
-            coin.sell_at_percentage
-        ) - 100
+        s_value = (
+            percent(coin.trail_target_sell_percentage, coin.sell_at_percentage)
+            - 100
+        )
         logging.info(
             f"{coin.date}: {coin.symbol} [{coin.status}] "
             + f"A:{coin.holding_time}s "
@@ -338,7 +348,7 @@ class Bot:
             + f"SL:{coin.bought_at * coin.stop_loss_at_percentage / 100} "
             + f"S:+{s_value:.3f}% "
             + f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}% "
-            + f"LP:{(coin.min):.3f} "
+            + f"LP:{coin.min:.3f} "
             + f"({len(self.wallet)}/{self.max_coins}) "
         )
         if self.debug:
@@ -399,7 +409,7 @@ class Bot:
             + f"SL:{coin.bought_at * coin.stop_loss_at_percentage/100} "
             + f"S:+{percent(coin.trail_target_sell_percentage,coin.sell_at_percentage) - 100:.3f}% "
             + f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}% "
-            + f"LP:{(coin.min):.3f} "
+            + f"LP:{coin.min:.3f} "
             + f"({len(self.wallet)}/{self.max_coins}) "
         )
         coin.status = ""
@@ -478,7 +488,7 @@ class Bot:
             price_log = "log/testnet.log"
         else:
             price_log = f"log/{datetime.now().strftime('%Y%m%d')}.log"
-        with open(price_log, "a", encoding='utf-8') as f:
+        with open(price_log, "a", encoding="utf-8") as f:
             f.write(f"{datetime.now()} {symbol} {price}\n")
 
     def init_or_update_coin(self, binance_data: Dict[str, Any]) -> None:
@@ -508,6 +518,7 @@ class Bot:
                 ],
                 downtrend_days=self.tickers[symbol]["DOWNTREND_DAYS"],
             )
+            self.load_klines_for_coin(self.coins[symbol])
         else:
             self.coins[symbol].update(str(datetime.now()), market_price)
 
@@ -658,7 +669,7 @@ class Bot:
                 + f"bought:{coin.bought_at} "
                 + f"sell:{(coin.sell_at_percentage - 100):.4f}% "
                 + f"trail_target_sell:{(coin.trail_target_sell_percentage - 100):.4f}% "
-                + f"LP:{(coin.min):.3f} "
+                + f"LP:{coin.min:.3f} "
             )
 
     def clear_all_coins_stats(self) -> None:
@@ -691,8 +702,8 @@ class Bot:
         coin.status = ""
         # TODO: should we just clear the stats on the coin we just sold?
         if self.clean_coin_stats_at_sale:
-            coin.min = coin.price
-            coin.max = coin.price
+            coin.min = float(coin.price)
+            coin.max = float(coin.price)
 
     def save_coins(self) -> None:
         """saves coins and wallet to a local pickle file"""
@@ -725,7 +736,7 @@ class Bot:
 
         # finally apply the current settings in the config file
 
-        symbols = ' '.join(self.coins.keys())
+        symbols = " ".join(self.coins.keys())
         logging.warning(f"overriding values from config for: {symbols}")
         for symbol in self.coins:
             self.coins[symbol].buy_at_percentage = add_100(
@@ -877,6 +888,7 @@ class Bot:
             logging.warning("CTRL-C to cancel in the next 10 seconds")
             sleep(10)
             self.clear_all_coins_stats()
+
         while True:
             self.process_coins()
             self.save_coins()
@@ -897,7 +909,7 @@ class Bot:
         logging.info(f"wallet: {self.wallet}")
         read_counter = 0
         try:
-            if price_log.endswith('.lz4'):
+            if price_log.endswith(".lz4"):
                 f = lz4open(price_log, mode="rt")
             else:
                 f = xopen(price_log, "rt")
@@ -944,11 +956,12 @@ class Bot:
                             self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"],
                             self.tickers[symbol]["DOWNTREND_DAYS"],
                         )
+                        self.load_klines_for_coin(self.coins[symbol])
                     else:
                         self.coins[symbol].update(date, market_price)
                     self.run_strategy(self.coins[symbol])
             f.close()
-        except Exception as error_msg: # pylint: disable=broad-except
+        except Exception as error_msg:  # pylint: disable=broad-except
             logging.error("Exception:")
             logging.error(traceback.format_exc())
             if error_msg == "KeyboardInterrupt":
@@ -957,10 +970,13 @@ class Bot:
     def backtesting(self) -> None:
         """the bot Backtesting main loop"""
         logging.info(json.dumps(cfg, indent=4))
+
+        self.clear_all_coins_stats()
+
         for price_log in self.price_logs:
             self.backtest_logfile(price_log)
 
-        with open("log/backtesting.log", "a", encoding='utf-8') as f:
+        with open("log/backtesting.log", "a", encoding="utf-8") as f:
             log_entry = "|".join(
                 [
                     f"profit:{self.profit:.3f}",
@@ -973,10 +989,122 @@ class Bot:
 
             f.write(f"{log_entry}\n")
 
+    @retry(wait=wait_exponential(multiplier=1, max=10))
+    def load_klines_for_coin(self, coin) -> None:
+        """fetches from binance or a local cache klines for a coin"""
 
-def control_center():
-    """ pdb web endpoint """
-    web_pdb.set_trace()
+        symbol = coin.symbol
+        logging.info(f"loading klines for: {symbol}")
+
+        # lets find out the from what date we need to pull klines from while in
+        # backtesting mode.
+        if self.mode == "backtesting":
+            backtest_end_time = datetime.strptime(
+                coin.date, "%Y-%m-%d %H:%M:%S.%f"
+            )
+            end_unix_time = int(
+                (
+                    datetime.timestamp(backtest_end_time - timedelta(hours=1))
+                ) * 1000
+            )
+        else:
+            end_unix_time = int(
+                (
+                    datetime.timestamp(datetime.now() - timedelta(hours=1))
+                ) * 1000
+            )
+
+        api_url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&"
+
+        query = (
+            f"{api_url}endTime={end_unix_time}&interval=1h"
+        )
+        md5_query = md5(query.encode()).hexdigest()
+        f_path = f"cache/{symbol}.{md5_query}"
+
+        if exists(f_path):
+            with open(f_path, "r") as f:
+                results = json.load(f)
+        else:
+            results = requests.get(query).json()
+
+            # this can be fairly API intensive for a large number of tickers
+            sleep(0.1)
+            if self.mode == "backtesting":
+                with open(f_path, "w") as f:
+                    f.write(json.dumps(results))
+
+        logging.debug(f"{symbol} : last_h:{results[-1:]}")
+        hour_averages = [(float(y[2]) + float(y[3])) / 2 for y in results]
+
+        coin.averages["counters"]["h"] = 24
+
+        for h in hour_averages[-24:]:
+            coin.averages["h"].append(h)
+            if h > coin.max:
+                coin.max = h
+            if h < coin.min:
+                coin.min = h
+
+        # clear up days array
+        coin.averages["d"] = []
+        days = int(len(results) / 24 )
+        for index in range(days):
+            coin.averages["d"].append(
+                mean(hour_averages[(index * 24) : (index * 24 + 23)])
+            )
+
+        if self.mode == "backtesting":
+            backtest_end_time = datetime.strptime(
+                coin.date, "%Y-%m-%d %H:%M:%S.%f"
+            )
+            end_unix_time = int(
+                (
+                    datetime.timestamp(backtest_end_time)
+                ) * 1000
+            )
+        else:
+            end_unix_time = int(
+                (
+                    datetime.timestamp(datetime.now())
+                ) * 1000
+            )
+
+        query = f"{api_url}endTime={end_unix_time}&interval=1m"
+        md5_query = md5(query.encode()).hexdigest()
+        f_path = f"cache/{symbol}.{md5_query}"
+
+        if exists(f_path):
+            with open(f_path, "r") as f:
+                results = json.load(f)
+        else:
+            results = requests.get(query).json()
+            # this can be fairly API intensive for a large number of tickers
+            sleep(0.1)
+            if self.mode == "backtesting":
+                with open(f_path, "w") as f:
+                    f.write(json.dumps(results))
+
+        logging.debug(f"{symbol} : last_m:{results[-1:]}")
+        min_averages = [(float(y[2]) + float(y[3])) / 2 for y in results]
+
+        coin.averages["counters"]["m"] = 60
+
+        for m in min_averages:
+            if m > coin.max:
+                coin.max = m
+            if m < coin.min:
+                coin.min = m
+            coin.averages["m"].append(m)
+
+        coin.averages["counters"]["s"] = 0
+
+        logging.debug(f"{symbol} : price:{coin.price}")
+        logging.debug(f"{symbol} : min:{coin.min}")
+        logging.debug(f"{symbol} : max:{coin.max}")
+        logging.debug(f"{symbol} : d:{coin.averages['d']}")
+        logging.debug(f"{symbol} : h:{coin.averages['h']}")
+        logging.debug(f"{symbol} : m:{coin.averages['m']}")
 
 
 if __name__ == "__main__":
@@ -989,9 +1117,9 @@ if __name__ == "__main__":
         )
         args = parser.parse_args()
 
-        with open(args.config, encoding='utf-8') as _f:
+        with open(args.config, encoding="utf-8") as _f:
             cfg = yaml.safe_load(_f.read())
-        with open(args.secrets, encoding='utf-8') as _f:
+        with open(args.secrets, encoding="utf-8") as _f:
             secrets = yaml.safe_load(_f.read())
         cfg["MODE"] = args.mode
 
@@ -1027,9 +1155,7 @@ if __name__ == "__main__":
             value = holding.volume * holding.price
             age = holding.holding_time
 
-            logging.info(
-                f"WALLET: {item} age:{age} cost:{cost} value:{value}"
-            )
+            logging.info(f"WALLET: {item} age:{age} cost:{cost} value:{value}")
 
         logging.info(f"final profit: {bot.profit:.3f} fees: {bot.fees:.3f}")
         logging.info(
@@ -1041,6 +1167,6 @@ if __name__ == "__main__":
             + f"stales:{bot.stales} holds:{len(bot.wallet)}"
         )
 
-    except Exception: # pylint: disable=broad-except
+    except Exception:  # pylint: disable=broad-except
         logging.error(traceback.format_exc())
         sys.exit(1)

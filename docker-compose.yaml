@@ -13,3 +13,4 @@ services:
       - ./secrets:/secrets
       - ./log:/cryptobot/log:rw
       - ./state:/cryptobot/state:rw
+      - ./cache:/cryptobot/cache:rw
