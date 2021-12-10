@@ -1041,10 +1041,11 @@ class Bot:
 
         for h in hour_averages[-24:]:
             coin.averages["h"].append(h)
-            if h > coin.max:
-                coin.max = h
-            if h < coin.min:
-                coin.min = h
+            if not self.clear_coin_stats_at_boot:
+                if h > coin.max:
+                    coin.max = h
+                if h < coin.min:
+                    coin.min = h
 
         # clear up days array
         coin.averages["d"] = []
@@ -1091,10 +1092,11 @@ class Bot:
         coin.averages["counters"]["m"] = 60
 
         for m in min_averages:
-            if m > coin.max:
-                coin.max = m
-            if m < coin.min:
-                coin.min = m
+            if not self.clear_coin_stats_at_boot:
+                if m > coin.max:
+                    coin.max = m
+                if m < coin.min:
+                    coin.min = m
             coin.averages["m"].append(m)
 
         coin.averages["counters"]["s"] = 0
