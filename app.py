@@ -700,7 +700,6 @@ class Bot:
         coin.dip = float(0)
         coin.tip = float(0)
         coin.status = ""
-        # TODO: should we just clear the stats on the coin we just sold?
         if self.clean_coin_stats_at_sale:
             coin.min = float(coin.price)
             coin.max = float(coin.price)
@@ -763,6 +762,31 @@ class Bot:
             self.coins[symbol].downtrend_days = int(
                 self.tickers[symbol]["DOWNTREND_DAYS"]
             )
+        if self.wallet:
+            logging.info("Wallet contains:")
+            for symbol in self.wallet:
+                sell_price = float(
+                    self.coins[symbol].bought_at * self.coins[symbol].sell_at_percentage
+                ) /100
+                s_value = (
+                    percent(
+                        self.coins[symbol].trail_target_sell_percentage,
+                        self.coins[symbol].sell_at_percentage,
+                    )
+                    - 100
+                )
+                logging.info(
+                    f"{self.coins[symbol].date}: {symbol} "
+                    + f"{self.coins[symbol].status} "
+                    + f"A:{self.coins[symbol].holding_time}s "
+                    + f"U:{self.coins[symbol].volume} "
+                    + f"P:{self.coins[symbol].price} "
+                    + f"T:{self.coins[symbol].value} "
+                    + f"SP:{sell_price} "
+                    + f"S:+{s_value:.3f}% "
+                    + f"TTS:-{(100 - self.coins[symbol].trail_target_sell_percentage):.3f}% "
+                    + f"LP:{self.coins[symbol].min:.3f} "
+                )
 
     def check_for_sale_conditions(self, coin: Coin) -> Tuple[bool, str]:
         """checks for multiple sale conditions for a coin"""
