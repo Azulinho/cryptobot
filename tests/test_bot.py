@@ -49,7 +49,10 @@ def coin(bot):
         trail_recovery_percentage=float(bot.tickers['BTCUSDT']['TRAIL_RECOVERY_PERCENTAGE']),
         soft_limit_holding_time=int(bot.tickers['BTCUSDT']['SOFT_LIMIT_HOLDING_TIME']),
         hard_limit_holding_time=int(bot.tickers['BTCUSDT']['HARD_LIMIT_HOLDING_TIME']),
-        downtrend_days=int(bot.tickers['BTCUSDT']['DOWNTREND_DAYS'])
+        klines_trend_period=str(bot.tickers['BTCUSDT']['KLINES_TREND_PERIOD']),
+        klines_slice_percentage_change=float(
+            bot.tickers['BTCUSDT']["KLINES_SLICE_PERCENTAGE_CHANGE"]
+        ),
     )
     yield coin
     del(coin)
@@ -252,6 +255,11 @@ class TestBot:
 
     def test_process_coins(self, bot, coin):
         bot.load_klines_for_coin = mock.Mock()
+
+        for _ in range(14):
+            coin.averages['d'].append(0)
+
+        bot.coins['BTCUSDT'] = coin
 
         # TODO: this should only assert that the strategy is called
         # and not verify the strategy
@@ -749,6 +757,9 @@ class TestStrategyBuyDropSellRecovery:
         coin.status = ""
         coin.price = 90
         coin.max = 100
+        for _ in range(14):
+            coin.averages['d'].append(0)
+
         result = bot.buy_drop_sell_recovery_strategy(coin)
         assert result == False
         assert coin.status == "TARGET_DIP"
@@ -778,6 +789,10 @@ class TestStrategyBuyDropSellRecovery:
         coin.price = 90
         coin.last = 80
         coin.dip = 80
+
+        for _ in range(14):
+            coin.averages['d'].append(0)
+
         with mock.patch.object(
             bot, 'buy_coin', return_value=False
         ) as m1:
@@ -804,6 +819,9 @@ class TestStrategyMoonSellRecovery:
         coin.buy_at_percentage = 105
         coin.price = 100
         coin.last = 90
+        for _ in range(14):
+            coin.averages['d'].append(0)
+
         with mock.patch.object(
             bot, 'buy_coin', return_value=True
         ) as m1:

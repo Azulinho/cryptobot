@@ -85,7 +85,8 @@ class Coin:  # pylint: disable=too-few-public-methods
         trail_recovery_percentage: float,
         soft_limit_holding_time: int,
         hard_limit_holding_time: int,
-        downtrend_days: int,
+        klines_trend_period: str,
+        klines_slice_percentage_change: float,
     ) -> None:
         """Coin object"""
         self.symbol = symbol
@@ -128,7 +129,11 @@ class Coin:  # pylint: disable=too-few-public-methods
             "h": deque([], maxlen=24),
             "d": [],
         }
-        self.downtrend_days: int = int(downtrend_days)
+        self.klines_trend_period: str = str(klines_trend_period)
+        self.klines_slice_percentage_change: float = float(
+            klines_slice_percentage_change
+        )
+
 
     def update(self, date: str, market_price: float) -> None:
         """updates a coin object with latest market values"""
@@ -191,23 +196,27 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.averages["s"].append(float(market_price))
         self.averages["counters"]["s"] += 1
 
-        # TODO: this needs to work with PAUSE values
-        if self.averages["counters"]["s"] == 60:
-            last_s_avg = mean(self.averages["s"])
-            self.averages["counters"]["s"] = 0
-            self.averages["m"].append(last_s_avg)
-            self.averages["counters"]["m"] += 1
+        try:
+            # TODO: this needs to work with PAUSE values
+            if self.averages["counters"]["s"] == 60:
+                last_s_avg = mean(self.averages["s"])
+                self.averages["counters"]["s"] = 0
+                self.averages["m"].append(last_s_avg)
+                self.averages["counters"]["m"] += 1
 
-        if self.averages["counters"]["m"] == 60:
-            last_m_avg = mean(self.averages["m"])
-            self.averages["counters"]["m"] = 0
-            self.averages["h"].append(last_m_avg)
-            self.averages["counters"]["h"] += 1
+            if self.averages["counters"]["m"] == 60:
+                last_m_avg = mean(self.averages["m"])
+                self.averages["counters"]["m"] = 0
+                self.averages["h"].append(last_m_avg)
+                self.averages["counters"]["h"] += 1
 
-        if self.averages["counters"]["h"] == 24:
-            last_h_avg = mean(self.averages["h"])
-            self.averages["counters"]["h"] = 0
-            self.averages["d"].append(last_h_avg)
+            if self.averages["counters"]["h"] == 24:
+                last_h_avg = mean(self.averages["h"])
+                self.averages["counters"]["h"] = 0
+                self.averages["d"].append(last_h_avg)
+        # TODO: review this
+        except Exception: # pylint: disable=broad-except
+            pass
 
 
 class Bot:
@@ -253,9 +262,16 @@ class Bot:
                 self.buy_moon_sell_recovery_strategy(*argvs, **kwargs)
             if (
                 self.strategy
-                == "buy_on_recovery_after_n_days_downtrend_strategy"
+                == "buy_on_recovery_after_downtrend_period_strategy"
             ):
-                self.buy_on_recovery_after_n_days_downtrend_strategy(
+                self.buy_on_recovery_after_downtrend_period_strategy(
+                    *argvs, **kwargs
+                )
+            if (
+                self.strategy
+                == "buy_on_growth_trend_after_drop_strategy"
+            ):
+                self.buy_on_growth_trend_after_drop_strategy(
                     *argvs, **kwargs
                 )
         if len(self.wallet) != 0:
@@ -395,29 +411,36 @@ class Bot:
         coin.profit = float(float(coin.value) - float(coin.cost))
 
         if coin.profit < 0:
-            message = "LS"
+            word = "LS"
         else:
-            message = "PRF"
+            word = "PRF"
 
-        logging.info(
-            f"{coin.date}: {coin.symbol} [{coin.status}] "
-            + f"A:{coin.holding_time}s "
-            + f"U:{coin.volume} P:{coin.price} T:{coin.value} "
-            + f"{message}:{coin.profit:.3f} "
-            + f"SP:{coin.bought_at * coin.sell_at_percentage /100} "
-            + f"TP:{100 - (coin.bought_at / coin.price * 100):.2f}% "
-            + f"SL:{coin.bought_at * coin.stop_loss_at_percentage/100} "
-            + f"S:+{percent(coin.trail_target_sell_percentage,coin.sell_at_percentage) - 100:.3f}% "
-            + f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}% "
-            + f"LP:{coin.min:.3f} "
-            + f"({len(self.wallet)}/{self.max_coins}) "
-        )
-        coin.status = ""
+        message = ' '.join([
+            f"{coin.date}: {coin.symbol} [{coin.status}]",
+            f"A:{coin.holding_time}s",
+            f"U:{coin.volume} P:{coin.price} T:{coin.value}",
+            f"{word}:{coin.profit:.3f}",
+            f"SP:{coin.bought_at * coin.sell_at_percentage /100}",
+            f"TP:{100 - (coin.bought_at / coin.price * 100):.2f}%",
+            f"SL:{coin.bought_at * coin.stop_loss_at_percentage/100}",
+            f"S:+{percent(coin.trail_target_sell_percentage,coin.sell_at_percentage) - 100:.3f}%",
+            f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}%",
+            f"LP:{coin.min:.3f}",
+            f"({len(self.wallet)}/{self.max_coins}) "
+        ])
+
+        if coin.profit < 0 or coin.holding_time > coin.hard_limit_holding_time:
+            logging.warning(message)
+        else:
+            logging.info(message)
+
         self.wallet.remove(coin.symbol)
         self.update_bot_profit(coin)
         self.update_investment()
+        coin.status = ""
         self.clear_coin_stats(coin)
         self.clear_all_coins_stats()
+
 
         logging.info(
             f"{coin.date}: INVESTMENT: {self.investment} "
@@ -516,7 +539,10 @@ class Bot:
                 hard_limit_holding_time=self.tickers[symbol][
                     "HARD_LIMIT_HOLDING_TIME"
                 ],
-                downtrend_days=self.tickers[symbol]["DOWNTREND_DAYS"],
+                klines_trend_period=self.tickers[symbol]["KLINES_TREND_PERIOD"],
+                klines_slice_percentage_change=float(
+                    self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"]
+                ),
             )
             self.load_klines_for_coin(self.coins[symbol])
         else:
@@ -555,16 +581,16 @@ class Bot:
             coin.stop_loss_at_percentage, coin.bought_at
         ):
             coin.status = "STOP_LOSS"
-            logging.warning(
-                f"{coin.date} [{coin.symbol}] {coin.status} "
-                + f"now: {coin.price} bought: {coin.bought_at}"
-            )
             self.sell_coin(coin)
             self.losses = self.losses + 1
-            # and block this coin for a while
-            coin.naughty_timeout = int(
-                self.tickers[coin.symbol]["NAUGHTY_TIMEOUT"]
-            )
+
+            # it is likely there's a market crash, so lets pause buying coins
+            # for a wee while. This will help the bot not buying more coins
+            # when the market is crashing and crashing and crashing
+            for symbol in self.coins:
+                self.coins[symbol].naughty_timeout = int(
+                    self.tickers[symbol]["NAUGHTY_TIMEOUT"]
+                )
             return True
         return False
 
@@ -636,8 +662,12 @@ class Bot:
             )  #
 
             coin.sell_at_percentage = add_100(
-                percent(ttl, self.tickers[coin.symbol]["SELL_AT_PERCENTAGE"])
+                percent(
+                    ttl,
+                    self.tickers[coin.symbol]["SELL_AT_PERCENTAGE"]
+                )
             )
+
 
             if coin.sell_at_percentage < add_100(2 * float(self.trading_fee)):
                 coin.sell_at_percentage = add_100(2 * float(self.trading_fee))
@@ -759,8 +789,11 @@ class Bot:
             self.coins[symbol].trail_recovery_percentage = add_100(
                 self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"]
             )
-            self.coins[symbol].downtrend_days = int(
-                self.tickers[symbol]["DOWNTREND_DAYS"]
+            self.coins[symbol].klines_trend_period = str(
+                self.tickers[symbol]["KLINES_TREND_PERIOD"]
+            )
+            self.coins[symbol].klines_slice_percentage_change=float(
+                self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"]
             )
         if self.wallet:
             logging.info("Wallet contains:")
@@ -823,10 +856,19 @@ class Bot:
 
     def buy_drop_sell_recovery_strategy(self, coin: Coin) -> bool:
         """bot buy strategy"""
+
+        # wait a few days before going to buy a new coin
+        # since we list what coins we buy in TICKERS the bot would never
+        # buy a coin as soon it is listed.
+        # However in backtesting, the bot will buy that coin as its listed in
+        # the TICKERS list and the price lines show up in the price logs.
+        if len(list(coin.averages["d"])) < 14:
+            return False
+
         # has the price gone down by x% on a coin we don't own?
         if (
             float(coin.price) < percent(coin.buy_at_percentage, coin.max)
-        ) and coin.status == "":
+        ) and coin.status == "" and coin.naughty_timeout == 0:
             coin.dip = coin.price
             logging.info(
                 f"{coin.date}: {coin.symbol} [{coin.status}] "
@@ -850,26 +892,42 @@ class Bot:
         return False
 
     # buy on recovery after long downtrend
-    def buy_on_recovery_after_n_days_downtrend_strategy(
+    def buy_on_recovery_after_downtrend_period_strategy(
         self, coin: Coin
     ) -> bool:
         """bot buy strategy"""
 
-        last_days = list(coin.averages["d"])[-coin.downtrend_days :]
-        if len(last_days) < coin.downtrend_days:
+        unit = coin.klines_trend_period[-1:]
+        klines_trend_period = int(coin.klines_trend_period[:-1])
+
+        if unit in ["D", "d"]:
+            last_period = list(coin.averages["d"])[-klines_trend_period :]
+
+        if unit in ["H", "h"]:
+            last_period = list(coin.averages["h"])[-klines_trend_period :]
+
+        if unit in ["M", "m"]:
+            last_period = list(coin.averages["m"])[-klines_trend_period :]
+
+        if unit in ["S", "s"]:
+            last_period = list(coin.averages["s"])[-klines_trend_period :]
+
+        if len(last_period) < klines_trend_period:
             return False
 
-        last_day = last_days[0]
+        last_period_slice = last_period[0]
         # if the price keeps going down, then buy
-        for n in last_days:
-            if n > last_day:
+        for n in last_period:
+            if n > last_period_slice:
                 return False
-            last_day = n
+            last_period_slice = n
 
         # has the price gone down by x% on a coin we don't own?
         if (
-            float(coin.price) < percent(coin.buy_at_percentage, last_day)
-        ) and coin.status == "":
+            float(coin.price) < percent(
+                coin.buy_at_percentage, last_period_slice
+            )
+        ) and coin.status == "" and coin.naughty_timeout == 0:
             coin.dip = coin.price
             logging.info(
                 f"{coin.date}: {coin.symbol} [{coin.status}] "
@@ -894,11 +952,75 @@ class Bot:
 
     def buy_moon_sell_recovery_strategy(self, coin: Coin) -> bool:
         """bot buy strategy"""
+        # wait a few days before going to buy a new coin
+        # since we list what coins we buy in TICKERS the bot would never
+        # buy a coin as soon it is listed.
+        # However in backtesting, the bot will buy that coin as its listed in
+        # the TICKERS list and the price lines show up in the price logs.
+        if len(list(coin.averages["d"])) < 14:
+            return False
+
         if float(coin.price) > percent(coin.buy_at_percentage, coin.last):
             self.buy_coin(coin)
             self.log_debug_coin(coin)
             return True
         return False
+
+    def buy_on_growth_trend_after_drop_strategy(self, coin: Coin) -> bool:
+        """bot buy strategy"""
+        # wait a few days before going to buy a new coin
+        # since we list what coins we buy in TICKERS the bot would never
+        # buy a coin as soon it is listed.
+        # However in backtesting, the bot will buy that coin as its listed in
+        # the TICKERS list and the price lines show up in the price logs.
+        if len(list(coin.averages["d"])) < 14:
+            return False
+
+        # has the price gone down by x% on a coin we don't own?
+        if (
+            float(coin.price) < percent(coin.buy_at_percentage, coin.max)
+        ) and coin.status == "" and coin.naughty_timeout == 0:
+            coin.dip = coin.price
+            logging.info(
+                f"{coin.date}: {coin.symbol} [{coin.status}] "
+                + f"-> [TARGET_DIP] ({coin.price})"
+            )
+            coin.status = "TARGET_DIP"
+            return False
+
+        if coin.status != "TARGET_DIP":
+            return False
+
+        unit = coin.klines_trend_period[-1:]
+        klines_trend_period = int(coin.klines_trend_period[:-1])
+
+        if unit in ["D", "d"]:
+            last_period = list(coin.averages["d"])[-klines_trend_period :]
+
+        if unit in ["H", "h"]:
+            last_period = list(coin.averages["h"])[-klines_trend_period :]
+
+        if unit in ["M", "m"]:
+            last_period = list(coin.averages["m"])[-klines_trend_period :]
+
+        if unit in ["S", "s"]:
+            last_period = list(coin.averages["s"])[-klines_trend_period :]
+
+        if len(last_period) < klines_trend_period:
+            return False
+
+        last_period_slice = last_period[0]
+        # if the price keeps going down, skip it
+        for n in last_period[1:]:
+            # TODO: the % change should be a parameter
+            if percent(
+                    100 + coin.klines_slice_percentage_change, n
+            ) > last_period_slice:
+                return False
+            last_period_slice = n
+
+        self.buy_coin(coin)
+        return True
 
     def wait(self) -> None:
         """implements a pause"""
@@ -978,7 +1100,8 @@ class Bot:
                             self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"],
                             self.tickers[symbol]["SOFT_LIMIT_HOLDING_TIME"],
                             self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"],
-                            self.tickers[symbol]["DOWNTREND_DAYS"],
+                            self.tickers[symbol]["KLINES_TREND_PERIOD"],
+                            self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"],
                         )
                         self.load_klines_for_coin(self.coins[symbol])
                     else:
@@ -1013,7 +1136,6 @@ class Bot:
 
             f.write(f"{log_entry}\n")
 
-    @retry(wait=wait_exponential(multiplier=1, max=10))
     def load_klines_for_coin(self, coin) -> None:
         """fetches from binance or a local cache klines for a coin"""
 
