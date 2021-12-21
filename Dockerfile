@@ -45,6 +45,7 @@ ENV PYENV_ROOT="$HOME/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims/:$PATH"
 ADD .python-version .
 RUN CONFIGURE_OPTS="--enable-shared --fno-semantic-interposition --enable-optimizations --with-lto --with-pgo" pyenv install
+RUN python -m venv /cryptobot/.venv
 ADD requirements.txt .
 RUN pip install -r requirements.txt
 
@@ -57,5 +58,6 @@ ENV PYENV_ROOT="$HOME/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims/:$PATH"
 COPY --from=builder /cryptobot/.python-version /cryptobot/
 COPY --from=builder /cryptobot/.pyenv/ /cryptobot/.pyenv/
+COPY --from=builder /cryptobot/.venv/ /cryptobot/.venv/
 ADD app.py .
-ENTRYPOINT ["python", "-u",  "app.py"]
+ENTRYPOINT ["/cryptobot/.venv/bin/python", "-u",  "app.py"]
