@@ -9,9 +9,9 @@ DEBUG: False
 TRADING_FEE: 0.1
 SELL_AS_SOON_IT_DROPS: False
 
-#STRATEGY: buy_on_recovery_after_n_days_downtrend_strategy
-#STRATEGY="buy_moon_sell_recovery_strategy"
 STRATEGY: buy_drop_sell_recovery_strategy
+#STRATEGY: buy_on_growth_trend_after_drop_strategy
+#STRATEGY="buy_moon_sell_recovery_strategy"
 
 ANCHORS: &defaults
   SOFT_LIMIT_HOLDING_TIME: 3600
@@ -22,7 +22,8 @@ ANCHORS: &defaults
   TRAIL_TARGET_SELL_PERCENTAGE: -0.5
   TRAIL_RECOVERY_PERCENTAGE: +1.0
   NAUGHTY_TIMEOUT: 28800
-  DOWNTREND_DAYS: 0
+  KLINES_TREND_PERIOD: 0d
+  KLINES_SLICE_PERCENTAGE_CHANGE: +0
 
 
 TICKERS:

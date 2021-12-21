@@ -9,7 +9,6 @@ DEBUG: False
 TRADING_FEE: 0.1
 SELL_AS_SOON_IT_DROPS: False
 
-#STRATEGY: buy_on_recovery_after_n_days_downtrend_strategy
 #STRATEGY: "buy_moon_sell_recovery_strategy"
 STRATEGY: buy_drop_sell_recovery_strategy
 
@@ -22,7 +21,8 @@ ANCHORS: &defaults
   TRAIL_TARGET_SELL_PERCENTAGE: -0.0001
   TRAIL_RECOVERY_PERCENTAGE: +0.00001
   NAUGHTY_TIMEOUT: 28800
-  DOWNTREND_DAYS: 0
+  KLINES_TREND_PERIOD: 0d # unused
+  KLINES_SLICE_PERCENTAGE_CHANGE: +0 # unused
 
 
 TICKERS:

@@ -2,8 +2,9 @@
 
 A python based trading bot for Binance, which relies heavily on backtesting.
 
+
 1. [Overview](#overview)
-2. [Discord](#Discord)
+2. [Discord](#discord)
 3. [Usage](#usage)
 4. [Config settings](#config-settings)
    * [PAIRING](#pairing)
@@ -17,7 +18,8 @@ A python based trading bot for Binance, which relies heavily on backtesting.
    * [TRAIL_RECOVERY_PERCENTAGE](#trail_recovery_percentage)
    * [HARD_LIMIT_HOLDING_TIME](#hard_limit_holding_time)
    * [SOFT_LIMIT_HOLDING_TIME](#soft_limit_holding_time)
-   * [DOWNTREND_DAYS](#downtrend_days)
+   * [KLINES_TREND_PERIOD](#klines_trend_period)
+   * [KLINES_SLICE_PERCENTAGE_CHANGE](#klines_slice_percentage_change)
    * [CLEAR_COIN_STATS_AT_BOOT](#clear_coin_stats_at_boot)
    * [NAUGHTY_TIMEOUT](#naughty_timeout)
    * [CLEAR_COIN_STATS_AT_SALE](#clear_coin_stats_at_sale)
@@ -30,7 +32,6 @@ A python based trading bot for Binance, which relies heavily on backtesting.
 5. [Bot command center](#bot-command-center)
 6. [Development/New features](#development/new-features)
 
-
 ## Overview
 
 The bot while running saves the current market price for all coins available in
@@ -38,11 +39,11 @@ binance into *price.log* logfiles. These logfiles are used to simulate different
 backtesting scenarios and manipulate how the bot buys/sells crypto.
 
 
-This bot currently provides three strategies:
+This bot currently provides different strategies:
 
 - *buy_drop_sell_recovery_strategy*
 - *buy_moon_sell_recovery_strategy*
-- *buy_on_recovery_after_n_days_downtrend_strategy*
+- *buy_on_growth_trend_after_drop_strategy*
 
 The way these strategies work is described later in this README.
 
@@ -112,7 +113,8 @@ TICKERS:
       TRAIL_TARGET_SELL_PERCENTAGE: -1.0
       TRAIL_RECOVERY_PERCENTAGE: +1.0
       NAUGHTY_TIMEOUT: 604800
-      DOWNTREND_DAYS: 0 # unused on this strategy
+      KLINES_TREND_PERIOD: 0d # unused in this strategy
+      KLINES_SLICE_PERCENTAGE_CHANGE: +0 # unused in this strategy
 ```
 
 In order to test the different 'profiles' for different coins, this bot is
@@ -316,7 +318,7 @@ STRATEGY: "buy_drop_sell_recovery_strategy"
 ```
 Describes which strategy to use when buying/selling coins, available options are
 *buy_moon_sell_recovery_strategy*, *buy_drop_sell_recovery_strategy*,
-*buy_on_recovery_after_n_days_downtrend_strategy*
+*buy_on_growth_trend_after_drop_strategy*
 
 In the *moon_sell_recovery_strategy*, the bot monitors coin prices and will
 buy coins that raised their price over a percentage since the last check.
@@ -333,7 +335,8 @@ TICKERS:
       TRAIL_TARGET_SELL_PERCENTAGE: -1.0
       TRAIL_RECOVERY_PERCENTAGE: +1.0
       NAUGHTY_TIMEOUT: 28800
-      DOWNTREND_DAYS: 0 # unused in this strategy
+      KLINES_TREND_PERIOD: 0d # unused in this strategy
+      KLINES_SLICE_PERCENTAGE_CHANGE: +0 # unused in this strategy
 ```
 
 In the *buy_drop_recovery_strategy*, the bot monitors coin prices and will
@@ -365,15 +368,15 @@ TICKERS:
       TRAIL_TARGET_SELL_PERCENTAGE: -1.0
       TRAIL_RECOVERY_PERCENTAGE: +1.0
       NAUGHTY_TIMEOUT: 28800
-      DOWNTREND_DAYS: 0 # unused in this strategy
+      KLINES_TREND_PERIOD: 0d # unused in this strategy
+      KLINES_SLICE_PERCENTAGE_CHANGE: +0 # unused in this strategy
 ```
 
-The *buy_on_recovery_after_n_days_downtrend_strategy* relies on averaged prices
-from the last *DOWNTREND_DAYS* days. It will look to buy a coin which price has
-gone down for a certain number of days, and its price has gone down further
-in below the *BUY_AT_PERCENTAGE* over the last day.
-The bot will then buy this coin as soon this
-coin recovers about the *TRAIL_RECOVERY_PERCENTAGE* price point.
+The *buy_on_growth_trend_after_drop_strategy* relies on averaged prices
+from the last *KLINES_TREND_PERIOD*. It will look to buy a coin which price has
+gone down in price according to the *BUY_AT_PERCENTAGE*, and its price has
+increased at least *KLINES_SLICE_PERCENTAGE_CHANGE* % in each slice of the
+*KLINES_TREND_PERIOD*.
 
 The bot currently records the last 60 seconds, 60 minutes, 24 hours, and
 multiple days price averages for evvery coin. The bot requires some additional
@@ -391,9 +394,10 @@ TICKERS:
       SELL_AT_PERCENTAGE: +6
       STOP_LOSS_AT_PERCENTAGE: -9
       TRAIL_TARGET_SELL_PERCENTAGE: -1.0
-      TRAIL_RECOVERY_PERCENTAGE: +3.0
+      TRAIL_RECOVERY_PERCENTAGE: +0.0 # unused in this strategy
       NAUGHTY_TIMEOUT: 604800
-      DOWNTREND_DAYS: 3
+      KLINES_TREND_PERIOD: 2d
+      KLINES_SLICE_PERCENTAGE_CHANGE: +1
 ```
 
 ### BUY_AT_PERCENTAGE
@@ -476,11 +480,18 @@ time, until it reaches the *HARD_LIMIT_HOLDING_TIME*.
 
 Therefore increasing the chances of a possible sale at profit.
 
-### DOWNTREND_DAYS
+### KLINES_TREND_PERIOD
 
-Sets the number of days where the bot looks for a downtrend in prices, before
-buying a coin.
-This works together with the *TRAIL_RECOVERY_PERCENTAGE* option.
+Sets the number of seconds, minutes, hours or days where the bot looks for a
+downtrend/uptrend in prices, before buying a coin.
+
+### KLINES_SLICE_PERCENTAGE_CHANGE
+
+Sets the expected percentage change in value of a coin between two slices of
+a *KLINES_TREND_PERIOD*. For example if *KLINES_TREND_PERIOD* is 3d and this
+parameter is set to +1, it would trigger when a coin has gone up +1% for 3
+consecutive days.
+
 
 ### CLEAR_COIN_STATS_AT_BOOT
 
