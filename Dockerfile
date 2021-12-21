@@ -47,7 +47,7 @@ ADD .python-version .
 RUN CONFIGURE_OPTS="--enable-shared --fno-semantic-interposition --enable-optimizations --with-lto --with-pgo" pyenv install
 RUN python -m venv /cryptobot/.venv
 ADD requirements.txt .
-RUN pip install -r requirements.txt
+RUN /cryptobot/.venv/bin/pip install -r requirements.txt
 
 FROM bitnami/minideb:bullseye AS cryptobot
 RUN useradd -d /cryptobot -u 1001 -ms /bin/bash cryptobot
