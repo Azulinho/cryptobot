@@ -696,7 +696,6 @@ class TestCoinStatus:
         coin.max = float(9999)
         coin.min = float(9999)
 
-        bot.clean_coin_stats_at_sale = False
         result = bot.clear_coin_stats(coin)
         assert result == None
         assert coin.status == ""
@@ -709,12 +708,8 @@ class TestCoinStatus:
         assert coin.bought_at == float(0)
         assert coin.dip == float(0)
         assert coin.tip == float(0)
-        assert coin.max == float(9999)
-        assert coin.min == float(9999)
-
-        bot.clean_coin_stats_at_sale = True
-        result = bot.clear_coin_stats(coin)
-        assert result == None
+        assert coin.max == float(100)
+        assert coin.min == float(100)
         assert coin.min == coin.price
         assert coin.max == coin.price
 
