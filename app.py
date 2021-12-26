@@ -555,6 +555,7 @@ class Bot:
             coin_symbol = binance_data["symbol"]
             price = binance_data["price"]
 
+            # TODO: update this so that we only log in logmode
             if self.mode in ["live", "logmode", "testnet"]:
                 self.write_log(coin_symbol, price)
 
@@ -565,6 +566,13 @@ class Bot:
                 continue
 
             self.init_or_update_coin(binance_data)
+
+            # if a coin has been blocked due to a stop_loss, we want to make
+            # sure we reset the coin stats at the point the ban expires and
+            # not just when the stop-loss event happened.
+            if self.coins[coin_symbol].naughty_timeout == 1:
+                self.clear_coin_stats(self.coins[coin_symbol])
+
             if self.coins[coin_symbol].naughty_timeout > 0:
                 continue
 
@@ -588,9 +596,11 @@ class Bot:
             # for a wee while. This will help the bot not buying more coins
             # when the market is crashing and crashing and crashing
             for symbol in self.coins:
-                self.coins[symbol].naughty_timeout = int(
-                    self.tickers[symbol]["NAUGHTY_TIMEOUT"]
-                )
+                if symbol not in self.wallet:
+                    self.coins[symbol].naughty_timeout = int(
+                        self.tickers[symbol]["NAUGHTY_TIMEOUT"]
+                    )
+                    self.clear_coin_stats(self.coins[symbol])
             return True
         return False
 
@@ -704,9 +714,10 @@ class Bot:
 
     def clear_all_coins_stats(self) -> None:
         """clear important coin stats such as max, min price on all coins"""
-        for coin in self.coins:
-            if coin not in self.wallet:
-                self.clear_coin_stats(self.coins[coin])
+        if self.clean_coin_stats_at_sale:
+            for coin in self.coins:
+                if coin not in self.wallet:
+                    self.clear_coin_stats(self.coins[coin])
 
     def clear_coin_stats(self, coin: Coin) -> None:
         """clear important coin stats such as max, min price for a coin"""
@@ -730,9 +741,8 @@ class Bot:
         coin.dip = float(0)
         coin.tip = float(0)
         coin.status = ""
-        if self.clean_coin_stats_at_sale:
-            coin.min = float(coin.price)
-            coin.max = float(coin.price)
+        coin.min = float(coin.price)
+        coin.max = float(coin.price)
 
     def save_coins(self) -> None:
         """saves coins and wallet to a local pickle file"""
