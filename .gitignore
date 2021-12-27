@@ -13,3 +13,4 @@ tickers/all.txt tickers/binance-alts-eth.txt tickers/binance-bnb.top8.txt ticker
 secrets/*
 state/*
 cache/*
+results/*
