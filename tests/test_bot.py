@@ -31,7 +31,7 @@ def bot(cfg):
         with mock.patch('requests.get', return_value={}
         ) as mock2:
 
-            bot = app.Bot(client, cfg)
+            bot = app.Bot(client, 'configfilename', cfg)
             bot.client.API_URL = "https://www.google.com"
             yield bot
             del(bot)

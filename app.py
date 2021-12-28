@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from functools import lru_cache
 from hashlib import md5
 from itertools import islice
-from os.path import exists
+from os.path import exists, basename
 from time import sleep
 from typing import Any, Dict, List, Tuple
 
@@ -222,7 +222,7 @@ class Coin:  # pylint: disable=too-few-public-methods
 class Bot:
     """Bot Class"""
 
-    def __init__(self, conn, config) -> None:
+    def __init__(self, conn, config_file, config) -> None:
         """Bot object"""
         self.client = conn
         self.initial_investment: float = float(config["INITIAL_INVESTMENT"])
@@ -252,6 +252,7 @@ class Bot:
         self.sell_as_soon_it_drops: bool = bool(
             config["SELL_AS_SOON_IT_DROPS"]
         )
+        self.config_file: str = config_file
 
     def run_strategy(self, *argvs, **kwargs) -> None:
         """runs a specific strategy against a coin"""
@@ -1140,6 +1141,7 @@ class Bot:
                     f"investment:{self.initial_investment}",
                     f"days:{len(self.price_logs)}",
                     f"w{self.wins},l{self.losses},s{self.stales},h{len(self.wallet)}",
+                    f"cfg:{basename(self.config_file)}",
                     str(cfg),
                 ]
             )
@@ -1282,7 +1284,7 @@ if __name__ == "__main__":
         cfg["MODE"] = args.mode
 
         client = Client(secrets["ACCESS_KEY"], secrets["SECRET_KEY"])
-        bot = Bot(client, cfg)
+        bot = Bot(client, args.config, cfg)
 
         logging.info(
             f"running in {bot.mode} mode with "
