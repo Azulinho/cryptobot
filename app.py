@@ -475,14 +475,23 @@ class Bot:
     @retry(wait=wait_exponential(multiplier=1, max=10))
     def get_symbol_precision(self, symbol: str) -> int:
         """retrives and caches the decimal precision for a coin in binance"""
-        try:
-            info = self.client.get_symbol_info(symbol)
-        except BinanceAPIException as error_msg:
-            logging.error(error_msg)
-            return -1
+        f_path = f"cache/{symbol}.precision"
+        if self.mode == "backtesting" and exists(f_path):
+            with open(f_path, "r") as f:
+                info = json.load(f)
+        else:
+            try:
+                info = self.client.get_symbol_info(symbol)
+            except BinanceAPIException as error_msg:
+                logging.error(error_msg)
+                return -1
 
         step_size = float(info["filters"][2]["stepSize"])
         precision = int(round(-math.log(step_size, 10), 0))
+
+        if self.mode == "backtesting" and not exists(f_path):
+            with open(f_path, "w") as f:
+                f.write(json.dumps(info))
 
         return precision
 
