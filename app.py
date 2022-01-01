@@ -1,4 +1,5 @@
 """ CryptoBot for Binance """
+
 import argparse
 import json
 import logging
@@ -253,6 +254,7 @@ class Bot:
             config["SELL_AS_SOON_IT_DROPS"]
         )
         self.config_file: str = config_file
+        self.read_counter :int = 0
 
     def run_strategy(self, *argvs, **kwargs) -> None:
         """runs a specific strategy against a coin"""
@@ -1069,11 +1071,55 @@ class Bot:
             self.process_coins()
             self.wait()
 
+    def process_line(self, line: str) -> None:
+        """ processes a backlog line """
+        if self.pairing not in line:
+            return
+
+        parts = line.split(" ")
+        symbol = parts[2]
+        if symbol not in self.tickers:
+            return
+        date = " ".join(parts[0:2])
+        market_price = float(parts[3])
+
+        # implements a PAUSE_FOR pause while reading from
+        # our price logs.
+        # we essentially skip a number of iterations between
+        # reads, causing a similar effect if we were only
+        # probing prices every PAUSE_FOR seconds
+        self.read_counter = self.read_counter + 1
+        if self.read_counter != self.pause:
+            return
+
+        self.read_counter = 0
+        # TODO: rework this
+        if symbol not in self.coins:
+            self.coins[symbol] = Coin(
+                symbol,
+                date,
+                market_price,
+                self.tickers[symbol]["BUY_AT_PERCENTAGE"],
+                self.tickers[symbol]["SELL_AT_PERCENTAGE"],
+                self.tickers[symbol]["STOP_LOSS_AT_PERCENTAGE"],
+                self.tickers[symbol][
+                    "TRAIL_TARGET_SELL_PERCENTAGE"
+                ],
+                self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"],
+                self.tickers[symbol]["SOFT_LIMIT_HOLDING_TIME"],
+                self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"],
+                self.tickers[symbol]["KLINES_TREND_PERIOD"],
+                self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"],
+            )
+            self.load_klines_for_coin(self.coins[symbol])
+        else:
+            self.coins[symbol].update(date, market_price)
+        self.run_strategy(self.coins[symbol])
+
     def backtest_logfile(self, price_log: str) -> None:
         """processes one price.log file for backtesting"""
         logging.info(f"backtesting: {price_log}")
         logging.info(f"wallet: {self.wallet}")
-        read_counter = 0
         try:
             if price_log.endswith(".lz4"):
                 f = lz4open(price_log, mode="rt")
@@ -1085,48 +1131,7 @@ class Bot:
                     break
 
                 for line in next_n_lines:
-                    if self.pairing not in line:
-                        continue
-
-                    parts = line.split(" ")
-                    symbol = parts[2]
-                    if symbol not in self.tickers:
-                        continue
-                    date = " ".join(parts[0:2])
-                    market_price = float(parts[3])
-
-                    # implements a PAUSE_FOR pause while reading from
-                    # our price logs.
-                    # we essentially skip a number of iterations between
-                    # reads, causing a similar effect if we were only
-                    # probing prices every PAUSE_FOR seconds
-                    read_counter = read_counter + 1
-                    if read_counter != self.pause:
-                        continue
-
-                    read_counter = 0
-                    # TODO: rework this
-                    if symbol not in self.coins:
-                        self.coins[symbol] = Coin(
-                            symbol,
-                            date,
-                            market_price,
-                            self.tickers[symbol]["BUY_AT_PERCENTAGE"],
-                            self.tickers[symbol]["SELL_AT_PERCENTAGE"],
-                            self.tickers[symbol]["STOP_LOSS_AT_PERCENTAGE"],
-                            self.tickers[symbol][
-                                "TRAIL_TARGET_SELL_PERCENTAGE"
-                            ],
-                            self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"],
-                            self.tickers[symbol]["SOFT_LIMIT_HOLDING_TIME"],
-                            self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"],
-                            self.tickers[symbol]["KLINES_TREND_PERIOD"],
-                            self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"],
-                        )
-                        self.load_klines_for_coin(self.coins[symbol])
-                    else:
-                        self.coins[symbol].update(date, market_price)
-                    self.run_strategy(self.coins[symbol])
+                    self.process_line(line)
             f.close()
         except Exception as error_msg:  # pylint: disable=broad-except
             logging.error("Exception:")
