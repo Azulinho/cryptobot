@@ -551,8 +551,7 @@ class Bot():
             coin_symbol = binance_data["symbol"]
             price = binance_data["price"]
 
-            # TODO: update this so that we only log in logmode
-            if self.mode in ["live", "logmode", "testnet"]:
+            if self.mode in ["logmode", "testnet"]:
                 self.write_log(coin_symbol, price)
 
             if self.mode not in ["live", "backtesting", "testnet"]:
