@@ -261,9 +261,6 @@ class TestBot:
 
         bot.coins['BTCUSDT'] = coin
 
-        # TODO: this should only assert that the strategy is called
-        # and not verify the strategy
-
         with mock.patch.object(
             bot.client, 'create_order', return_value={
                 "symbol": "BTCUSDT",
@@ -297,19 +294,12 @@ class TestBot:
                     with mock.patch.object(
                         bot, 'get_binance_prices', return_value=binance_data
                     ) as m4:
-                        bot.process_coins()
-                        assert bot.wallet == ["BTCUSDT"]
+                        with mock.patch.object(
+                            bot, 'run_strategy', return_value=None
+                        ) as m5:
+                            bot.process_coins()
+                            assert m5.assert_called() is None
 
-                    binance_data = [
-                        {"symbol":"BTCUSDT","price":"101.000"},
-                        {"symbol":"BTCUSDT","price":"98.000"},
-                    ]
-
-                    with mock.patch.object(
-                        bot, 'get_binance_prices', return_value=binance_data
-                    ) as m4:
-                        bot.process_coins()
-                        assert bot.wallet == []
 
     def test_load_klines_for_coin(self, bot, coin):
         coin.date = "2021-12-04 05:23:05.693516"
@@ -748,6 +738,23 @@ class TestBotProfit:
         assert bot.fees == 0.21000000000000002
 
 class TestStrategyBuyDropSellRecovery:
+    @pytest.fixture()
+    def bot(self, cfg):
+        with mock.patch('binance.client.Client', new_callable=mock.PropertyMock
+        ) as mock1:
+            mock1.return_value = None
+            client = Client("FAKE", "FAKE")
+
+            with mock.patch('requests.get', return_value={}
+            ) as mock2:
+
+                bot = app.BuyDropSellRecoveryStrategy(
+                    client, 'configfilename', cfg
+                )
+                bot.client.API_URL = "https://www.google.com"
+                yield bot
+                del(bot)
+
     def test_coin_is_set_to_target_dip_when_price_drops(self, bot, coin):
         coin.status = ""
         coin.price = 90
@@ -755,7 +762,7 @@ class TestStrategyBuyDropSellRecovery:
         for _ in range(14):
             coin.averages['d'].append(0)
 
-        result = bot.buy_drop_sell_recovery_strategy(coin)
+        result = bot.buy_strategy(coin)
         assert result == False
         assert coin.status == "TARGET_DIP"
 
@@ -763,7 +770,7 @@ class TestStrategyBuyDropSellRecovery:
         coin.status = ""
         coin.price = 100
         coin.max = 100
-        result = bot.buy_drop_sell_recovery_strategy(coin)
+        result = bot.buy_strategy(coin)
         assert result == False
         assert coin.status == ""
 
@@ -774,7 +781,7 @@ class TestStrategyBuyDropSellRecovery:
         with mock.patch.object(
             bot, 'buy_coin', return_value=False
         ) as m1:
-            result = bot.buy_drop_sell_recovery_strategy(coin)
+            result = bot.buy_strategy(coin)
             assert result == False
             assert coin.status == "TARGET_DIP"
             m1.assert_not_called()
@@ -791,12 +798,29 @@ class TestStrategyBuyDropSellRecovery:
         with mock.patch.object(
             bot, 'buy_coin', return_value=False
         ) as m1:
-            result = bot.buy_drop_sell_recovery_strategy(coin)
+            result = bot.buy_strategy(coin)
             assert result == True
             assert coin.status == "TARGET_DIP"
             m1.assert_called()
 
 class TestStrategyMoonSellRecovery:
+    @pytest.fixture()
+    def bot(self, cfg):
+        with mock.patch('binance.client.Client', new_callable=mock.PropertyMock
+        ) as mock1:
+            mock1.return_value = None
+            client = Client("FAKE", "FAKE")
+
+            with mock.patch('requests.get', return_value={}
+            ) as mock2:
+
+                bot = app.BuyMoonSellRecoveryStrategy(
+                    client, 'configfilename', cfg
+                )
+                bot.client.API_URL = "https://www.google.com"
+                yield bot
+                del(bot)
+
     def test_bot_does_not_buy_coin_when_price_below_buy_at_percentage(self, bot, coin):
         # TODO: refactor this into its own config fixture
         coin.buy_at_percentage = 105
@@ -805,7 +829,7 @@ class TestStrategyMoonSellRecovery:
         with mock.patch.object(
             bot, 'buy_coin', return_value=False
         ) as m1:
-            result = bot.buy_moon_sell_recovery_strategy(coin)
+            result = bot.buy_strategy(coin)
             assert result == False
             m1.assert_not_called()
 
@@ -820,7 +844,7 @@ class TestStrategyMoonSellRecovery:
         with mock.patch.object(
             bot, 'buy_coin', return_value=True
         ) as m1:
-            result = bot.buy_moon_sell_recovery_strategy(coin)
+            result = bot.buy_strategy(coin)
             assert result == True
             m1.assert_called()
 

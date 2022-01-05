@@ -41,9 +41,9 @@ backtesting scenarios and manipulate how the bot buys/sells crypto.
 
 This bot currently provides different strategies:
 
-- *buy_drop_sell_recovery_strategy*
-- *buy_moon_sell_recovery_strategy*
-- *buy_on_growth_trend_after_drop_strategy*
+- *BuyDropSellRecoveryStrategy*
+- *BuyMoonSellRecoveryStrategy*
+- *BuyOnGrowthTrendAfterDropStrategy*
 
 The way these strategies work is described later in this README.
 
@@ -68,7 +68,7 @@ For these different settings we apply to each coin, lets call them profiles for
 now. These profile is essentially how the bot makes decisions on which coins to
 buy and sell.
 
-So for example for the *buy_drop_sell_recovery_strategy*:
+So for example for the *BuyDropSellRecoveryStrategy*:
 
 I specify that I want the bot to buy *BTCUSDT* when the price initially drops
 by at least 10%, followed by a recovery of at least 1%.
@@ -314,11 +314,11 @@ How long to pause in seconds before checking Binance prices again.
 ### STRATEGY
 
 ```
-STRATEGY: "buy_drop_sell_recovery_strategy"
+STRATEGY: "BuyDropSellRecoveryStrategy"
 ```
 Describes which strategy to use when buying/selling coins, available options are
-*buy_moon_sell_recovery_strategy*, *buy_drop_sell_recovery_strategy*,
-*buy_on_growth_trend_after_drop_strategy*
+*BuyMoonSellRecoveryStrategy*, *BuyDropSellRecoveryStrategy*,
+*BuyOnGrowthTrendAfterDropStrategy*
 
 In the *moon_sell_recovery_strategy*, the bot monitors coin prices and will
 buy coins that raised their price over a percentage since the last check.
@@ -372,7 +372,7 @@ TICKERS:
       KLINES_SLICE_PERCENTAGE_CHANGE: +0 # unused in this strategy
 ```
 
-The *buy_on_growth_trend_after_drop_strategy* relies on averaged prices
+The *BuyOnGrowthTrendAfterDropStrategy* relies on averaged prices
 from the last *KLINES_TREND_PERIOD*. It will look to buy a coin which price has
 gone down in price according to the *BUY_AT_PERCENTAGE*, and its price has
 increased at least *KLINES_SLICE_PERCENTAGE_CHANGE* % in each slice of the
@@ -410,7 +410,7 @@ The percentage at which we look into start buying a coin.
 In the *buy_drop_recovery_strategy* this is the percentage drop in price over
 the maximum recorded.
 
-In the *buy_moon_sell_recovery_strategy* this is the price percentage difference
+In the *BuyMoonSellRecoveryStrategy* this is the price percentage difference
 between two periods (PAUSE_FOR). When a coin goes over, lets say +1 in a
 PAUSE_FOR of 3600 seconds, then the bot will buy it.
 
@@ -451,7 +451,7 @@ When the price is likely to increase again.
 TRAIL_RECOVERY_PERCENTAGE: +1.5
 ```
 This is the percentage at which in the strategy
-*buy_drop_sell_recovery_strategy* the bot will buy a coin. This reflects the
+*BuyDropSellRecoveryStrategy* the bot will buy a coin. This reflects the
 increase in price since the lowest price recorded for this coin. This setting
 allows the bot to wait for a coin to drop over time before buying it, this
 essentially is the *recovery* phase of a coin after a large drop in price.

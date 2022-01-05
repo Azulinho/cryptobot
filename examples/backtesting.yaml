@@ -9,9 +9,10 @@ DEBUG: False
 TRADING_FEE: 0.1
 SELL_AS_SOON_IT_DROPS: False
 
-STRATEGY: buy_drop_sell_recovery_strategy
-#STRATEGY: buy_on_growth_trend_after_drop_strategy
-#STRATEGY="buy_moon_sell_recovery_strategy"
+# STRATEGY: BuyMoonSellRecoveryStrategy
+# STRATEGY: BuyOnGrowthTrendAfterDropStrategy
+# STRATEGY: BuyOnRecoveryAfterDowntrendPeriodStrategy
+STRATEGY: BuyDropSellRecoveryStrategy
 
 ANCHORS: &defaults
   SOFT_LIMIT_HOLDING_TIME: 3600
