@@ -1024,7 +1024,8 @@ class Bot():
                 with open(f_path, "w") as f:
                     f.write(json.dumps(results))
 
-        logging.debug(f"{symbol} : last_h:{results[-1:]}")
+        if self.debug:
+            logging.debug(f"{symbol} : last_h:{results[-1:]}")
         hour_averages = [(float(y[2]) + float(y[3])) / 2 for y in results]
 
         coin.averages["counters"]["h"] = 24
@@ -1076,7 +1077,8 @@ class Bot():
                 with open(f_path, "w") as f:
                     f.write(json.dumps(results))
 
-        logging.debug(f"{symbol} : last_m:{results[-1:]}")
+        if self.debug:
+            logging.debug(f"{symbol} : last_m:{results[-1:]}")
         min_averages = [(float(y[2]) + float(y[3])) / 2 for y in results]
 
         coin.averages["counters"]["m"] = 60
@@ -1091,12 +1093,13 @@ class Bot():
 
         coin.averages["counters"]["s"] = 0
 
-        logging.debug(f"{symbol} : price:{coin.price}")
-        logging.debug(f"{symbol} : min:{coin.min}")
-        logging.debug(f"{symbol} : max:{coin.max}")
-        logging.debug(f"{symbol} : d:{coin.averages['d']}")
-        logging.debug(f"{symbol} : h:{coin.averages['h']}")
-        logging.debug(f"{symbol} : m:{coin.averages['m']}")
+        if self.debug:
+            logging.debug(f"{symbol} : price:{coin.price}")
+            logging.debug(f"{symbol} : min:{coin.min}")
+            logging.debug(f"{symbol} : max:{coin.max}")
+            logging.debug(f"{symbol} : d:{coin.averages['d']}")
+            logging.debug(f"{symbol} : h:{coin.averages['h']}")
+            logging.debug(f"{symbol} : m:{coin.averages['m']}")
 
 
 class BuyMoonSellRecoveryStrategy(Bot):
