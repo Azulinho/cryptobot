@@ -1171,10 +1171,9 @@ class BuyOnGrowthTrendAfterDropStrategy(Bot):
         last_period_slice = last_period[0]
         # if the price keeps going down, skip it
         for n in last_period[1:]:
-            # TODO: the % change should be a parameter
             if percent(
-                    100 + coin.klines_slice_percentage_change, n
-            ) > last_period_slice:
+                    100 + coin.klines_slice_percentage_change, last_period_slice
+            ) > n:
                 return False
             last_period_slice = n
 

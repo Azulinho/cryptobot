@@ -737,24 +737,7 @@ class TestBotProfit:
         assert bot.profit == -10.21
         assert bot.fees == 0.21000000000000002
 
-class TestStrategyBuyDropSellRecovery:
-    @pytest.fixture()
-    def bot(self, cfg):
-        with mock.patch('binance.client.Client', new_callable=mock.PropertyMock
-        ) as mock1:
-            mock1.return_value = None
-            client = Client("FAKE", "FAKE")
-
-            with mock.patch('requests.get', return_value={}
-            ) as mock2:
-
-                bot = app.BuyDropSellRecoveryStrategy(
-                    client, 'configfilename', cfg
-                )
-                bot.client.API_URL = "https://www.google.com"
-                yield bot
-                del(bot)
-
+class StrategyBaseTestClass:
     def test_coin_is_set_to_target_dip_when_price_drops(self, bot, coin):
         coin.status = ""
         coin.price = 90
@@ -773,6 +756,25 @@ class TestStrategyBuyDropSellRecovery:
         result = bot.buy_strategy(coin)
         assert result == False
         assert coin.status == ""
+
+
+class TestStrategyBuyDropSellRecovery(StrategyBaseTestClass):
+    @pytest.fixture()
+    def bot(self, cfg):
+        with mock.patch('binance.client.Client', new_callable=mock.PropertyMock
+        ) as mock1:
+            mock1.return_value = None
+            client = Client("FAKE", "FAKE")
+
+            with mock.patch('requests.get', return_value={}
+            ) as mock2:
+
+                bot = app.BuyDropSellRecoveryStrategy(
+                    client, 'configfilename', cfg
+                )
+                bot.client.API_URL = "https://www.google.com"
+                yield bot
+                del(bot)
 
     def test_coin_is_not_bought_when_current_price_lower_than_last(self, bot, coin):
         coin.status = "TARGET_DIP"
@@ -847,6 +849,68 @@ class TestStrategyMoonSellRecovery:
             result = bot.buy_strategy(coin)
             assert result == True
             m1.assert_called()
+
+
+class TestStrategyBuyOnGrowthTrendAfterDrop(StrategyBaseTestClass):
+    @pytest.fixture()
+    def bot(self, cfg):
+        with mock.patch('binance.client.Client', new_callable=mock.PropertyMock
+        ) as mock1:
+            mock1.return_value = None
+            client = Client("FAKE", "FAKE")
+
+            with mock.patch('requests.get', return_value={}
+            ) as mock2:
+
+                bot = app.BuyOnGrowthTrendAfterDropStrategy(
+                    client, 'configfilename', cfg
+                )
+                bot.client.API_URL = "https://www.google.com"
+                yield bot
+                del(bot)
+
+
+    def test_coin_not_bought_when_price_below_averages_threshold(self, bot, coin):
+        coin.status = "TARGET_DIP"
+        coin.price = 90
+        coin.last = 80
+        coin.dip = 80
+
+        coin.klines_slice_percentage_change = float(1)
+        coin.klines_trend_period = "3h"
+
+        for _ in range(14):
+            coin.averages['d'].append(1)
+
+        with mock.patch.object(
+            bot, 'buy_coin', return_value=True
+        ) as m1:
+            result = bot.buy_strategy(coin)
+            assert result == False
+            assert coin.status == "TARGET_DIP"
+            m1.assert_not_called()
+
+    def test_coin_bought_when_price_above_averages_threshold(self, bot, coin):
+        coin.status = "TARGET_DIP"
+        coin.price = 90
+        coin.last = 80
+        coin.dip = 80
+
+        coin.klines_slice_percentage_change = 1 # +1%
+        coin.klines_trend_period = "4d"
+
+        avg_price = float(1)
+        for _ in range(14):
+            coin.averages['d'].append(avg_price)
+            avg_price = avg_price * 1.01 # +1%
+
+        with mock.patch.object(
+            bot, 'buy_coin', return_value=True
+        ) as m1:
+            result = bot.buy_strategy(coin)
+            m1.assert_called()
+            assert coin.status == "TARGET_DIP"
+            assert result == True
 
 class TestBacktesting:
     def backtesting(self):
