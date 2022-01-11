@@ -1123,7 +1123,13 @@ class BuyMoonSellRecoveryStrategy(Bot):
 
 
 class BuyOnGrowthTrendAfterDropStrategy(Bot):
-    """ Base Strategy Class"""
+    """ Buy Strategy
+
+        Wait for a coin to drop below BUY_AT_PERCENTAGE and then
+        monitor its growth trend over a certain period, where each slice of
+        that period must grow by at least n% over the previous slice.
+        As soon that happens buy this coin.
+    """
 
     def buy_strategy(self, coin: Coin) -> bool:
         """bot buy strategy"""
@@ -1176,72 +1182,8 @@ class BuyOnGrowthTrendAfterDropStrategy(Bot):
             ) > n:
                 return False
             last_period_slice = n
-
         self.buy_coin(coin)
         return True
-
-
-class BuyOnRecoveryAfterDowntrendPeriodStrategy(Bot):
-    """ Base Strategy Class"""
-
-    # buy on recovery after long downtrend
-    def buy_strategy(
-        self, coin: Coin
-    ) -> bool:
-        """bot buy strategy"""
-
-        unit = coin.klines_trend_period[-1:]
-        klines_trend_period = int(coin.klines_trend_period[:-1])
-
-        if unit in ["D", "d"]:
-            last_period = list(coin.averages["d"])[-klines_trend_period :]
-
-        if unit in ["H", "h"]:
-            last_period = list(coin.averages["h"])[-klines_trend_period :]
-
-        if unit in ["M", "m"]:
-            last_period = list(coin.averages["m"])[-klines_trend_period :]
-
-        if unit in ["S", "s"]:
-            last_period = list(coin.averages["s"])[-klines_trend_period :]
-
-        if len(last_period) < klines_trend_period:
-            return False
-
-        last_period_slice = last_period[0]
-        # if the price keeps going down, then buy
-        for n in last_period:
-            if n > last_period_slice:
-                return False
-            last_period_slice = n
-
-        # has the price gone down by x% on a coin we don't own?
-        if (
-            float(coin.price) < percent(
-                coin.buy_at_percentage, last_period_slice
-            )
-        ) and coin.status == "" and coin.naughty_timeout == 0:
-            coin.dip = coin.price
-            logging.info(
-                f"{coin.date}: {coin.symbol} [{coin.status}] "
-                + f"-> [TARGET_DIP] ({coin.price})"
-            )
-            coin.status = "TARGET_DIP"
-
-        if coin.status != "TARGET_DIP":
-            return False
-
-        # do some gimmicks, and don't buy the coin straight away
-        # but only buy it when the price is now higher than the last
-        # price recorded. This way we ensure that we got the dip
-        self.log_debug_coin(coin)
-        if float(coin.price) > float(coin.last):
-            if float(coin.price) > percent(
-                float(coin.trail_recovery_percentage), coin.dip
-            ):
-                self.buy_coin(coin)
-                return True
-        return False
 
 
 class BuyDropSellRecoveryStrategy(Bot):
@@ -1310,11 +1252,6 @@ if __name__ == "__main__":
 
         elif cfg["STRATEGY"] == "BuyOnGrowthTrendAfterDropStrategy":
             bot = BuyOnGrowthTrendAfterDropStrategy(
-                client, args.config, cfg
-            ) # type: ignore
-
-        elif cfg["STRATEGY"] == "BuyOnRecoveryAfterDowntrendPeriodStrategy":
-            bot = BuyOnRecoveryAfterDowntrendPeriodStrategy(
                 client, args.config, cfg
             ) # type: ignore
 

@@ -912,6 +912,7 @@ class TestStrategyBuyOnGrowthTrendAfterDrop(StrategyBaseTestClass):
             assert coin.status == "TARGET_DIP"
             assert result == True
 
+
 class TestBacktesting:
     def backtesting(self):
         pass
