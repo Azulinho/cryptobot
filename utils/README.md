@@ -11,3 +11,16 @@ ulimit -n 8192
 cd cryptobot/logs
 python ../utils/split-logs-into-coins.py -g "2021*"
 ```
+
+
+backtest-all-coin-files-against-template.py
+===========================================
+
+Then copy and update the *examples/template.yaml* into configs/
+
+and run:
+
+```
+cd cryptobot
+python  utils/backtest-all-coin-files-against-template.py -c template.yaml
+```
