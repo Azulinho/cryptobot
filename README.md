@@ -169,7 +169,7 @@ Join on: https://discord.gg/MaMP3gVBdk
 
 DO NOT USE github issues to ask for help. I have no time for you. You'll be told off.
 
-Also: *NO TORIES or BREXITERS*, this is not negotiable.
+Also: *NO TORIES, NO BREXITERS, NO WINDOWS USERS, NO TWATS*, this is not negotiable.
 
 
 ## Usage
