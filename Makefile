@@ -1,14 +1,17 @@
 .PHONY: default
 default: help ;
 
-backtesting:
-	U="$$(id -u)" G="$$(id -g)" docker-compose run --name cryptobot.backtesting.${CONFIG} --rm --service-ports cryptobot -s /secrets/binance.prod.yaml -c /configs/$(CONFIG)  -m  backtesting  > results/$(CONFIG).txt
+logmode:
+	U="$$(id -u)" G="$$(id -g)" docker-compose run --name cryptobot.logmode.$(CONFIG) --rm --service-ports cryptobot -s /secrets/binance.prod.yaml -c /configs/$(CONFIG)  -m  logmode > log/logmode.$(CONFIG)txt 2>&1
 
 testnet:
-	U="$$(id -u)" G="$$(id -g)" docker-compose run --rm --name cryptobot.testnet.${CONFIG} --service-ports cryptobot -s /secrets/binance.testnet.yaml -c /configs/$(CONFIG)  -m  testnet  > results/$(CONFIG).txt
+	U="$$(id -u)" G="$$(id -g)" docker-compose run --rm --name cryptobot.testnet.$(CONFIG) --service-ports cryptobot -s /secrets/binance.testnet.yaml -c /configs/$(CONFIG)  -m  testnet  > log/testnet.$(CONFIG).txt 2>&1
 
 live:
-	U="$$(id -u)" G="$$(id -g)" docker-compose run --rm --name cryptobot.live.${CONFIG} --service-ports cryptobot -s /secrets/binance.prod.yaml -c /configs/$(CONFIG)  -m  live  > results/$(CONFIG).txt
+	U="$$(id -u)" G="$$(id -g)" docker-compose run --rm --name cryptobot.live.$(CONFIG) --service-ports cryptobot -s /secrets/binance.prod.yaml -c /configs/$(CONFIG)  -m  live  > log/live.$(CONFIG).txt 2>&1
+
+backtesting:
+	U="$$(id -u)" G="$$(id -g)" docker-compose run --name cryptobot.backtesting.$(CONFIG) --rm --service-ports cryptobot -s /secrets/binance.prod.yaml -c /configs/$(CONFIG)  -m  backtesting  > results/$(CONFIG).txt 2>&1
 
 split-logs-into-coins:
 	ulimit -n 8192; cd log; python3 ../utils/split-logs-into-coins.py -g "$(LOGS)"
@@ -21,6 +24,7 @@ slice-of-log:
 
 help:
 	@echo "USAGE:"
+	@echo "make logmode CONFIG=< config.yaml >"
 	@echo "make backtesting CONFIG=< config.yaml >"
 	@echo "make testnet CONFIG=< config.yaml >"
 	@echo "make live CONFIG=< config.yaml >"
