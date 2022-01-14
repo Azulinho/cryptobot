@@ -189,7 +189,7 @@ git clone https://github.com/Azulinho/cryptobot.git
 
 Place your new config.yaml file into the *configs/* folder.
 
-5. Add your Binance credentials to */secrets/prod.yaml*.
+5. Add your Binance credentials to */secrets/binance.prod.yaml*.
    See the [example
    secrets.yaml](https://github.com/Azulinho/cryptobot/blob/master/examples/secrets.yaml) file
 
@@ -211,9 +211,7 @@ for testing containing a small set of coins
 running. But not buy or sell anything.
 
 ```
-U="$(id -u)" G="$(id -g)" docker-compose run --service-ports cryptobot \
-    -s /secrets/prod.yaml \
-    -c /configs/config.yaml -m logmode
+make logmode CONFIG=config.yaml
 ```
 
 When there is enough data for backtesting in our price.log files, we can now
@@ -239,9 +237,7 @@ all collected price logs based on the provided config.yaml.
 
 
 ```
-U="$(id -u)" G="$(id -g)" docker-compose run --service-ports cryptobot \
-    -s /secrets/prod.yaml \
-    -c /configs/config.yaml -m backtesting
+make backtesting CONFIG=config.yaml
 ```
 
 8. Update your config.yaml until you are happy with the results and re-run the
@@ -270,9 +266,7 @@ U="$(id -u)" G="$(id -g)" docker-compose run --service-ports cryptobot \
 9. Finally, when happy run in live trading mode,
 
 ```
-U="$(id -u)" G="$(id -g)" docker-compose run --service-ports cryptobot \
-    -s /secrets/prod.yaml \
-    -c /configs/config.yaml -m live
+make live CONFIG=config.yaml
 ```
 
 
