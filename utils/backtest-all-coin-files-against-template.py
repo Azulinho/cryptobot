@@ -22,7 +22,6 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--config", help="config.yaml template")
     args = parser.parse_args()
 
-    configs = []
     with open(f"configs/{args.config}", encoding="utf-8") as cfgtmpl:
         body = cfgtmpl.read()
         tickers = yaml.safe_load(body)['TICKERS'].keys()
@@ -30,12 +29,12 @@ if __name__ == "__main__":
         jobs = []
         with mp.Pool(processes=os.cpu_count()) as pool:
             for symbol in tickers:
-                with open(f"configs/coin.{symbol}.{args.config}.yaml", "wt") as tc:
+                with open(f"configs/coin.{symbol}.{args.config}", "wt") as tc:
                     newbody = body.replace("COINTEMPLATE", symbol)
                     tc.write(newbody)
 
                 job = pool.apply_async(
-                   os.system, (f"make CONFIG=coin.{symbol}.{args.config} >/dev/null 2>&1", )
+                   os.system, (f"make backtesting CONFIG=coin.{symbol}.{args.config} >/dev/null 2>&1", )
                 )
                 time.sleep(1)
                 jobs.append(job)
