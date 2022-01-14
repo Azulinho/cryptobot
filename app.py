@@ -77,7 +77,8 @@ class Coin:  # pylint: disable=too-few-public-methods
     def __init__(
         self,
         symbol: str,
-        date: str,
+        # 2021-09-23 10:49:29.388662
+        date: datetime,
         market_price: float,
         buy_at: float,
         sell_at: float,
@@ -86,6 +87,7 @@ class Coin:  # pylint: disable=too-few-public-methods
         trail_recovery_percentage: float,
         soft_limit_holding_time: int,
         hard_limit_holding_time: int,
+        naughty_timeout: int,
         klines_trend_period: str,
         klines_slice_percentage_change: float,
     ) -> None:
@@ -114,10 +116,10 @@ class Coin:  # pylint: disable=too-few-public-methods
         )
         self.dip = market_price
         self.tip = market_price
-        self.naughty_timeout = int(0)
         self.profit = float(0)
         self.soft_limit_holding_time: int = int(soft_limit_holding_time)
         self.hard_limit_holding_time: int = int(hard_limit_holding_time)
+        self.naughty_timeout : int = naughty_timeout
         # TODO: this must support PAUSE_FOR values different than 1s
         self.averages: dict = {
             "counters": {
@@ -134,6 +136,9 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.klines_slice_percentage_change: float = float(
             klines_slice_percentage_change
         )
+        self.bought_date: datetime = None
+        self.naughty_date: datetime = None
+        self.naughty : bool = False
 
 
     def update(self, date: str, market_price: float) -> None:
@@ -143,10 +148,11 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.price = float(market_price)
 
         if self.status in ["TARGET_SELL", "HOLD"]:
-            self.holding_time = self.holding_time + 1
+            self.holding_time = int((self.date - self.bought_date).seconds)
 
-        if self.naughty_timeout != 0:
-            self.naughty_timeout = self.naughty_timeout - 1
+        if self.naughty:
+            if int((self.date - self.naughty_date).seconds) > self.naughty_timeout:
+                self.naughty = False
 
         # do we have a new min price?
         if float(market_price) < float(self.min):
@@ -287,7 +293,7 @@ class Bot():
         if len(self.wallet) == self.max_coins:
             return
 
-        if coin.naughty_timeout > 0:
+        if coin.naughty:
             return
 
         volume = float(self.calculate_volume_size(coin))
@@ -338,6 +344,7 @@ class Bot():
         self.wallet.append(coin.symbol)
         coin.status = "HOLD"
         coin.tip = coin.price
+        coin.bought_date = coin.date
 
         s_value = (
             percent(coin.trail_target_sell_percentage, coin.sell_at_percentage)
@@ -518,7 +525,7 @@ class Bot():
         if symbol not in self.coins:
             self.coins[symbol] = Coin(
                 symbol,
-                str(datetime.now()),
+                datetime.now(), # TODO: update this to consume binance_data[]
                 market_price,
                 buy_at=self.tickers[symbol]["BUY_AT_PERCENTAGE"],
                 sell_at=self.tickers[symbol]["SELL_AT_PERCENTAGE"],
@@ -534,6 +541,9 @@ class Bot():
                 ],
                 hard_limit_holding_time=self.tickers[symbol][
                     "HARD_LIMIT_HOLDING_TIME"
+                ],
+                naughty_timeout=self.tickers[symbol][
+                    "NAUGHTY_TIMEOUT"
                 ],
                 klines_trend_period=self.tickers[symbol]["KLINES_TREND_PERIOD"],
                 klines_slice_percentage_change=float(
@@ -563,12 +573,14 @@ class Bot():
             self.init_or_update_coin(binance_data)
 
             # if a coin has been blocked due to a stop_loss, we want to make
-            # sure we reset the coin stats at the point the ban expires and
+            # sure we reset the coin stats for the duration of the ban and
             # not just when the stop-loss event happened.
-            if self.coins[coin_symbol].naughty_timeout == 1:
+            # TODO: we are reseting the stats on every iteration while this
+            # coin is in naughty state, look on how to avoid doing this.
+            if self.coins[coin_symbol].naughty:
                 self.clear_coin_stats(self.coins[coin_symbol])
 
-            if self.coins[coin_symbol].naughty_timeout > 0:
+            if self.coins[coin_symbol].naughty:
                 continue
 
             if coin_symbol in self.tickers or coin_symbol in self.wallet:
@@ -592,9 +604,8 @@ class Bot():
             # when the market is crashing and crashing and crashing
             for symbol in self.coins:
                 if symbol not in self.wallet:
-                    self.coins[symbol].naughty_timeout = int(
-                        self.tickers[symbol]["NAUGHTY_TIMEOUT"]
-                    )
+                    self.naughty_date = self.coins[symbol].date
+                    self.naughty = True
                     self.clear_coin_stats(self.coins[symbol])
             return True
         return False
@@ -644,6 +655,8 @@ class Bot():
             self.stales = self.stales + 1
 
             # and block this coin for today:
+            coin.naughty = True
+            coin.naughty_date = coin.date
             coin.naughty_timeout = int(
                 self.tickers[coin.symbol]["NAUGHTY_TIMEOUT"]
             )
@@ -788,6 +801,9 @@ class Bot():
             self.coins[symbol].hard_limit_holding_time = int(
                 self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"]
             )
+            self.coins[symbol].naughty_timeout = int(
+                self.tickers[symbol]["NAUGHTY_TIMEOUT"]
+            )
             self.coins[symbol].trail_target_sell_percentage = add_100(
                 self.tickers[symbol]["TRAIL_TARGET_SELL_PERCENTAGE"]
             )
@@ -898,7 +914,11 @@ class Bot():
         symbol = parts[2]
         if symbol not in self.tickers:
             return
-        date = " ".join(parts[0:2])
+        try:
+            date = datetime.strptime(" ".join(parts[0:2]), "%Y-%m-%d %H:%M:%S.%f")
+        except ValueError:
+            date = datetime.strptime(" ".join(parts[0:2]), "%Y-%m-%d %H:%M:%S")
+
         market_price = float(parts[3])
 
         # implements a PAUSE_FOR pause while reading from
@@ -911,7 +931,8 @@ class Bot():
             return
 
         self.read_counter = 0
-        # TODO: rework this
+        # TODO: rework this, generate a binance_data blob to pass to
+        # init_or_update_coin()
         if symbol not in self.coins:
             self.coins[symbol] = Coin(
                 symbol,
@@ -926,6 +947,7 @@ class Bot():
                 self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"],
                 self.tickers[symbol]["SOFT_LIMIT_HOLDING_TIME"],
                 self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"],
+                self.tickers[symbol]["NAUGHTY_TIMEOUT"],
                 self.tickers[symbol]["KLINES_TREND_PERIOD"],
                 self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"],
             )
@@ -989,9 +1011,7 @@ class Bot():
         # lets find out the from what date we need to pull klines from while in
         # backtesting mode.
         if self.mode == "backtesting":
-            backtest_end_time = datetime.strptime(
-                coin.date, "%Y-%m-%d %H:%M:%S.%f"
-            )
+            backtest_end_time = coin.date
             end_unix_time = int(
                 (
                     datetime.timestamp(backtest_end_time - timedelta(hours=1))
@@ -1047,9 +1067,7 @@ class Bot():
             )
 
         if self.mode == "backtesting":
-            backtest_end_time = datetime.strptime(
-                coin.date, "%Y-%m-%d %H:%M:%S.%f"
-            )
+            backtest_end_time = coin.date
             end_unix_time = int(
                 (
                     datetime.timestamp(backtest_end_time)
@@ -1144,7 +1162,7 @@ class BuyOnGrowthTrendAfterDropStrategy(Bot):
         # has the price gone down by x% on a coin we don't own?
         if (
             float(coin.price) < percent(coin.buy_at_percentage, coin.max)
-        ) and coin.status == "" and coin.naughty_timeout == 0:
+        ) and coin.status == "" and not coin.naughty:
             coin.dip = coin.price
             logging.info(
                 f"{coin.date}: {coin.symbol} [{coin.status}] "
@@ -1203,7 +1221,7 @@ class BuyDropSellRecoveryStrategy(Bot):
         # has the price gone down by x% on a coin we don't own?
         if (
             float(coin.price) < percent(coin.buy_at_percentage, coin.max)
-        ) and coin.status == "" and coin.naughty_timeout == 0:
+        ) and coin.status == "" and not coin.naughty:
             coin.dip = coin.price
             logging.info(
                 f"{coin.date}: {coin.symbol} [{coin.status}] "

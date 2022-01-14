@@ -7,6 +7,7 @@ import pytest
 import socket
 import requests
 import yaml
+from datetime import datetime, timedelta
 from unittest import mock
 
 from binance.client import Client
@@ -40,7 +41,7 @@ def bot(cfg):
 def coin(bot):
     coin = app.Coin(
         symbol="BTCUSDT",
-        date="2021",
+        date=datetime.now() - timedelta(hours=1),
         market_price=100.00,
         buy_at=float(bot.tickers['BTCUSDT']['BUY_AT_PERCENTAGE']),
         sell_at=float(bot.tickers['BTCUSDT']['SELL_AT_PERCENTAGE']),
@@ -49,6 +50,7 @@ def coin(bot):
         trail_recovery_percentage=float(bot.tickers['BTCUSDT']['TRAIL_RECOVERY_PERCENTAGE']),
         soft_limit_holding_time=int(bot.tickers['BTCUSDT']['SOFT_LIMIT_HOLDING_TIME']),
         hard_limit_holding_time=int(bot.tickers['BTCUSDT']['HARD_LIMIT_HOLDING_TIME']),
+        naughty_timeout=int(bot.tickers['BTCUSDT']['NAUGHTY_TIMEOUT']),
         klines_trend_period=str(bot.tickers['BTCUSDT']['KLINES_TREND_PERIOD']),
         klines_slice_percentage_change=float(
             bot.tickers['BTCUSDT']["KLINES_SLICE_PERCENTAGE_CHANGE"]
@@ -61,61 +63,68 @@ class TestCoin:
     def test_update_coin_wont_age_if_not_owned(self, coin):
         coin.holding_time = 0
         coin.status = ""
-        coin.update('now', 100.0)
+        coin.update(datetime.now(), 100.0)
         assert coin.holding_time == 0
 
     def test_update_coin_in_target_sell_status_will_age(self, coin):
         coin.holding_time = 0
         coin.status = "TARGET_SELL"
-        coin.update('now', 100.0)
-        assert coin.holding_time == 1
+        coin.bought_date =  datetime.now() - timedelta(hours=1)
+        coin.update(datetime.now(), 100.0)
+        assert coin.holding_time == 3600
 
     def test_update_coin_in_hold_status_will_age(self, coin):
         coin.holding_time = 0
         coin.status = "HOLD"
-        coin.update('now', 100.0)
-        assert coin.holding_time == 1
+        coin.bought_date =  datetime.now() - timedelta(hours=1)
+        coin.update(datetime.now(), 100.0)
+        assert coin.holding_time == 3600
 
-    def test_update_coin_not_in_naughty_corner(self, coin):
-        coin.naughty_timeout = 0
-        coin.update('now', 100.0)
-        assert coin.naughty_timeout == 0
+    def test_update_coin_in_naughty_reverts_to_non_naughty_after_timeout_(self, coin):
+        coin.naughty_timeout = 3599
+        coin.naughty = True
+        coin.naughty_date =  datetime.now() - timedelta(hours=1)
+        coin.update(datetime.now(), 100.0)
+        assert coin.naughty == False
 
-    def test_update_coin_in_naughty_corner(self, coin):
-        coin.naughty_timeout = 3
-        coin.update('now', 100.0)
-        assert coin.naughty_timeout == 2
+    def test_update_coin_in_naughty_remains_naughty_before_timeout_(self, coin):
+        coin.naughty_timeout = 7200
+        coin.naughty = True
+        coin.naughty_date =  datetime.now() - timedelta(hours=1)
+        coin.update(datetime.now(), 100.0)
+        assert coin.naughty == True
 
     def test_update_reached_new_min(self, coin):
         coin.min = 200
-        coin.update('now', 100.0)
+        coin.update(datetime.now(), 100.0)
         assert coin.min == 100
 
     def test_update_reached_new_max(self, coin):
         coin.max = 100
-        coin.update('now', 200.0)
+        coin.update(datetime.now(), 200.0)
         assert coin.max == 200
 
     def test_update_value_is_set(self, coin):
         coin.volume = 2
-        coin.update('now', 100.0)
+        coin.update(datetime.now(), 100.0)
         assert coin.value == 200
 
     def test_update_coin_change_status_from_hold_to_target_sell(self, coin):
         coin.status = "HOLD"
         coin.sell_at_percentage = 3
         coin.bought_at = 100
-        coin.update('now', 120.00)
+        coin.bought_date =  datetime.now() - timedelta(hours=1)
+        coin.update(datetime.now(), 120.00)
         assert coin.status == "TARGET_SELL"
 
     def test_update_coin_updates_state_dip(self, coin):
         coin.status = "TARGET_DIP"
         coin.dip = 150
-        coin.update('now', 120.00)
+        coin.update(datetime.now(), 120.00)
         assert coin.dip == 120.00
 
     def test_update_coin_updates_seconds_averages(self, coin):
-        coin.update('now', 120.00)
+        coin.update(datetime.now(), 120.00)
         assert 120.00 in coin.averages['s']
         assert len(coin.averages['s']) == 1
         assert coin.averages['counters']['s'] == 1
@@ -123,7 +132,7 @@ class TestCoin:
 
     def test_update_coin_updates_minutes_averages(self, coin):
         for x in range(60):
-            coin.update('now', 100)
+            coin.update(datetime.now(), 100)
 
         assert coin.averages['counters']['s'] == 0
         assert len(coin.averages['s']) == 60
@@ -136,7 +145,7 @@ class TestCoin:
 
     def test_update_coin_updates_hour_averages(self, coin):
         for x in range(3600):
-            coin.update('now', 100)
+            coin.update(datetime.now(), 100)
 
         assert coin.averages['counters']['s'] == 0
         assert list(coin.averages['s']) == [100 for x in range(60)]
@@ -149,7 +158,7 @@ class TestCoin:
 
     def test_update_coin_updates_days_averages(self, coin):
         for x in range(86400):
-            coin.update('now', 100)
+            coin.update(datetime.now(), 100)
 
         assert coin.averages['counters']['s'] == 0
         assert list(coin.averages['s']) == [100 for x in range(60)]
@@ -252,6 +261,9 @@ class TestBot:
         assert bot.coins['BTCUSDT'].trail_recovery_percentage == float(
             100 + cfg['TICKERS']['BTCUSDT']['TRAIL_RECOVERY_PERCENTAGE']
         )
+        assert bot.coins['BTCUSDT'].naughty_timeout == int(
+            cfg['TICKERS']['BTCUSDT']['NAUGHTY_TIMEOUT']
+        )
 
     def test_process_coins(self, bot, coin):
         bot.load_klines_for_coin = mock.Mock()
@@ -302,7 +314,10 @@ class TestBot:
 
 
     def test_load_klines_for_coin(self, bot, coin):
-        coin.date = "2021-12-04 05:23:05.693516"
+        coin.date = datetime.strptime(
+            "2021-12-04 05:23:05.693516",
+            "%Y-%m-%d %H:%M:%S.%f"
+        )
         r = requests.models.Response()
         r.status_code = 200
         r.headers['Content-Type'] = "application/json"
@@ -410,7 +425,7 @@ class TestBuyCoin:
         assert bot.wallet == ["BTCUSDT", "ETHUSDT"]
 
     def test_buy_coin_when_coin_is_naughty(self, bot, coin):
-        coin.naughty_timeout = 1
+        coin.naughty = True
         bot.buy_coin(coin)
         assert bot.wallet == []
 
@@ -615,11 +630,12 @@ class TestCoinStatus:
                 assert result == True
                 assert bot.stales == 1
                 assert bot.profit == 99.7
-                assert coin.naughty_timeout == cfg['TICKERS']['BTCUSDT']['NAUGHTY_TIMEOUT']
+                assert coin.naughty_timeout == int(bot.tickers['BTCUSDT']['NAUGHTY_TIMEOUT'])
                 assert round(bot.investment, 1) == round(199.7, 1)
 
     def test_past_soft_limit(self, bot, coin):
         coin.bought_at = 100
+        coin.bought_date =  datetime.now() - timedelta(hours=1)
         coin.cost = 100
         coin.tip = 300
         coin.last = 290
@@ -653,7 +669,7 @@ class TestCoinStatus:
 
                 result = bot.past_soft_limit(coin)
                 assert result == True
-                assert coin.naughty_timeout == 0
+                assert coin.naughty_timeout == int(bot.tickers['BTCUSDT']['NAUGHTY_TIMEOUT'])
                 assert coin.sell_at_percentage == 101.5
                 assert coin.trail_target_sell_percentage == 99.749
 
