@@ -260,7 +260,6 @@ class Bot():
             config["SELL_AS_SOON_IT_DROPS"]
         )
         self.config_file: str = config_file
-        self.read_counter :int = 0
 
     def run_strategy(self, *argvs, **kwargs) -> None:
         """runs a specific strategy against a coin"""
@@ -921,16 +920,7 @@ class Bot():
 
         market_price = float(parts[3])
 
-        # implements a PAUSE_FOR pause while reading from
-        # our price logs.
-        # we essentially skip a number of iterations between
-        # reads, causing a similar effect if we were only
-        # probing prices every PAUSE_FOR seconds
-        self.read_counter = self.read_counter + 1
-        if self.read_counter != self.pause:
-            return
 
-        self.read_counter = 0
         # TODO: rework this, generate a binance_data blob to pass to
         # init_or_update_coin()
         if symbol not in self.coins:
@@ -951,8 +941,20 @@ class Bot():
                 self.tickers[symbol]["KLINES_TREND_PERIOD"],
                 self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"],
             )
+            self.coins[symbol].last_read_date :datetime = datetime.fromtimestamp(0)
             self.load_klines_for_coin(self.coins[symbol])
         else:
+            # implements a PAUSE_FOR pause while reading from
+            # our price logs.
+            # we essentially skip a number of iterations between
+            # reads, causing a similar effect if we were only
+            # probing prices every PAUSE_FOR seconds
+            if self.coins[symbol].last_read_date >= (
+                    date - timedelta(seconds=self.pause)
+            ):
+                return
+            self.coins[symbol].last_read_date = date
+
             self.coins[symbol].update(date, market_price)
         self.run_strategy(self.coins[symbol])
 
