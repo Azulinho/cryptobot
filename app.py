@@ -136,12 +136,13 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.klines_slice_percentage_change: float = float(
             klines_slice_percentage_change
         )
-        self.bought_date: datetime = None
-        self.naughty_date: datetime = None
+        self.bought_date: datetime = None # type: ignore
+        self.naughty_date: datetime = None # type: ignore
         self.naughty : bool = False
+        self.last_read_date : datetime = datetime.fromtimestamp(0)
 
 
-    def update(self, date: str, market_price: float) -> None:
+    def update(self, date: datetime, market_price: float) -> None:
         """updates a coin object with latest market values"""
         self.date = date
         self.last = self.price
@@ -551,7 +552,7 @@ class Bot():
             )
             self.load_klines_for_coin(self.coins[symbol])
         else:
-            self.coins[symbol].update(str(datetime.now()), market_price)
+            self.coins[symbol].update(datetime.now(), market_price)
 
     def process_coins(self) -> None:
         """processes all the prices returned by binance"""
@@ -603,8 +604,8 @@ class Bot():
             # when the market is crashing and crashing and crashing
             for symbol in self.coins:
                 if symbol not in self.wallet:
-                    self.naughty_date = self.coins[symbol].date
-                    self.naughty = True
+                    self.naughty_date = self.coins[symbol].date # pylint: disable=attribute-defined-outside-init
+                    self.naughty = True # pylint: disable=attribute-defined-outside-init
                     self.clear_coin_stats(self.coins[symbol])
             return True
         return False
@@ -941,7 +942,6 @@ class Bot():
                 self.tickers[symbol]["KLINES_TREND_PERIOD"],
                 self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"],
             )
-            self.coins[symbol].last_read_date :datetime = datetime.fromtimestamp(0)
             self.load_klines_for_coin(self.coins[symbol])
         else:
             # implements a PAUSE_FOR pause while reading from
