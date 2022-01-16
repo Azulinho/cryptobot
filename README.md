@@ -125,9 +125,13 @@ For backtesting, this bot provides two modes of operation:
 * logmode
 * backtesting
 
-In the *logmode* it records price.logs for all available coins in binance and
-store them in the log directory. These logs can then be consumed in
-*backtesting* mode.
+In the *logmode* it records **the current price** for all available binance coins
+in daily price.logs and stores them in the log directory.
+These logs can then be consumed in *backtesting* mode.
+
+The bot doesn't retrieve historic klines from binance, which are limited to a
+minimum of 1min granularity. If you want to pull historic klines from binance,
+you'll have to do it yourself and convert them to the format used by this bot.
 
 Just to get started, here is a
 [logfile](https://www.dropbox.com/s/dqpma82vc4ug7l9/MYCOINS.log.gz?dl=0)
