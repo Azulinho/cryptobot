@@ -22,6 +22,12 @@ backtest-all-coin-files:
 slice-of-log:
 	cut -c1- log/backtesting.log | grep cfg: |  cut -d "|" -f 1,3,4,5,6 | cut -d " " -f 1,22-41 | tr -d " " |cut -c8- | sort -n
 
+generate-coincfg-for-coins:
+	python3 utils/generate-configs-from-backtestinglog.py -l $(LOG) -m $(MIN) -o coincfg
+
+generate-cfgname-for-coins:
+	python3 utils/generate-configs-from-backtestinglog.py -l $(LOG) -m $(MIN) -o cfgname
+
 help:
 	@echo "USAGE:"
 	@echo "make logmode CONFIG=< config.yaml >"
@@ -31,3 +37,5 @@ help:
 	@echo "make split-logs-into-coins LOGS=< 2021*.log.gz >"
 	@echo "make backtest-all-coin-files TEMPLATE=< template.yaml >"
 	@echo "make slice-of-log"
+	@echo "make generate-cfgname-for-coins LOG=log/backtesting.log MIN=30"
+	@echo "make generate-coincfg-for-coins LOG=log/backtesting.log MIN=30"
