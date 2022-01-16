@@ -45,6 +45,7 @@ if __name__ == "__main__":
             if coin not in coins:
                 coins[coin] = {
                     "profit": profit,
+                    "wls": wls,
                     "cfgname": cfgname,
                     "coincfg": coincfg
                 }
@@ -53,6 +54,7 @@ if __name__ == "__main__":
                 if profit > coins[coin]['profit']:
                     coins[coin] = {
                         "profit": profit,
+                        "wls": wls,
                         "cfgname": cfgname,
                         "coincfg": coincfg
                     }
@@ -61,6 +63,6 @@ if __name__ == "__main__":
     coins = OrderedDict(sorted(_coins.items(), key=lambda x: x[1]['profit']))
     for coin in coins:
         if args.output == "cfgname":
-            print(f"{coin}: {coins[coin]['profit']}  {coins[coin]['cfgname']}")
+            print(f"{coin}: {coins[coin]['profit']} {coins[coin]['wls']} {coins[coin]['cfgname']}")
         if args.output == "coincfg":
-            print(f"{coin}: {coins[coin]['coincfg']}")
+            print(f"{coin}: {coins[coin]['wls']} {coins[coin]['coincfg']}")
