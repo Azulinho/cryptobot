@@ -801,9 +801,6 @@ class Bot():
             self.coins[symbol].hard_limit_holding_time = int(
                 self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"]
             )
-            self.coins[symbol].naughty_timeout = int(
-                self.tickers[symbol]["NAUGHTY_TIMEOUT"]
-            )
             self.coins[symbol].trail_target_sell_percentage = add_100(
                 self.tickers[symbol]["TRAIL_TARGET_SELL_PERCENTAGE"]
             )
@@ -816,6 +813,45 @@ class Bot():
             self.coins[symbol].klines_slice_percentage_change=float(
                 self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"]
             )
+
+            # deal with missing coin properties, types after a bot upgrade
+            if isinstance(self.coins[symbol].date, str):
+                try:
+                    date = datetime.strptime(
+                        self.coins[symbol].date, # type: ignore
+                        "%Y-%m-%d %H:%M:%S.%f"
+                    )
+                except ValueError:
+                    date = datetime.strptime(
+                        self.coins[symbol].date, # type: ignore
+                        "%Y-%m-%d %H:%M:%S"
+                    )
+                self.coins[symbol].date = date
+            if 'naughty' not in dir(self.coins[symbol]):
+                if self.coins[symbol].naughty_timeout != 0:
+                    self.coins[symbol].naughty = True
+                    self.coins[symbol].naughty_date = (
+                        self.coins[symbol].naughty_date - timedelta(
+                            seconds=self.coins[symbol].naughty_timeout)
+                    )
+                else:
+                    self.coins[symbol].naughty = False
+                    self.coins[symbol].naughty_date = None # type: ignore
+
+            if 'bought_date' not in dir(self.coins[symbol]):
+                if symbol in self.wallet:
+                    self.coins[symbol].bought_date = (
+                        self.coins[symbol].date - timedelta(
+                            seconds=self.coins[symbol].holding_time)
+                    )
+                else:
+                    self.coins[symbol].bought_date = None # type: ignore
+
+            self.coins[symbol].naughty_timeout = int(
+                self.tickers[symbol]["NAUGHTY_TIMEOUT"]
+            )
+
+
         if self.wallet:
             logging.info("Wallet contains:")
             for symbol in self.wallet:
