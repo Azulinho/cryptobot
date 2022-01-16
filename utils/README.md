@@ -24,3 +24,21 @@ and run:
 cd cryptobot
 python  utils/backtest-all-coin-files-against-template.py -c template.yaml
 ```
+
+
+generate-configs-from-backtestinglog.py
+========================================
+
+Finaly generate the best performant configs for each coin:
+
+See the best performant configs:
+
+```
+python utils/generate-configs-from-backtestinglog.py -l log/backtesting.log -m 30 -o cfgname
+```
+
+Retrieve the config for each coin:
+```
+python utils/generate-configs-from-backtestinglog.py -l log/backtesting.log -m 30 -o coincfg
+```
+
