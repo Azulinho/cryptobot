@@ -8,7 +8,7 @@ testnet:
 	U="$$(id -u)" G="$$(id -g)" docker-compose run --rm --name cryptobot.testnet.$(CONFIG) --service-ports cryptobot -s /secrets/binance.testnet.yaml -c /configs/$(CONFIG)  -m  testnet  > log/testnet.$(CONFIG).txt 2>&1
 
 live:
-	U="$$(id -u)" G="$$(id -g)" docker-compose run --rm --name cryptobot.live.$(CONFIG) --service-ports cryptobot -s /secrets/binance.prod.yaml -c /configs/$(CONFIG)  -m  live  > log/live.$(CONFIG).txt 2>&1
+	U="$$(id -u)" G="$$(id -g)" docker-compose run --rm --name cryptobot.live.$(CONFIG) --service-ports cryptobot -s /secrets/binance.prod.yaml -c /configs/$(CONFIG)  -m  live  >> log/live.$(CONFIG).txt 2>&1
 
 backtesting:
 	U="$$(id -u)" G="$$(id -g)" docker-compose run --name cryptobot.backtesting.$(CONFIG) --rm --service-ports cryptobot -s /secrets/binance.prod.yaml -c /configs/$(CONFIG)  -m  backtesting  > results/$(CONFIG).txt 2>&1
