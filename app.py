@@ -261,6 +261,7 @@ class Bot():
             config["SELL_AS_SOON_IT_DROPS"]
         )
         self.config_file: str = config_file
+        self.oldprice: Dict[str, float] = {}
 
     def run_strategy(self, *argvs, **kwargs) -> None:
         """runs a specific strategy against a coin"""
@@ -510,6 +511,15 @@ class Bot():
 
     def write_log(self, symbol: str, price: str) -> None:
         """updates the price.log file with latest prices"""
+        # only write logs if price changed
+        if not symbol in self.oldprice:
+            self.oldprice[symbol] = float(0)
+
+        if self.oldprice[symbol] == price:
+            return
+
+        self.oldprice[symbol] = float(price)
+
         if self.mode == "testnet":
             price_log = "log/testnet.log"
         else:
