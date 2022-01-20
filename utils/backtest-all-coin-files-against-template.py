@@ -27,7 +27,7 @@ if __name__ == "__main__":
         tickers = yaml.safe_load(body)['TICKERS'].keys()
 
         jobs = []
-        with mp.Pool(processes=os.cpu_count()) as pool:
+        with mp.Pool(processes=os.cpu_count() * 2) as pool:
             for symbol in tickers:
                 with open(f"configs/coin.{symbol}.{args.config}", "wt") as tc:
                     newbody = body.replace("COINTEMPLATE", symbol)
@@ -36,7 +36,7 @@ if __name__ == "__main__":
                 job = pool.apply_async(
                    os.system, (f"make backtesting CONFIG=coin.{symbol}.{args.config} >/dev/null 2>&1", )
                 )
-                time.sleep(1)
+                time.sleep(0.1)
                 jobs.append(job)
 
             for j in jobs:
