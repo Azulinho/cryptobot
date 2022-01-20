@@ -119,7 +119,7 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.profit = float(0)
         self.soft_limit_holding_time: int = int(soft_limit_holding_time)
         self.hard_limit_holding_time: int = int(hard_limit_holding_time)
-        self.naughty_timeout : int = naughty_timeout
+        self.naughty_timeout: int = naughty_timeout
         # TODO: this must support PAUSE_FOR values different than 1s
         self.averages: dict = {
             "counters": {
@@ -136,11 +136,10 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.klines_slice_percentage_change: float = float(
             klines_slice_percentage_change
         )
-        self.bought_date: datetime = None # type: ignore
-        self.naughty_date: datetime = None # type: ignore
-        self.naughty : bool = False
-        self.last_read_date : datetime = datetime.fromtimestamp(0)
-
+        self.bought_date: datetime = None  # type: ignore
+        self.naughty_date: datetime = None  # type: ignore
+        self.naughty: bool = False
+        self.last_read_date: datetime = datetime.fromtimestamp(0)
 
     def update(self, date: datetime, market_price: float) -> None:
         """updates a coin object with latest market values"""
@@ -152,7 +151,10 @@ class Coin:  # pylint: disable=too-few-public-methods
             self.holding_time = int((self.date - self.bought_date).seconds)
 
         if self.naughty:
-            if int((self.date - self.naughty_date).seconds) > self.naughty_timeout:
+            if (
+                int((self.date - self.naughty_date).seconds)
+                > self.naughty_timeout
+            ):
                 self.naughty = False
 
         # do we have a new min price?
@@ -223,11 +225,11 @@ class Coin:  # pylint: disable=too-few-public-methods
                 self.averages["counters"]["h"] = 0
                 self.averages["d"].append(last_h_avg)
         # TODO: review this
-        except Exception: # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             pass
 
 
-class Bot():
+class Bot:
     """Bot Class"""
 
     def __init__(self, conn, config_file, config) -> None:
@@ -410,19 +412,21 @@ class Bot():
         else:
             word = "PRF"
 
-        message = ' '.join([
-            f"{coin.date}: {coin.symbol} [{coin.status}]",
-            f"A:{coin.holding_time}s",
-            f"U:{coin.volume} P:{coin.price} T:{coin.value}",
-            f"{word}:{coin.profit:.3f}",
-            f"SP:{coin.bought_at * coin.sell_at_percentage /100}",
-            f"TP:{100 - (coin.bought_at / coin.price * 100):.2f}%",
-            f"SL:{coin.bought_at * coin.stop_loss_at_percentage/100}",
-            f"S:+{percent(coin.trail_target_sell_percentage,coin.sell_at_percentage) - 100:.3f}%",
-            f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}%",
-            f"LP:{coin.min:.3f}",
-            f"({len(self.wallet)}/{self.max_coins}) "
-        ])
+        message = " ".join(
+            [
+                f"{coin.date}: {coin.symbol} [{coin.status}]",
+                f"A:{coin.holding_time}s",
+                f"U:{coin.volume} P:{coin.price} T:{coin.value}",
+                f"{word}:{coin.profit:.3f}",
+                f"SP:{coin.bought_at * coin.sell_at_percentage /100}",
+                f"TP:{100 - (coin.bought_at / coin.price * 100):.2f}%",
+                f"SL:{coin.bought_at * coin.stop_loss_at_percentage/100}",
+                f"S:+{percent(coin.trail_target_sell_percentage,coin.sell_at_percentage) - 100:.3f}%", # pylint: disable=line-too-long
+                f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}%",
+                f"LP:{coin.min:.3f}",
+                f"({len(self.wallet)}/{self.max_coins}) ",
+            ]
+        )
 
         if coin.profit < 0 or coin.holding_time > coin.hard_limit_holding_time:
             logging.warning(message)
@@ -435,7 +439,6 @@ class Bot():
         coin.status = ""
         self.clear_coin_stats(coin)
         self.clear_all_coins_stats()
-
 
         logging.info(
             f"{coin.date}: INVESTMENT: {self.investment} "
@@ -535,7 +538,7 @@ class Bot():
         if symbol not in self.coins:
             self.coins[symbol] = Coin(
                 symbol,
-                datetime.now(), # TODO: update this to consume binance_data[]
+                datetime.now(),  # TODO: update this to consume binance_data[]
                 market_price,
                 buy_at=self.tickers[symbol]["BUY_AT_PERCENTAGE"],
                 sell_at=self.tickers[symbol]["SELL_AT_PERCENTAGE"],
@@ -552,10 +555,10 @@ class Bot():
                 hard_limit_holding_time=self.tickers[symbol][
                     "HARD_LIMIT_HOLDING_TIME"
                 ],
-                naughty_timeout=self.tickers[symbol][
-                    "NAUGHTY_TIMEOUT"
+                naughty_timeout=self.tickers[symbol]["NAUGHTY_TIMEOUT"],
+                klines_trend_period=self.tickers[symbol][
+                    "KLINES_TREND_PERIOD"
                 ],
-                klines_trend_period=self.tickers[symbol]["KLINES_TREND_PERIOD"],
                 klines_slice_percentage_change=float(
                     self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"]
                 ),
@@ -614,8 +617,8 @@ class Bot():
             # when the market is crashing and crashing and crashing
             for symbol in self.coins:
                 if symbol not in self.wallet:
-                    self.naughty_date = self.coins[symbol].date # pylint: disable=attribute-defined-outside-init
-                    self.naughty = True # pylint: disable=attribute-defined-outside-init
+                    self.naughty_date = self.coins[symbol].date  # pylint: disable=attribute-defined-outside-init
+                    self.naughty = True  # pylint: disable=attribute-defined-outside-init
                     self.clear_coin_stats(self.coins[symbol])
             return True
         return False
@@ -690,12 +693,8 @@ class Bot():
             )  #
 
             coin.sell_at_percentage = add_100(
-                percent(
-                    ttl,
-                    self.tickers[coin.symbol]["SELL_AT_PERCENTAGE"]
-                )
+                percent(ttl, self.tickers[coin.symbol]["SELL_AT_PERCENTAGE"])
             )
-
 
             if coin.sell_at_percentage < add_100(2 * float(self.trading_fee)):
                 coin.sell_at_percentage = add_100(2 * float(self.trading_fee))
@@ -820,7 +819,7 @@ class Bot():
             self.coins[symbol].klines_trend_period = str(
                 self.tickers[symbol]["KLINES_TREND_PERIOD"]
             )
-            self.coins[symbol].klines_slice_percentage_change=float(
+            self.coins[symbol].klines_slice_percentage_change = float(
                 self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"]
             )
 
@@ -828,46 +827,49 @@ class Bot():
             if isinstance(self.coins[symbol].date, str):
                 try:
                     date = datetime.strptime(
-                        self.coins[symbol].date, # type: ignore
-                        "%Y-%m-%d %H:%M:%S.%f"
+                        self.coins[symbol].date,  # type: ignore
+                        "%Y-%m-%d %H:%M:%S.%f",
                     )
                 except ValueError:
                     date = datetime.strptime(
-                        self.coins[symbol].date, # type: ignore
-                        "%Y-%m-%d %H:%M:%S"
+                        self.coins[symbol].date,  # type: ignore
+                        "%Y-%m-%d %H:%M:%S",
                     )
                 self.coins[symbol].date = date
-            if 'naughty' not in dir(self.coins[symbol]):
+            if "naughty" not in dir(self.coins[symbol]):
                 if self.coins[symbol].naughty_timeout != 0:
                     self.coins[symbol].naughty = True
-                    self.coins[symbol].naughty_date = (
-                        self.coins[symbol].naughty_date - timedelta(
-                            seconds=self.coins[symbol].naughty_timeout)
+                    self.coins[symbol].naughty_date = self.coins[
+                        symbol
+                    ].naughty_date - timedelta(
+                        seconds=self.coins[symbol].naughty_timeout
                     )
                 else:
                     self.coins[symbol].naughty = False
-                    self.coins[symbol].naughty_date = None # type: ignore
+                    self.coins[symbol].naughty_date = None  # type: ignore
 
-            if 'bought_date' not in dir(self.coins[symbol]):
+            if "bought_date" not in dir(self.coins[symbol]):
                 if symbol in self.wallet:
-                    self.coins[symbol].bought_date = (
-                        self.coins[symbol].date - timedelta(
-                            seconds=self.coins[symbol].holding_time)
-                    )
+                    self.coins[symbol].bought_date = self.coins[
+                        symbol
+                    ].date - timedelta(seconds=self.coins[symbol].holding_time)
                 else:
-                    self.coins[symbol].bought_date = None # type: ignore
+                    self.coins[symbol].bought_date = None  # type: ignore
 
             self.coins[symbol].naughty_timeout = int(
                 self.tickers[symbol]["NAUGHTY_TIMEOUT"]
             )
 
-
         if self.wallet:
             logging.info("Wallet contains:")
             for symbol in self.wallet:
-                sell_price = float(
-                    self.coins[symbol].bought_at * self.coins[symbol].sell_at_percentage
-                ) /100
+                sell_price = (
+                    float(
+                        self.coins[symbol].bought_at
+                        * self.coins[symbol].sell_at_percentage
+                    )
+                    / 100
+                )
                 s_value = (
                     percent(
                         self.coins[symbol].trail_target_sell_percentage,
@@ -922,7 +924,7 @@ class Bot():
         return (False, "HOLD")
 
     def buy_strategy(self, coin: Coin) -> bool:
-        """ buy strategy """
+        """buy strategy"""
 
     def wait(self) -> None:
         """implements a pause"""
@@ -952,7 +954,7 @@ class Bot():
             self.wait()
 
     def process_line(self, line: str) -> None:
-        """ processes a backlog line """
+        """processes a backlog line"""
         if self.pairing not in line:
             return
 
@@ -961,12 +963,13 @@ class Bot():
         if symbol not in self.tickers:
             return
         try:
-            date = datetime.strptime(" ".join(parts[0:2]), "%Y-%m-%d %H:%M:%S.%f")
+            date = datetime.strptime(
+                " ".join(parts[0:2]), "%Y-%m-%d %H:%M:%S.%f"
+            )
         except ValueError:
             date = datetime.strptime(" ".join(parts[0:2]), "%Y-%m-%d %H:%M:%S")
 
         market_price = float(parts[3])
-
 
         # TODO: rework this, generate a binance_data blob to pass to
         # init_or_update_coin()
@@ -978,9 +981,7 @@ class Bot():
                 self.tickers[symbol]["BUY_AT_PERCENTAGE"],
                 self.tickers[symbol]["SELL_AT_PERCENTAGE"],
                 self.tickers[symbol]["STOP_LOSS_AT_PERCENTAGE"],
-                self.tickers[symbol][
-                    "TRAIL_TARGET_SELL_PERCENTAGE"
-                ],
+                self.tickers[symbol]["TRAIL_TARGET_SELL_PERCENTAGE"],
                 self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"],
                 self.tickers[symbol]["SOFT_LIMIT_HOLDING_TIME"],
                 self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"],
@@ -996,7 +997,7 @@ class Bot():
             # reads, causing a similar effect if we were only
             # probing prices every PAUSE_FOR seconds
             if self.coins[symbol].last_read_date >= (
-                    date - timedelta(seconds=self.pause)
+                date - timedelta(seconds=self.pause)
             ):
                 return
             self.coins[symbol].last_read_date = date
@@ -1061,22 +1062,18 @@ class Bot():
         if self.mode == "backtesting":
             backtest_end_time = coin.date
             end_unix_time = int(
-                (
-                    datetime.timestamp(backtest_end_time - timedelta(hours=1))
-                ) * 1000
+                (datetime.timestamp(backtest_end_time - timedelta(hours=1)))
+                * 1000
             )
         else:
             end_unix_time = int(
-                (
-                    datetime.timestamp(datetime.now() - timedelta(hours=1))
-                ) * 1000
+                (datetime.timestamp(datetime.now() - timedelta(hours=1)))
+                * 1000
             )
 
         api_url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&"
 
-        query = (
-            f"{api_url}endTime={end_unix_time}&interval=1h"
-        )
+        query = f"{api_url}endTime={end_unix_time}&interval=1h"
         md5_query = md5(query.encode()).hexdigest()
         f_path = f"cache/{symbol}.{md5_query}"
 
@@ -1108,7 +1105,7 @@ class Bot():
 
         # clear up days array
         coin.averages["d"] = []
-        days = int(len(results) / 24 )
+        days = int(len(results) / 24)
         for index in range(days):
             coin.averages["d"].append(
                 mean(hour_averages[(index * 24) : (index * 24 + 23)])
@@ -1116,17 +1113,9 @@ class Bot():
 
         if self.mode == "backtesting":
             backtest_end_time = coin.date
-            end_unix_time = int(
-                (
-                    datetime.timestamp(backtest_end_time)
-                ) * 1000
-            )
+            end_unix_time = int((datetime.timestamp(backtest_end_time)) * 1000)
         else:
-            end_unix_time = int(
-                (
-                    datetime.timestamp(datetime.now())
-                ) * 1000
-            )
+            end_unix_time = int((datetime.timestamp(datetime.now())) * 1000)
 
         query = f"{api_url}endTime={end_unix_time}&interval=1m"
         md5_query = md5(query.encode()).hexdigest()
@@ -1169,7 +1158,7 @@ class Bot():
 
 
 class BuyMoonSellRecoveryStrategy(Bot):
-    """ Base Strategy Class"""
+    """Base Strategy Class"""
 
     def buy_strategy(self, coin: Coin) -> bool:
         """bot buy strategy"""
@@ -1189,12 +1178,12 @@ class BuyMoonSellRecoveryStrategy(Bot):
 
 
 class BuyOnGrowthTrendAfterDropStrategy(Bot):
-    """ Buy Strategy
+    """Buy Strategy
 
-        Wait for a coin to drop below BUY_AT_PERCENTAGE and then
-        monitor its growth trend over a certain period, where each slice of
-        that period must grow by at least n% over the previous slice.
-        As soon that happens buy this coin.
+    Wait for a coin to drop below BUY_AT_PERCENTAGE and then
+    monitor its growth trend over a certain period, where each slice of
+    that period must grow by at least n% over the previous slice.
+    As soon that happens buy this coin.
     """
 
     def buy_strategy(self, coin: Coin) -> bool:
@@ -1209,8 +1198,10 @@ class BuyOnGrowthTrendAfterDropStrategy(Bot):
 
         # has the price gone down by x% on a coin we don't own?
         if (
-            float(coin.price) < percent(coin.buy_at_percentage, coin.max)
-        ) and coin.status == "" and not coin.naughty:
+            (float(coin.price) < percent(coin.buy_at_percentage, coin.max))
+            and coin.status == ""
+            and not coin.naughty
+        ):
             coin.dip = coin.price
             logging.info(
                 f"{coin.date}: {coin.symbol} [{coin.status}] "
@@ -1226,16 +1217,16 @@ class BuyOnGrowthTrendAfterDropStrategy(Bot):
         klines_trend_period = int(coin.klines_trend_period[:-1])
 
         if unit in ["D", "d"]:
-            last_period = list(coin.averages["d"])[-klines_trend_period :]
+            last_period = list(coin.averages["d"])[-klines_trend_period:]
 
         if unit in ["H", "h"]:
-            last_period = list(coin.averages["h"])[-klines_trend_period :]
+            last_period = list(coin.averages["h"])[-klines_trend_period:]
 
         if unit in ["M", "m"]:
-            last_period = list(coin.averages["m"])[-klines_trend_period :]
+            last_period = list(coin.averages["m"])[-klines_trend_period:]
 
         if unit in ["S", "s"]:
-            last_period = list(coin.averages["s"])[-klines_trend_period :]
+            last_period = list(coin.averages["s"])[-klines_trend_period:]
 
         if len(last_period) < klines_trend_period:
             return False
@@ -1243,9 +1234,13 @@ class BuyOnGrowthTrendAfterDropStrategy(Bot):
         last_period_slice = last_period[0]
         # if the price keeps going down, skip it
         for n in last_period[1:]:
-            if percent(
-                    100 + coin.klines_slice_percentage_change, last_period_slice
-            ) > n:
+            if (
+                percent(
+                    100 + coin.klines_slice_percentage_change,
+                    last_period_slice,
+                )
+                > n
+            ):
                 return False
             last_period_slice = n
         self.buy_coin(coin)
@@ -1253,7 +1248,7 @@ class BuyOnGrowthTrendAfterDropStrategy(Bot):
 
 
 class BuyDropSellRecoveryStrategy(Bot):
-    """ Base Strategy Class"""
+    """Base Strategy Class"""
 
     def buy_strategy(self, coin: Coin) -> bool:
         """bot buy strategy"""
@@ -1268,8 +1263,10 @@ class BuyDropSellRecoveryStrategy(Bot):
 
         # has the price gone down by x% on a coin we don't own?
         if (
-            float(coin.price) < percent(coin.buy_at_percentage, coin.max)
-        ) and coin.status == "" and not coin.naughty:
+            (float(coin.price) < percent(coin.buy_at_percentage, coin.max))
+            and coin.status == ""
+            and not coin.naughty
+        ):
             coin.dip = coin.price
             logging.info(
                 f"{coin.date}: {coin.symbol} [{coin.status}] "
@@ -1314,17 +1311,17 @@ if __name__ == "__main__":
         if cfg["STRATEGY"] == "BuyMoonSellRecoveryStrategy":
             bot = BuyMoonSellRecoveryStrategy(
                 client, args.config, cfg
-            ) # type: ignore
+            )  # type: ignore
 
         elif cfg["STRATEGY"] == "BuyOnGrowthTrendAfterDropStrategy":
             bot = BuyOnGrowthTrendAfterDropStrategy(
                 client, args.config, cfg
-            ) # type: ignore
+            )  # type: ignore
 
         elif cfg["STRATEGY"] == "BuyDropSellRecoveryStrategy":
             bot = BuyDropSellRecoveryStrategy(
                 client, args.config, cfg
-            ) # type: ignore
+            )  # type: ignore
 
         logging.info(
             f"running in {bot.mode} mode with "
