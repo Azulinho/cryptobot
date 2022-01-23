@@ -518,7 +518,7 @@ class Bot:
         if not symbol in self.oldprice:
             self.oldprice[symbol] = float(0)
 
-        if self.oldprice[symbol] == price:
+        if self.oldprice[symbol] == float(price):
             return
 
         self.oldprice[symbol] = float(price)
