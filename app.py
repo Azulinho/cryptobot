@@ -220,7 +220,7 @@ class Coin:  # pylint: disable=too-few-public-methods
                 self.averages["h"].append(last_m_avg)
                 self.averages["counters"]["h"] += 1
 
-            if self.averages["counters"]["h"] == 24:
+            if self.averages["counters"]["h"] >= 24:
                 last_h_avg = mean(self.averages["h"])
                 self.averages["counters"]["h"] = 0
                 self.averages["d"].append(last_h_avg)
@@ -607,7 +607,7 @@ class Bot:
         # deal with STOP_LOSS
         if float(coin.price) < percent(
             coin.stop_loss_at_percentage, coin.bought_at
-        ):
+        ) and coin.status != "STOP_LOSS":
             coin.status = "STOP_LOSS"
             self.sell_coin(coin)
             self.losses = self.losses + 1
@@ -617,9 +617,9 @@ class Bot:
             # when the market is crashing and crashing and crashing
             for symbol in self.coins:
                 if symbol not in self.wallet:
-                    self.naughty_date = self.coins[symbol].date  # pylint: disable=attribute-defined-outside-init
-                    self.naughty = True  # pylint: disable=attribute-defined-outside-init
+                    self.coins[symbol].naughty_date = self.coins[symbol].date  # pylint: disable=attribute-defined-outside-init
                     self.clear_coin_stats(self.coins[symbol])
+                    self.coins[symbol].naughty = True  # pylint: disable=attribute-defined-outside-init
             return True
         return False
 
