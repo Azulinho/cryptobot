@@ -168,6 +168,8 @@ class Coin:  # pylint: disable=too-few-public-methods
 
         if self.volume:
             self.value = float(float(self.volume) * float(self.price))
+            self.cost = float(self.bought_at) * float(self.volume)
+            self.profit = float(float(self.value) - float(self.cost))
 
         if self.status == "HOLD":
             if float(market_price) > percent(
@@ -1039,9 +1041,13 @@ class Bot:
             self.backtest_logfile(price_log)
 
         with open("log/backtesting.log", "a", encoding="utf-8") as f:
+            current_exposure = float(0)
+            for symbol in self.wallet:
+                current_exposure = current_exposure + self.coins[symbol].profit
+
             log_entry = "|".join(
                 [
-                    f"profit:{self.profit:.3f}",
+                    f"profit:{self.profit + current_exposure:.3f}",
                     f"investment:{self.initial_investment}",
                     f"days:{len(self.price_logs)}",
                     f"w{self.wins},l{self.losses},s{self.stales},h{len(self.wallet)}",
