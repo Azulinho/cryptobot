@@ -139,7 +139,7 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.bought_date: datetime = None  # type: ignore
         self.naughty_date: datetime = None  # type: ignore
         self.naughty: bool = False
-        self.last_read_date: datetime = datetime.fromtimestamp(0)
+        self.last_read_date: datetime = date
 
     def update(self, date: datetime, market_price: float) -> None:
         """updates a coin object with latest market values"""
@@ -148,13 +148,14 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.price = float(market_price)
 
         if self.status in ["TARGET_SELL", "HOLD"]:
-            self.holding_time = int((self.date - self.bought_date).seconds)
+            self.holding_time = int(
+                self.date.timestamp() - self.bought_date.timestamp()
+            )
 
         if self.naughty:
-            if (
-                int((self.date - self.naughty_date).seconds)
-                > self.naughty_timeout
-            ):
+            if int(
+                self.date.timestamp() - self.naughty_date.timestamp()
+            ) > self.naughty_timeout:
                 self.naughty = False
 
         # do we have a new min price?
