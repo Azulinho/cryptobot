@@ -1290,6 +1290,65 @@ class BuyDropSellRecoveryStrategy(Bot):
                 return True
         return False
 
+class BuyDropSellRecoveryStrategyWhenBTCisUp(Bot):
+    """Base Strategy Class"""
+
+    def buy_strategy(self, coin: Coin) -> bool:
+        """bot buy strategy"""
+
+        # wait a few days before going to buy a new coin
+        # since we list what coins we buy in TICKERS the bot would never
+        # buy a coin as soon it is listed.
+        # However in backtesting, the bot will buy that coin as its listed in
+        # the TICKERS list and the price lines show up in the price logs.
+        if len(list(coin.averages["d"])) < 14:
+            return False
+
+        if 'BTCUSDT' not in self.coins:
+            return False
+        last_period = list(self.coins['BTCUSDT'].averages["h"])[-3:]
+        last_period_slice = last_period[0]
+        for n in last_period[1:]:
+            if (
+                percent(
+                    100 + float(0.01),
+                    last_period_slice,
+                )
+                > n
+            ):
+                return False
+            last_period_slice = n
+
+
+        # has the price gone down by x% on a coin we don't own?
+        if (
+            (float(coin.price) < percent(coin.buy_at_percentage, coin.max))
+            and coin.status == ""
+            and not coin.naughty
+        ):
+            coin.dip = coin.price
+            logging.info(
+                f"{coin.date}: {coin.symbol} [{coin.status}] "
+                + f"-> [TARGET_DIP] ({coin.price})"
+            )
+            coin.status = "TARGET_DIP"
+
+        if coin.status != "TARGET_DIP":
+            return False
+
+        # do some gimmicks, and don't buy the coin straight away
+        # but only buy it when the price is now higher than the last
+        # price recorded. This way we ensure that we got the dip
+        self.log_debug_coin(coin)
+        if float(coin.price) < float(coin.last):
+            if float(coin.price) > percent(
+                float(coin.trail_recovery_percentage), coin.dip
+            ):
+                return False
+
+        self.buy_coin(coin)
+        return True
+
 
 if __name__ == "__main__":
     try:
@@ -1323,6 +1382,12 @@ if __name__ == "__main__":
             bot = BuyDropSellRecoveryStrategy(
                 client, args.config, cfg
             )  # type: ignore
+
+        elif cfg["STRATEGY"] == "BuyDropSellRecoveryStrategyWhenBTCisUp":
+            bot = BuyDropSellRecoveryStrategyWhenBTCisUp(
+                client, args.config, cfg
+            )  # type: ignore
+
 
         logging.info(
             f"running in {bot.mode} mode with "
