@@ -1312,12 +1312,30 @@ class BuyDropSellRecoveryStrategyWhenBTCisUp(Bot):
 
         if 'BTCUSDT' not in self.coins:
             return False
-        last_period = list(self.coins['BTCUSDT'].averages["h"])[-3:]
+
+        unit = self.coins['BTCUSDT'].klines_trend_period[-1:]
+        klines_trend_period = int(self.coins['BTCUSDT'].klines_trend_period[:-1])
+
+        if unit in ["D", "d"]:
+            last_period = list(self.coins['BTCUSDT'].averages["d"])[-klines_trend_period:]
+
+        if unit in ["H", "h"]:
+            last_period = list(self.coins['BTCUSDT'].averages["h"])[-klines_trend_period:]
+
+        if unit in ["M", "m"]:
+            last_period = list(self.coins['BTCUSDT'].averages["m"])[-klines_trend_period:]
+
+        if unit in ["S", "s"]:
+            last_period = list(self.coins['BTCUSDT'].averages["s"])[-klines_trend_period:]
+
+        if len(last_period) < klines_trend_period:
+            return False
+
         last_period_slice = last_period[0]
         for n in last_period[1:]:
             if (
                 percent(
-                    100 + float(0.01),
+                    100 + float(self.coins['BTCUSDT'].klines_slice_percentage_change),
                     last_period_slice,
                 )
                 > n
