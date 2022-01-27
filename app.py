@@ -1373,6 +1373,81 @@ class BuyDropSellRecoveryStrategyWhenBTCisUp(Bot):
         self.buy_coin(coin)
         return True
 
+class BuyDropSellRecoveryStrategyWhenBTCisDown(Bot):
+    """Base Strategy Class"""
+
+    def buy_strategy(self, coin: Coin) -> bool:
+        """bot buy strategy"""
+
+        # wait a few days before going to buy a new coin
+        # since we list what coins we buy in TICKERS the bot would never
+        # buy a coin as soon it is listed.
+        # However in backtesting, the bot will buy that coin as its listed in
+        # the TICKERS list and the price lines show up in the price logs.
+        if len(list(coin.averages["d"])) < 14:
+            return False
+
+        if 'BTCUSDT' not in self.coins:
+            return False
+
+        unit = self.coins['BTCUSDT'].klines_trend_period[-1:]
+        klines_trend_period = int(self.coins['BTCUSDT'].klines_trend_period[:-1])
+
+        if unit in ["D", "d"]:
+            last_period = list(self.coins['BTCUSDT'].averages["d"])[-klines_trend_period:]
+
+        if unit in ["H", "h"]:
+            last_period = list(self.coins['BTCUSDT'].averages["h"])[-klines_trend_period:]
+
+        if unit in ["M", "m"]:
+            last_period = list(self.coins['BTCUSDT'].averages["m"])[-klines_trend_period:]
+
+        if unit in ["S", "s"]:
+            last_period = list(self.coins['BTCUSDT'].averages["s"])[-klines_trend_period:]
+
+        if len(last_period) < klines_trend_period:
+            return False
+
+        last_period_slice = last_period[0]
+        for n in last_period[1:]:
+            if (
+                percent(
+                    100 + float(self.coins['BTCUSDT'].klines_slice_percentage_change),
+                    last_period_slice,
+                ) < n
+            ):
+                return False
+            last_period_slice = n
+
+
+        # has the price gone down by x% on a coin we don't own?
+        if (
+            (float(coin.price) < percent(coin.buy_at_percentage, coin.max))
+            and coin.status == ""
+            and not coin.naughty
+        ):
+            coin.dip = coin.price
+            logging.info(
+                f"{coin.date}: {coin.symbol} [{coin.status}] "
+                + f"-> [TARGET_DIP] ({coin.price})"
+            )
+            coin.status = "TARGET_DIP"
+
+        if coin.status != "TARGET_DIP":
+            return False
+
+        # do some gimmicks, and don't buy the coin straight away
+        # but only buy it when the price is now higher than the last
+        # price recorded. This way we ensure that we got the dip
+        self.log_debug_coin(coin)
+        if float(coin.price) < float(coin.last):
+            if float(coin.price) > percent(
+                float(coin.trail_recovery_percentage), coin.dip
+            ):
+                return False
+
+        self.buy_coin(coin)
+        return True
 
 if __name__ == "__main__":
     try:
@@ -1411,6 +1486,12 @@ if __name__ == "__main__":
             bot = BuyDropSellRecoveryStrategyWhenBTCisUp(
                 client, args.config, cfg
             )  # type: ignore
+
+        elif cfg["STRATEGY"] == "BuyDropSellRecoveryStrategyWhenBTCisDown":
+            bot = BuyDropSellRecoveryStrategyWhenBTCisDown(
+                client, args.config, cfg
+            )  # type: ignore
+
 
 
         logging.info(
