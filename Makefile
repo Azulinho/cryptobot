@@ -20,7 +20,7 @@ backtest-all-coin-files:
 	python3 utils/backtest-all-coin-files-against-template.py -c "$(TEMPLATE)"
 
 slice-of-log:
-	cut -c1- log/backtesting.log | grep cfg: |  cut -d "|" -f 1,3,4,5,6 | cut -d " " -f 1,22-41 | tr -d " " |cut -c8- | sort -n
+	cut -c1- log/backtesting.log | grep cfg: |  cut -d "|" -f 1,3,4,5,6 | cut -d " " -f 1,22-40 | tr -d " " |cut -c8- | sort -n | cut -d "|" -f 1-4
 
 generate-coincfg-for-coins:
 	python3 utils/generate-configs-from-backtestinglog.py -l $(LOG) -m $(MIN) -o coincfg
