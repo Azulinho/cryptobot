@@ -71,6 +71,7 @@ def control_center():
     web_pdb.set_trace()
 
 
+
 class Coin:  # pylint: disable=too-few-public-methods
     """Coin Class"""
 
@@ -1163,6 +1164,32 @@ class Bot:
             logging.debug(f"{symbol} : h:{coin.averages['h']}")
             logging.debug(f"{symbol} : m:{coin.averages['m']}")
 
+    def print_final_balance_report(self):
+        """ calculates and outputs final balance """
+
+        current_exposure = float(0)
+        for item in self.wallet:
+            holding = self.coins[item]
+            cost = holding.volume * holding.bought_at
+            value = holding.volume * holding.price
+            age = holding.holding_time
+            current_exposure = current_exposure + self.coins[item].profit
+
+            logging.info(f"WALLET: {item} age:{age} cost:{cost} value:{value}")
+
+        logging.info(f"bot profit: {self.profit}")
+        logging.info(f"current exposure: {current_exposure:.3f}")
+        logging.info(f"total fees: {self.fees:.3f}")
+        logging.info(f"final balance: {self.profit + current_exposure:.3f}")
+        logging.info(
+            f"investment: start: {int(self.initial_investment)} "
+            + f"end: {int(self.investment)}"
+        )
+        logging.info(
+            f"wins:{self.wins} losses:{self.losses} "
+            + f"stales:{self.stales} holds:{len(self.wallet)}"
+        )
+
 
 class BuyMoonSellRecoveryStrategy(Bot):
     """Base Strategy Class"""
@@ -1517,23 +1544,7 @@ if __name__ == "__main__":
         if bot.mode == "live":
             bot.run()
 
-        for item in bot.wallet:
-            holding = bot.coins[item]
-            cost = holding.volume * holding.bought_at
-            value = holding.volume * holding.price
-            age = holding.holding_time
-
-            logging.info(f"WALLET: {item} age:{age} cost:{cost} value:{value}")
-
-        logging.info(f"final profit: {bot.profit:.3f} fees: {bot.fees:.3f}")
-        logging.info(
-            f"investment: start: {int(bot.initial_investment)} "
-            + f"end: {int(bot.investment)}"
-        )
-        logging.info(
-            f"wins:{bot.wins} losses:{bot.losses} "
-            + f"stales:{bot.stales} holds:{len(bot.wallet)}"
-        )
+        bot.print_final_balance_report()
 
     except Exception:  # pylint: disable=broad-except
         logging.error(traceback.format_exc())
