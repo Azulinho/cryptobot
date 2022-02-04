@@ -8,7 +8,6 @@ import pickle
 import sys
 import threading
 import traceback
-from collections import deque
 from datetime import datetime, timedelta
 from functools import lru_cache
 from hashlib import md5
@@ -21,6 +20,7 @@ import colorlog
 import requests
 import web_pdb
 import yaml
+import udatetime
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
 from lz4.frame import open as lz4open
@@ -49,7 +49,6 @@ logging.basicConfig(
     handlers=[f_handler, c_handler],
 )
 
-
 def mean(values: list) -> float:
     """returns the mean value of an array of integers"""
     return sum(values) / len(values)
@@ -71,6 +70,12 @@ def control_center():
     web_pdb.set_trace()
 
 
+@lru_cache()
+@retry(wait=wait_exponential(multiplier=1, max=10))
+def requests_with_backoff(query):
+    """ retry wrapper for requests calls """
+    return requests.get(query)
+
 
 class Coin:  # pylint: disable=too-few-public-methods
     """Coin Class"""
@@ -79,7 +84,7 @@ class Coin:  # pylint: disable=too-few-public-methods
         self,
         symbol: str,
         # 2021-09-23 10:49:29.388662
-        date: datetime,
+        date: udatetime,
         market_price: float,
         buy_at: float,
         sell_at: float,
@@ -123,26 +128,21 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.naughty_timeout: int = naughty_timeout
         # TODO: this must support PAUSE_FOR values different than 1s
         self.averages: dict = {
-            "counters": {
-                "s": 0,
-                "m": 0,
-                "h": 0,
-            },
-            "s": deque([], maxlen=60),
-            "m": deque([], maxlen=60),
-            "h": deque([], maxlen=24),
+            "s": [],
+            "m": [],
+            "h": [],
             "d": [],
         }
         self.klines_trend_period: str = str(klines_trend_period)
         self.klines_slice_percentage_change: float = float(
             klines_slice_percentage_change
         )
-        self.bought_date: datetime = None  # type: ignore
-        self.naughty_date: datetime = None  # type: ignore
+        self.bought_date: udatetime = None  # type: ignore
+        self.naughty_date: udatetime = None  # type: ignore
         self.naughty: bool = False
-        self.last_read_date: datetime = date
+        self.last_read_date: udatetime = date
 
-    def update(self, date: datetime, market_price: float) -> None:
+    def update(self, date: udatetime, market_price: float) -> None:
         """updates a coin object with latest market values"""
         self.date = date
         self.last = self.price
@@ -203,35 +203,95 @@ class Coin:  # pylint: disable=too-few-public-methods
             if float(market_price) < float(self.dip):
                 self.dip = market_price
 
-        self.consolidate_averages(market_price)
+        # consolidate_averages has a significant performance impact,
+        # so don't run it if our strategy doesn't use it.
+        # note this mostly applies to backtesting
+        if (
+            self.klines_trend_period[0] != "0" and
+            float(self.klines_slice_percentage_change) != 0
+        ):
+            self.consolidate_averages(date, market_price)
 
-    def consolidate_averages(self, market_price: float) -> None:
+    def consolidate_averages(self, date, market_price: float) -> None:
         """consolidates all coin price averages over the different buckets"""
-        self.averages["s"].append(float(market_price))
-        self.averages["counters"]["s"] += 1
 
-        try:
-            # TODO: this needs to work with PAUSE values
-            if self.averages["counters"]["s"] == 60:
-                last_s_avg = mean(self.averages["s"])
-                self.averages["counters"]["s"] = 0
-                self.averages["m"].append(last_s_avg)
-                self.averages["counters"]["m"] += 1
+        # append the latest 's' value, this could done more frequently than once
+        # per second.
+        self.averages["s"].append(
+            (date, float(market_price))
+        )
 
-            if self.averages["counters"]["m"] == 60:
-                last_m_avg = mean(self.averages["m"])
-                self.averages["counters"]["m"] = 0
-                self.averages["h"].append(last_m_avg)
-                self.averages["counters"]["h"] += 1
+        # append the latest 60s averaged values,
+        # but only if the old 'm' record, is older than 1 minute.
+        if self.averages["m"]:
+            latest_record_date, _ = self.averages["m"][-1]
+            if latest_record_date <= date - timedelta(seconds=60):
+                last_minute_average = mean([v for d,v in self.averages["s"]])
+                self.averages["m"].append(
+                    (date, float(last_minute_average))
+                )
+        else:
+            # init 'm' averages when we have seconds data older than 60s
+            oldest_record, _ = self.averages["s"][0]
+            if oldest_record <= date - timedelta(seconds=60):
+                last_minute_average = mean([v for d,v in self.averages["s"]])
+                self.averages["m"].append(
+                    (date, float(last_minute_average))
+                )
 
-            if self.averages["counters"]["h"] >= 24:
-                last_h_avg = mean(self.averages["h"])
-                self.averages["counters"]["h"] = 0
-                self.averages["d"].append(last_h_avg)
-        # TODO: review this
-        except Exception:  # pylint: disable=broad-except
-            pass
 
+        # append the latest 60m averaged values,
+        # but only if the latest 'h' record, is older than 1 hour.
+        if self.averages["h"]:
+            latest_record_date, _ = self.averages["h"][-1]
+            if latest_record_date <= date - timedelta(minutes=60):
+                last_hour_average = mean([v for d,v in self.averages["m"]])
+                self.averages["h"].append(
+                    (date, float(last_hour_average))
+                )
+        else:
+            # init 'h' averages when we have min data older than 60m
+            if self.averages["m"]:
+                oldest_record, _ = self.averages["m"][0]
+                if oldest_record <= date - timedelta(minutes=60):
+                    last_hour_average = mean([v for d,v in self.averages["m"]])
+                    self.averages["h"].append(
+                        (date, float(last_hour_average))
+                    )
+
+        # append the latest 24h averaged value,
+        # but only if the latest 'd' record, is older than 1 day.
+        if self.averages["d"]:
+            latest_record_date, _ = self.averages["d"][-1]
+            if latest_record_date <= date - timedelta(days=1):
+                last_day_average = mean([v for d,v in self.averages["h"]])
+                self.averages["d"].append(
+                    (date, float(last_day_average))
+                )
+        else:
+            if self.averages["h"]:
+                # init 'd' averages when we have hours data older than 24h
+                oldest_record, _ = self.averages["h"][0]
+                if oldest_record <= date - timedelta(days=1):
+                    last_day_average = mean([v for d,v in self.averages["h"]])
+                    self.averages["d"].append(
+                        (date, float(last_day_average))
+                    )
+
+        # discard any measurements older than 1minute.
+        for stored_date, price in self.averages["s"]:
+            if stored_date < date - timedelta(minutes=1):
+                self.averages["s"].remove((stored_date, price))
+
+        # discard any measurements older than 1h
+        for stored_date, price in self.averages["m"]:
+            if stored_date < date - timedelta(hours=1):
+                self.averages["m"].remove((stored_date, price))
+
+        # discard any measurements older than 24h
+        for stored_date, price in self.averages["h"]:
+            if stored_date < date - timedelta(days=1):
+                self.averages["h"].remove((stored_date, price))
 
 class Bot:
     """Bot Class"""
@@ -406,7 +466,7 @@ class Bot:
             coin.price = self.extract_order_data(order_details, coin)[
                 "avgPrice"
             ]
-            coin.date = datetime.now()
+            coin.date = udatetime.now()
 
         coin.value = float(float(coin.volume) * float(coin.price))
         coin.profit = float(float(coin.value) - float(coin.cost))
@@ -472,6 +532,7 @@ class Bot:
             "volume": float(volume),
         }
 
+
     @lru_cache()
     @retry(wait=wait_exponential(multiplier=1, max=10))
     def get_symbol_precision(self, symbol: str) -> int:
@@ -530,9 +591,9 @@ class Bot:
         if self.mode == "testnet":
             price_log = "log/testnet.log"
         else:
-            price_log = f"log/{datetime.now().strftime('%Y%m%d')}.log"
+            price_log = f"log/{udatetime.now().strftime('%Y%m%d')}.log"
         with open(price_log, "a", encoding="utf-8") as f:
-            f.write(f"{datetime.now()} {symbol} {price}\n")
+            f.write(f"{udatetime.now()} {symbol} {price}\n")
 
     def init_or_update_coin(self, binance_data: Dict[str, Any]) -> None:
         """creates a new coin or updates its price with latest binance data"""
@@ -542,7 +603,7 @@ class Bot:
         if symbol not in self.coins:
             self.coins[symbol] = Coin(
                 symbol,
-                datetime.now(),  # TODO: update this to consume binance_data[]
+                udatetime.now(),  # TODO: update this to consume binance_data[]
                 market_price,
                 buy_at=self.tickers[symbol]["BUY_AT_PERCENTAGE"],
                 sell_at=self.tickers[symbol]["SELL_AT_PERCENTAGE"],
@@ -569,7 +630,7 @@ class Bot:
             )
             self.load_klines_for_coin(self.coins[symbol])
         else:
-            self.coins[symbol].update(datetime.now(), market_price)
+            self.coins[symbol].update(udatetime.now(), market_price)
 
     def process_coins(self) -> None:
         """processes all the prices returned by binance"""
@@ -830,14 +891,12 @@ class Bot:
             # deal with missing coin properties, types after a bot upgrade
             if isinstance(self.coins[symbol].date, str):
                 try:
-                    date = datetime.strptime(
-                        self.coins[symbol].date,  # type: ignore
-                        "%Y-%m-%d %H:%M:%S.%f",
+                    date = datetime.fromisoformat(
+                        self.coins[symbol].date
                     )
                 except ValueError:
-                    date = datetime.strptime(
-                        self.coins[symbol].date,  # type: ignore
-                        "%Y-%m-%d %H:%M:%S",
+                    date = datetime.fromisoformat(
+                        self.coins[symbol].date
                     )
                 self.coins[symbol].date = date
             if "naughty" not in dir(self.coins[symbol]):
@@ -964,14 +1023,14 @@ class Bot:
 
         parts = line.split(" ")
         symbol = parts[2]
+        day = " ".join(parts[0:2])
         if symbol not in self.tickers:
             return
         try:
-            date = datetime.strptime(
-                " ".join(parts[0:2]), "%Y-%m-%d %H:%M:%S.%f"
-            )
+            date = datetime.fromisoformat(day)
         except ValueError:
-            date = datetime.strptime(" ".join(parts[0:2]), "%Y-%m-%d %H:%M:%S")
+            day = day.split(".")[0]
+            date = datetime.fromisoformat(day)
 
         market_price = float(parts[3])
 
@@ -1065,96 +1124,76 @@ class Bot:
         symbol = coin.symbol
         logging.info(f"loading klines for: {symbol}")
 
-        # lets find out the from what date we need to pull klines from while in
-        # backtesting mode.
-        if self.mode == "backtesting":
-            backtest_end_time = coin.date
-            end_unix_time = int(
-                (datetime.timestamp(backtest_end_time - timedelta(hours=1)))
-                * 1000
-            )
-        else:
-            end_unix_time = int(
-                (datetime.timestamp(datetime.now() - timedelta(hours=1)))
-                * 1000
-            )
 
         api_url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&"
 
-        query = f"{api_url}endTime={end_unix_time}&interval=1h"
-        md5_query = md5(query.encode()).hexdigest()
-        f_path = f"cache/{symbol}.{md5_query}"
+        for unit in ["m", "h", "d"]:
 
-        if exists(f_path):
-            with open(f_path, "r") as f:
-                results = json.load(f)
-        else:
-            results = requests.get(query).json()
+            # lets find out the from what date we need to pull klines from while in
+            # backtesting mode.
+            coin.averages[unit] = []
+            if unit == "m":
+                timeslice = 60
+                minutes_before_now = 1
+            if unit == "h":
+                timeslice = 24
+                minutes_before_now = 60
 
-            # this can be fairly API intensive for a large number of tickers
-            sleep(0.1)
+            if unit == "d":
+                # TODO: collecting a large number of historic day values
+                # could be dangerous as we could trigger an immediate buy on
+                # a coin that has gone down in price by % over last few days
+                timeslice = 7
+                minutes_before_now = 60 * 24
+
             if self.mode == "backtesting":
-                with open(f_path, "w") as f:
-                    f.write(json.dumps(results))
+                backtest_end_time = coin.date
+                end_unix_time = int(
+                    (
+                        datetime.timestamp(
+                            backtest_end_time - timedelta(minutes=minutes_before_now)
+                        )
+                    ) * 1000
+                )
+            else:
+                end_unix_time = int(
+                    (
+                        datetime.timestamp(
+                            udatetime.now() - timedelta(minutes=minutes_before_now))
+                    ) * 1000
+                )
 
-        if self.debug:
-            logging.debug(f"{symbol} : last_h:{results[-1:]}")
-        hour_averages = [(float(y[2]) + float(y[3])) / 2 for y in results]
+            query = f"{api_url}endTime={end_unix_time}&interval=1{unit}"
+            md5_query = md5(query.encode()).hexdigest()
+            f_path = f"cache/{symbol}.{md5_query}"
 
-        coin.averages["counters"]["h"] = 24
+            if exists(f_path):
+                with open(f_path, "r") as f:
+                    results = json.load(f)
+            else:
+                results = requests_with_backoff(query).json()
+                # this can be fairly API intensive for a large number of tickers
+                if self.mode == "backtesting":
+                    with open(f_path, "w") as f:
+                        f.write(json.dumps(results))
 
-        for h in hour_averages[-24:]:
-            coin.averages["h"].append(h)
-            if not self.clear_coin_stats_at_boot:
-                if h > coin.max:
-                    coin.max = h
-                if h < coin.min:
-                    coin.min = h
+            if self.debug:
+                logging.debug(f"{symbol} : last_{unit}:{results[-1:]}")
 
-        # clear up days array
-        coin.averages["d"] = []
-        days = int(len(results) / 24)
-        for index in range(days):
-            coin.averages["d"].append(
-                mean(hour_averages[(index * 24) : (index * 24 + 23)])
-            )
+            averages = [
+                (
+                    datetime.fromtimestamp(y[6] / 1000),
+                    (float(y[2]) + float(y[3])) /2
+                ) for y in results
+            ]
 
-        if self.mode == "backtesting":
-            backtest_end_time = coin.date
-            end_unix_time = int((datetime.timestamp(backtest_end_time)) * 1000)
-        else:
-            end_unix_time = int((datetime.timestamp(datetime.now())) * 1000)
-
-        query = f"{api_url}endTime={end_unix_time}&interval=1m"
-        md5_query = md5(query.encode()).hexdigest()
-        f_path = f"cache/{symbol}.{md5_query}"
-
-        if exists(f_path):
-            with open(f_path, "r") as f:
-                results = json.load(f)
-        else:
-            results = requests.get(query).json()
-            # this can be fairly API intensive for a large number of tickers
-            sleep(0.1)
-            if self.mode == "backtesting":
-                with open(f_path, "w") as f:
-                    f.write(json.dumps(results))
-
-        if self.debug:
-            logging.debug(f"{symbol} : last_m:{results[-1:]}")
-        min_averages = [(float(y[2]) + float(y[3])) / 2 for y in results]
-
-        coin.averages["counters"]["m"] = 60
-
-        for m in min_averages:
-            if not self.clear_coin_stats_at_boot:
-                if m > coin.max:
-                    coin.max = m
-                if m < coin.min:
-                    coin.min = m
-            coin.averages["m"].append(m)
-
-        coin.averages["counters"]["s"] = 0
+            for d, v in averages[-timeslice:]:
+                coin.averages[unit].append((d, v))
+                if not self.clear_coin_stats_at_boot:
+                    if v > coin.max:
+                        coin.max = v
+                    if v < coin.min:
+                        coin.min = v
 
         if self.debug:
             logging.debug(f"{symbol} : price:{coin.price}")
@@ -1201,7 +1240,7 @@ class BuyMoonSellRecoveryStrategy(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 14:
+        if len(list(coin.averages["d"])) < 7:
             return False
 
         if float(coin.price) > percent(coin.buy_at_percentage, coin.last):
@@ -1227,7 +1266,7 @@ class BuyOnGrowthTrendAfterDropStrategy(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 14:
+        if len(list(coin.averages["d"])) < 7:
             return False
 
         # has the price gone down by x% on a coin we don't own?
@@ -1265,9 +1304,9 @@ class BuyOnGrowthTrendAfterDropStrategy(Bot):
         if len(last_period) < klines_trend_period:
             return False
 
-        last_period_slice = last_period[0]
+        last_period_slice = last_period[0][1]
         # if the price keeps going down, skip it
-        for n in last_period[1:]:
+        for _, n in last_period[1:]:
             if (
                 percent(
                     100 + coin.klines_slice_percentage_change,
@@ -1292,7 +1331,7 @@ class BuyDropSellRecoveryStrategy(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 14:
+        if len(list(coin.averages["d"])) < 7:
             return False
 
         # has the price gone down by x% on a coin we don't own?
@@ -1334,7 +1373,7 @@ class BuyDropSellRecoveryStrategyWhenBTCisUp(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 14:
+        if len(list(coin.averages["d"])) < 7:
             return False
 
         if 'BTCUSDT' not in self.coins:
@@ -1358,8 +1397,8 @@ class BuyDropSellRecoveryStrategyWhenBTCisUp(Bot):
         if len(last_period) < klines_trend_period:
             return False
 
-        last_period_slice = last_period[0]
-        for n in last_period[1:]:
+        last_period_slice = last_period[0][1]
+        for _, n in last_period[1:]:
             if (
                 percent(
                     100 + float(self.coins['BTCUSDT'].klines_slice_percentage_change),
@@ -1411,7 +1450,7 @@ class BuyDropSellRecoveryStrategyWhenBTCisDown(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 14:
+        if len(list(coin.averages["d"])) < 7:
             return False
 
         if 'BTCUSDT' not in self.coins:
@@ -1435,8 +1474,8 @@ class BuyDropSellRecoveryStrategyWhenBTCisDown(Bot):
         if len(last_period) < klines_trend_period:
             return False
 
-        last_period_slice = last_period[0]
-        for n in last_period[1:]:
+        last_period_slice = last_period[0][1]
+        for _, n in last_period[1:]:
             if (
                 percent(
                     100 + float(self.coins['BTCUSDT'].klines_slice_percentage_change),

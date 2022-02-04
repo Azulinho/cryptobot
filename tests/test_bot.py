@@ -124,52 +124,57 @@ class TestCoin:
         assert coin.dip == 120.00
 
     def test_update_coin_updates_seconds_averages(self, coin):
-        coin.update(datetime.now(), 120.00)
-        assert 120.00 in coin.averages['s']
+        now = datetime.now()
+        coin.update(now, 120.00)
+
+        # coin.averages['unit'] is a tupple of (date, price)
+        assert (now, 120.00) in coin.averages['s']
+
+        # expect one element (date, price)
+        assert 120.00 == coin.averages['s'][0][1]
         assert len(coin.averages['s']) == 1
-        assert coin.averages['counters']['s'] == 1
-        assert list(coin.averages['s']) == [120.0]
 
     def test_update_coin_updates_minutes_averages(self, coin):
-        for x in range(60):
-            coin.update(datetime.now(), 100)
+        for x in list(reversed(range(60 * 2 + 1))):
+            coin_time = datetime.now() - timedelta(seconds=x)
+            coin.update(coin_time , 100)
 
-        assert coin.averages['counters']['s'] == 0
         assert len(coin.averages['s']) == 60
 
-        assert coin.averages['counters']['m'] == 1
-        assert len(coin.averages['m']) == 1
+        assert len(coin.averages['m']) == 2
 
-        assert list(coin.averages['s']) == [100 for x in range(60)]
-        assert list(coin.averages['m']) == [100.0]
+        for d,v in list(coin.averages['s']):
+            assert v == 100
+
+        assert list(coin.averages['m'])[0][1] == 100.0
 
     def test_update_coin_updates_hour_averages(self, coin):
-        for x in range(3600):
-            coin.update(datetime.now(), 100)
+        for x in list(reversed(range(60 * 60 + 60 + 1))):
+            coin_time = datetime.now() - timedelta(seconds=x)
+            coin.update(coin_time , 100)
 
-        assert coin.averages['counters']['s'] == 0
-        assert list(coin.averages['s']) == [100 for x in range(60)]
+        assert len(coin.averages['s']) == 60
 
-        assert coin.averages['counters']['m'] == 0
-        assert list(coin.averages['m']) == [100 for x in range(60)]
+        assert len(coin.averages['m']) == 60
 
-        assert coin.averages['counters']['h'] == 1
-        assert list(coin.averages['h']) == [100.0]
+        for d,v in list(coin.averages['m']):
+            assert v == 100
+
+        assert list(coin.averages['h'])[0][1] == 100.0
 
     def test_update_coin_updates_days_averages(self, coin):
-        for x in range(86400):
-            coin.update(datetime.now(), 100)
+        for x in list(reversed(range(3600 * 24 + 3600 + 60 + 1))):
+            coin_time = datetime.now() - timedelta(seconds=x)
+            coin.update(coin_time , 100)
 
-        assert coin.averages['counters']['s'] == 0
-        assert list(coin.averages['s']) == [100 for x in range(60)]
+        assert len(coin.averages['h']) == 24
 
-        assert coin.averages['counters']['m'] == 0
-        assert list(coin.averages['m']) == [100 for x in range(60)]
-
-        assert coin.averages['counters']['h'] == 0
-        assert list(coin.averages['h']) == [100 for x in range(24)]
+        for d,v in list(coin.averages['h']):
+            assert v == 100
 
         assert len(coin.averages['d']) == 1
+        assert list(coin.averages['d'])[0][1] == 100.0
+
 
 class TestBot:
     def test_sell_coin_in_testnet(self, bot, coin):
@@ -268,8 +273,9 @@ class TestBot:
     def test_process_coins(self, bot, coin):
         bot.load_klines_for_coin = mock.Mock()
 
-        for _ in range(14):
-            coin.averages['d'].append(0)
+        for x in list(reversed(range(14))):
+            coin_time = datetime.now() - timedelta(days=x)
+            coin.update(coin_time , 0)
 
         bot.coins['BTCUSDT'] = coin
 
@@ -345,20 +351,18 @@ class TestBot:
             app.open =  mock.mock_open()
             bot.load_klines_for_coin(coin)
 
-        assert len(coin.averages['d']) == 4
+        assert len(coin.averages['d']) == 7
         assert len(coin.averages['h']) == 24
         assert len(coin.averages['m']) == 60
-        assert coin.averages['counters']['m'] == 60
-        assert coin.averages['counters']['s'] == 0
 
-        assert coin.averages['d'][0] == 100
-        assert coin.averages['d'][1] == 100
+        assert coin.averages['d'][0][1] == 100
+        assert coin.averages['d'][1][1] == 100
 
         for i in range(24):
-            assert coin.averages['h'][i] == 100
+            assert coin.averages['h'][i][1] == 100
 
         for i in range(60):
-            assert coin.averages['m'][i] == 100
+            assert coin.averages['m'][i][1] == 100
 
 
 class TestBotCheckForSaleConditions:
@@ -895,8 +899,9 @@ class TestStrategyBuyOnGrowthTrendAfterDrop(StrategyBaseTestClass):
         coin.klines_slice_percentage_change = float(1)
         coin.klines_trend_period = "3h"
 
-        for _ in range(14):
-            coin.averages['d'].append(1)
+        for x in list(reversed(range(14))):
+            coin_time = datetime.now() - timedelta(days=x)
+            coin.averages['d'].append((coin_time, 1))
 
         with mock.patch.object(
             bot, 'buy_coin', return_value=True
@@ -916,8 +921,9 @@ class TestStrategyBuyOnGrowthTrendAfterDrop(StrategyBaseTestClass):
         coin.klines_trend_period = "4d"
 
         avg_price = float(1)
-        for _ in range(14):
-            coin.averages['d'].append(avg_price)
+        for x in list(reversed(range(14))):
+            coin_time = datetime.now() - timedelta(days=x)
+            coin.averages['d'].append((coin_time, avg_price))
             avg_price = avg_price * 1.01 # +1%
 
         with mock.patch.object(
