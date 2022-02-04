@@ -1029,7 +1029,7 @@ class Bot:
         try:
             date = datetime.fromisoformat(day)
         except ValueError:
-            day = day.split(".")[0]
+            day = day.split('.', maxsplit=1)[0]
             date = datetime.fromisoformat(day)
 
         market_price = float(parts[3])

@@ -2,17 +2,22 @@ name: Run PR tests
 on: pull_request
 
 jobs:
-  tests:
+  python_tests:
     name: Run PR tests
     runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
 
-      - name: setup python
-        uses: actions/setup-python@v2
+      - name: install build-essentials
+        run: sudo apt-get -y install build-essential
+
+      - name: pyenv install
+        uses: "gabrielfalcao/pyenv-action@v5"
         with:
-          python-version: 3.9
+          command: pyenv install
 
       - name: pip install
         run: |
@@ -23,13 +28,37 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: pytest
-        run: pytest tests/
+        run: |
+          pytest tests/
 
       - name: mypy
-        run: mypy app.py
+        run: |
+          mypy app.py
 
       - name: pylint
-        run: pylint app.py
+        run: |
+          pylint app.py
+
+      - name: run backtesting strategies
+        run: |
+          set -e
+          python app.py -c tests/BuyOnGrowthTrendAfterDropStrategy.yaml -m backtesting -s tests/fake.yaml
+          python app.py -c tests/BuyDropSellRecoveryStrategy.yaml -m backtesting -s tests/fake.yaml
+          python app.py -c tests/BuyDropSellRecoveryStrategyWhenBTCisUp.yaml -m backtesting -s tests/fake.yaml
+          python app.py -c tests/BuyDropSellRecoveryStrategyWhenBTCisDown.yaml -m backtesting -s tests/fake.yaml
+          python app.py -c tests/BuyMoonSellRecoveryStrategy.yaml -m backtesting -s tests/fake.yaml
+
+  docker_build_tests:
+    name: Run docker-compose build tests tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+
+      - name: setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
 
       - name: local docker-compose build
         run: |
