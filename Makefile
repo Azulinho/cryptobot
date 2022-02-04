@@ -39,3 +39,24 @@ help:
 	@echo "make slice-of-log"
 	@echo "make generate-cfgname-for-coins LOG=log/backtesting.log MIN=30"
 	@echo "make generate-coincfg-for-coins LOG=log/backtesting.log MIN=30"
+	@echo "make support"
+
+
+support:
+	echo > support.txt
+	echo "docker images:" >> support.txt
+	docker images | grep cryptobot >> support.txt
+	echo "git tag:" >> support.txt
+	git tag --sort=v:refname | tail -1 >> support.txt
+	echo "configs:" >> support.txt
+	ls -l configs/ >> support.txt
+	echo "secrets:" >> support.txt
+	ls -l secrets/ >> support.txt
+	echo "id:" >> support.txt
+	id >> support.txt
+	echo "docker version:" >> support.txt
+	docker --version >> support.txt
+	echo "docker-compose version:" >> support.txt
+	docker-compose --version >> support.txt
+	echo "latest run:"
+	 cat results/`ls -ltr results/| tail -1 | awk '{ print $$NF }' ` >> support.txt
