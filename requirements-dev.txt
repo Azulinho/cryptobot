@@ -28,3 +28,4 @@ types-PyYAML==6.0.0
 pylint
 coverage
 pytest-timeout
+ipython
