@@ -42,7 +42,7 @@ def bot(cfg):
 def coin(bot):
     coin = app.Coin(
         symbol="BTCUSDT",
-        date=udatetime.now() - timedelta(hours=1),
+        date=float(udatetime.now().timestamp() - 3600),
         market_price=100.00,
         buy_at=float(bot.tickers['BTCUSDT']['BUY_AT_PERCENTAGE']),
         sell_at=float(bot.tickers['BTCUSDT']['SELL_AT_PERCENTAGE']),
@@ -64,68 +64,68 @@ class TestCoin:
     def test_update_coin_wont_age_if_not_owned(self, coin):
         coin.holding_time = 0
         coin.status = ""
-        coin.update(udatetime.now(), 100.0)
+        coin.update(float(udatetime.now().timestamp()), 100.0)
         assert coin.holding_time == 0
 
     def test_update_coin_in_target_sell_status_will_age(self, coin):
         coin.holding_time = 0
         coin.status = "TARGET_SELL"
-        coin.bought_date =  udatetime.now() - timedelta(hours=1)
-        coin.update(udatetime.now(), 100.0)
+        coin.bought_date =  float(udatetime.now().timestamp() - 3600)
+        coin.update(float(udatetime.now().timestamp()), 100.0)
         assert coin.holding_time == 3600
 
     def test_update_coin_in_hold_status_will_age(self, coin):
         coin.holding_time = 0
         coin.status = "HOLD"
-        coin.bought_date =  udatetime.now() - timedelta(hours=1)
-        coin.update(udatetime.now(), 100.0)
+        coin.bought_date =  float(udatetime.now().timestamp() - 3600)
+        coin.update(float(udatetime.now().timestamp()), 100.0)
         assert coin.holding_time == 3600
 
     def test_update_coin_in_naughty_reverts_to_non_naughty_after_timeout_(self, coin):
         coin.naughty_timeout = 3599
         coin.naughty = True
-        coin.naughty_date =  udatetime.now() - timedelta(hours=1)
-        coin.update(udatetime.now(), 100.0)
+        coin.naughty_date =  float(udatetime.now().timestamp() - 3600)
+        coin.update(float(udatetime.now().timestamp()), 100.0)
         assert coin.naughty == False
 
     def test_update_coin_in_naughty_remains_naughty_before_timeout_(self, coin):
         coin.naughty_timeout = 7200
         coin.naughty = True
-        coin.naughty_date =  udatetime.now() - timedelta(hours=1)
-        coin.update(udatetime.now(), 100.0)
+        coin.naughty_date =  float(udatetime.now().timestamp() - 3600)
+        coin.update(float(udatetime.now().timestamp()), 100.0)
         assert coin.naughty == True
 
     def test_update_reached_new_min(self, coin):
         coin.min = 200
-        coin.update(udatetime.now(), 100.0)
+        coin.update(float(udatetime.now().timestamp()), 100.0)
         assert coin.min == 100
 
     def test_update_reached_new_max(self, coin):
         coin.max = 100
-        coin.update(udatetime.now(), 200.0)
+        coin.update(float(udatetime.now().timestamp()), 200.0)
         assert coin.max == 200
 
     def test_update_value_is_set(self, coin):
         coin.volume = 2
-        coin.update(udatetime.now(), 100.0)
+        coin.update(float(udatetime.now().timestamp()), 100.0)
         assert coin.value == 200
 
     def test_update_coin_change_status_from_hold_to_target_sell(self, coin):
         coin.status = "HOLD"
         coin.sell_at_percentage = 3
         coin.bought_at = 100
-        coin.bought_date =  udatetime.now() - timedelta(hours=1)
-        coin.update(udatetime.now(), 120.00)
+        coin.bought_date =  float(udatetime.now().timestamp() - 3600)
+        coin.update(float(udatetime.now().timestamp()), 120.00)
         assert coin.status == "TARGET_SELL"
 
     def test_update_coin_updates_state_dip(self, coin):
         coin.status = "TARGET_DIP"
         coin.dip = 150
-        coin.update(udatetime.now(), 120.00)
+        coin.update(float(udatetime.now().timestamp()), 120.00)
         assert coin.dip == 120.00
 
     def test_update_coin_updates_seconds_averages(self, coin):
-        now = udatetime.now()
+        now = float(udatetime.now().timestamp())
         coin.update(now, 120.00)
 
         # coin.averages['unit'] is a tupple of (date, price)
@@ -137,7 +137,7 @@ class TestCoin:
 
     def test_update_coin_updates_minutes_averages(self, coin):
         for x in list(reversed(range(60 * 2 + 1))):
-            coin_time = udatetime.now() - timedelta(seconds=x)
+            coin_time = float(udatetime.now().timestamp() - x)
             coin.update(coin_time , 100)
 
         assert len(coin.averages['s']) == 60
@@ -151,7 +151,7 @@ class TestCoin:
 
     def test_update_coin_updates_hour_averages(self, coin):
         for x in list(reversed(range(60 * 60 + 60 + 1))):
-            coin_time = udatetime.now() - timedelta(seconds=x)
+            coin_time = float(udatetime.now().timestamp() - x)
             coin.update(coin_time , 100)
 
         assert len(coin.averages['s']) == 60
@@ -165,7 +165,7 @@ class TestCoin:
 
     def test_update_coin_updates_days_averages(self, coin):
         for x in list(reversed(range(3600 * 24 + 3600 + 60 + 1))):
-            coin_time = udatetime.now() - timedelta(seconds=x)
+            coin_time = float(udatetime.now().timestamp() - x)
             coin.update(coin_time , 100)
 
         assert len(coin.averages['h']) == 24
@@ -275,7 +275,7 @@ class TestBot:
         bot.load_klines_for_coin = mock.Mock()
 
         for x in list(reversed(range(14))):
-            coin_time = udatetime.now() - timedelta(days=x)
+            coin_time = float(udatetime.now().timestamp() - (x * 86400))
             coin.update(coin_time , 0)
 
         bot.coins['BTCUSDT'] = coin
@@ -321,9 +321,9 @@ class TestBot:
 
 
     def test_load_klines_for_coin(self, bot, coin):
-        coin.date = datetime.fromisoformat(
+        coin.date = float(datetime.fromisoformat(
             "2021-12-04 05:23:05.693516",
-        )
+        ).timestamp())
         r = requests.models.Response()
         r.status_code = 200
         r.headers['Content-Type'] = "application/json"
@@ -639,7 +639,7 @@ class TestCoinStatus:
 
     def test_past_soft_limit(self, bot, coin):
         coin.bought_at = 100
-        coin.bought_date =  udatetime.now() - timedelta(hours=1)
+        coin.bought_date =  float(udatetime.now().timestamp() - 3600)
         coin.cost = 100
         coin.tip = 300
         coin.last = 290
@@ -900,7 +900,7 @@ class TestStrategyBuyOnGrowthTrendAfterDrop(StrategyBaseTestClass):
         coin.klines_trend_period = "3h"
 
         for x in list(reversed(range(14))):
-            coin_time = udatetime.now() - timedelta(days=x)
+            coin_time = float(udatetime.now().timestamp() - (86400 * x))
             coin.averages['d'].append((coin_time, 1))
 
         with mock.patch.object(
@@ -922,7 +922,7 @@ class TestStrategyBuyOnGrowthTrendAfterDrop(StrategyBaseTestClass):
 
         avg_price = float(1)
         for x in list(reversed(range(14))):
-            coin_time = udatetime.now() - timedelta(days=x)
+            coin_time = float(udatetime.now().timestamp() - (86400 * x))
             coin.averages['d'].append((coin_time, avg_price))
             avg_price = avg_price * 1.01 # +1%
 
