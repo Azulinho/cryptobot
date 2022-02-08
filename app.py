@@ -193,7 +193,7 @@ class Coin:  # pylint: disable=too-few-public-methods
                     - 100
                 )
                 logging.info(
-                    f"{self.date}: {self.symbol} [HOLD] "
+                    f"{c_from_timestamp(self.date)}: {self.symbol} [HOLD] "
                     + f"-> [TARGET_SELL] ({self.price}) "
                     + f"A:{self.holding_time}s "
                     + f"U:{self.volume} P:{self.price} T:{self.value} "
