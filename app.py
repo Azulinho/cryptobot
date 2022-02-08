@@ -8,7 +8,7 @@ import pickle
 import sys
 import threading
 import traceback
-from datetime import datetime, timedelta
+from datetime import datetime
 from functools import lru_cache
 from hashlib import md5
 from itertools import islice
@@ -26,6 +26,7 @@ from binance.exceptions import BinanceAPIException
 from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 from xopen import xopen
+
 
 c_handler = colorlog.StreamHandler(sys.stdout)
 c_handler.setFormatter(
@@ -70,6 +71,18 @@ def control_center():
     web_pdb.set_trace()
 
 
+@lru_cache(1)
+def c_date_from(day):
+    """ returns a cached datetime.fromisoformat()"""
+    date = float(datetime.fromisoformat(day).timestamp())
+    return date
+
+@lru_cache(1)
+def c_from_timestamp(date):
+    """ returns a cached datetime.fromtimestamp()"""
+    return datetime.fromtimestamp(date)
+
+
 @lru_cache()
 @retry(wait=wait_exponential(multiplier=1, max=10))
 def requests_with_backoff(query):
@@ -83,8 +96,7 @@ class Coin:  # pylint: disable=too-few-public-methods
     def __init__(
         self,
         symbol: str,
-        # 2021-09-23 10:49:29.388662
-        date: udatetime,
+        date: float,
         market_price: float,
         buy_at: float,
         sell_at: float,
@@ -137,26 +149,22 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.klines_slice_percentage_change: float = float(
             klines_slice_percentage_change
         )
-        self.bought_date: udatetime = None  # type: ignore
-        self.naughty_date: udatetime = None  # type: ignore
+        self.bought_date: float = None  # type: ignore
+        self.naughty_date: float = None  # type: ignore
         self.naughty: bool = False
-        self.last_read_date: udatetime = date
+        self.last_read_date: float = date
 
-    def update(self, date: udatetime, market_price: float) -> None:
+    def update(self, date: float, market_price: float) -> None:
         """updates a coin object with latest market values"""
         self.date = date
         self.last = self.price
         self.price = float(market_price)
 
         if self.status in ["TARGET_SELL", "HOLD"]:
-            self.holding_time = int(
-                self.date.timestamp() - self.bought_date.timestamp()
-            )
+            self.holding_time = int(self.date - self.bought_date)
 
         if self.naughty:
-            if int(
-                self.date.timestamp() - self.naughty_date.timestamp()
-            ) > self.naughty_timeout:
+            if int(self.date - self.naughty_date) > self.naughty_timeout:
                 self.naughty = False
 
         # do we have a new min price?
@@ -225,7 +233,7 @@ class Coin:  # pylint: disable=too-few-public-methods
         # but only if the old 'm' record, is older than 1 minute.
         if self.averages["m"]:
             latest_record_date, _ = self.averages["m"][-1]
-            if latest_record_date <= date - timedelta(seconds=60):
+            if latest_record_date <= date - 60:
                 last_minute_average = mean([v for d,v in self.averages["s"]])
                 self.averages["m"].append(
                     (date, float(last_minute_average))
@@ -233,7 +241,7 @@ class Coin:  # pylint: disable=too-few-public-methods
         else:
             # init 'm' averages when we have seconds data older than 60s
             oldest_record, _ = self.averages["s"][0]
-            if oldest_record <= date - timedelta(seconds=60):
+            if oldest_record <= date - 60:
                 last_minute_average = mean([v for d,v in self.averages["s"]])
                 self.averages["m"].append(
                     (date, float(last_minute_average))
@@ -244,7 +252,7 @@ class Coin:  # pylint: disable=too-few-public-methods
         # but only if the latest 'h' record, is older than 1 hour.
         if self.averages["h"]:
             latest_record_date, _ = self.averages["h"][-1]
-            if latest_record_date <= date - timedelta(minutes=60):
+            if latest_record_date <= date - 3600:
                 last_hour_average = mean([v for d,v in self.averages["m"]])
                 self.averages["h"].append(
                     (date, float(last_hour_average))
@@ -253,7 +261,7 @@ class Coin:  # pylint: disable=too-few-public-methods
             # init 'h' averages when we have min data older than 60m
             if self.averages["m"]:
                 oldest_record, _ = self.averages["m"][0]
-                if oldest_record <= date - timedelta(minutes=60):
+                if oldest_record <= date - 3600:
                     last_hour_average = mean([v for d,v in self.averages["m"]])
                     self.averages["h"].append(
                         (date, float(last_hour_average))
@@ -263,7 +271,7 @@ class Coin:  # pylint: disable=too-few-public-methods
         # but only if the latest 'd' record, is older than 1 day.
         if self.averages["d"]:
             latest_record_date, _ = self.averages["d"][-1]
-            if latest_record_date <= date - timedelta(days=1):
+            if latest_record_date <= date - 86400:
                 last_day_average = mean([v for d,v in self.averages["h"]])
                 self.averages["d"].append(
                     (date, float(last_day_average))
@@ -272,7 +280,7 @@ class Coin:  # pylint: disable=too-few-public-methods
             if self.averages["h"]:
                 # init 'd' averages when we have hours data older than 24h
                 oldest_record, _ = self.averages["h"][0]
-                if oldest_record <= date - timedelta(days=1):
+                if oldest_record <= date - 86400:
                     last_day_average = mean([v for d,v in self.averages["h"]])
                     self.averages["d"].append(
                         (date, float(last_day_average))
@@ -280,17 +288,17 @@ class Coin:  # pylint: disable=too-few-public-methods
 
         # discard any measurements older than 1minute.
         for stored_date, price in self.averages["s"]:
-            if stored_date < date - timedelta(minutes=1):
+            if stored_date < date - 60:
                 self.averages["s"].remove((stored_date, price))
 
         # discard any measurements older than 1h
         for stored_date, price in self.averages["m"]:
-            if stored_date < date - timedelta(hours=1):
+            if stored_date < date - 3600:
                 self.averages["m"].remove((stored_date, price))
 
         # discard any measurements older than 24h
         for stored_date, price in self.averages["h"]:
-            if stored_date < date - timedelta(days=1):
+            if stored_date < date - 86400:
                 self.averages["h"].remove((stored_date, price))
 
 class Bot:
@@ -418,7 +426,7 @@ class Bot:
             - 100
         )
         logging.info(
-            f"{coin.date}: {coin.symbol} [{coin.status}] "
+            f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
             + f"A:{coin.holding_time}s "
             + f"U:{coin.volume} P:{coin.price} T:{coin.value} "
             + f"SP:{coin.bought_at * coin.sell_at_percentage /100} "
@@ -466,7 +474,7 @@ class Bot:
             coin.price = self.extract_order_data(order_details, coin)[
                 "avgPrice"
             ]
-            coin.date = udatetime.now()
+            coin.date = float(udatetime.utcnow().timestamp())
 
         coin.value = float(float(coin.volume) * float(coin.price))
         coin.profit = float(float(coin.value) - float(coin.cost))
@@ -478,7 +486,7 @@ class Bot:
 
         message = " ".join(
             [
-                f"{coin.date}: {coin.symbol} [{coin.status}]",
+                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}]",
                 f"A:{coin.holding_time}s",
                 f"U:{coin.volume} P:{coin.price} T:{coin.value}",
                 f"{word}:{coin.profit:.3f}",
@@ -505,7 +513,7 @@ class Bot:
         self.clear_all_coins_stats()
 
         logging.info(
-            f"{coin.date}: INVESTMENT: {self.investment} "
+            f"{c_from_timestamp(coin.date)}: INVESTMENT: {self.investment} "
             + f"PROFIT: {self.profit} WALLET: {self.wallet}"
         )
 
@@ -591,9 +599,9 @@ class Bot:
         if self.mode == "testnet":
             price_log = "log/testnet.log"
         else:
-            price_log = f"log/{udatetime.now().strftime('%Y%m%d')}.log"
+            price_log = f"log/{udatetime.utcnow().strftime('%Y%m%d')}.log"
         with open(price_log, "a", encoding="utf-8") as f:
-            f.write(f"{udatetime.now()} {symbol} {price}\n")
+            f.write(f"{udatetime.utcnow()} {symbol} {price}\n")
 
     def init_or_update_coin(self, binance_data: Dict[str, Any]) -> None:
         """creates a new coin or updates its price with latest binance data"""
@@ -603,7 +611,8 @@ class Bot:
         if symbol not in self.coins:
             self.coins[symbol] = Coin(
                 symbol,
-                udatetime.now(),  # TODO: update this to consume binance_data[]
+                # TODO: update this to consume binance_data[]
+                float(udatetime.utcnow().timestamp()),
                 market_price,
                 buy_at=self.tickers[symbol]["BUY_AT_PERCENTAGE"],
                 sell_at=self.tickers[symbol]["SELL_AT_PERCENTAGE"],
@@ -630,7 +639,10 @@ class Bot:
             )
             self.load_klines_for_coin(self.coins[symbol])
         else:
-            self.coins[symbol].update(udatetime.now(), market_price)
+            self.coins[symbol].update(
+                float(udatetime.utcnow().timestamp()),
+                market_price
+            )
 
     def process_coins(self) -> None:
         """processes all the prices returned by binance"""
@@ -695,7 +707,8 @@ class Bot:
         ):
             coin.status = "GONE_UP_AND_DROPPED"
             logging.info(
-                f"{coin.date} {coin.symbol} [TARGET_SELL] -> [GONE_UP_AND_DROPPED]"
+                f"{c_from_timestamp(coin.date)} {coin.symbol} " +
+                "[TARGET_SELL] -> [GONE_UP_AND_DROPPED]"
             )
             self.sell_coin(coin)
             self.wins = self.wins + 1
@@ -784,7 +797,7 @@ class Bot:
         """logs debug coin prices"""
         if self.debug:
             logging.debug(
-                f"{coin.date} {coin.symbol} "
+                f"{c_from_timestamp(coin.date)} {coin.symbol} "
                 + f"{coin.status} "
                 + f"age:{coin.holding_time} "
                 + f"now:{coin.price} "
@@ -890,23 +903,16 @@ class Bot:
 
             # deal with missing coin properties, types after a bot upgrade
             if isinstance(self.coins[symbol].date, str):
-                try:
-                    date = datetime.fromisoformat(
-                        self.coins[symbol].date
-                    )
-                except ValueError:
-                    date = datetime.fromisoformat(
-                        self.coins[symbol].date
-                    )
-                self.coins[symbol].date = date
+                self.coins[symbol].date = float(
+                    datetime.fromisoformat(str(self.coins[symbol].date)
+                    ).timestamp()
+                )
             if "naughty" not in dir(self.coins[symbol]):
                 if self.coins[symbol].naughty_timeout != 0:
                     self.coins[symbol].naughty = True
                     self.coins[symbol].naughty_date = self.coins[
                         symbol
-                    ].naughty_date - timedelta(
-                        seconds=self.coins[symbol].naughty_timeout
-                    )
+                    ].naughty_date - self.coins[symbol].naughty_timeout
                 else:
                     self.coins[symbol].naughty = False
                     self.coins[symbol].naughty_date = None  # type: ignore
@@ -915,7 +921,7 @@ class Bot:
                 if symbol in self.wallet:
                     self.coins[symbol].bought_date = self.coins[
                         symbol
-                    ].date - timedelta(seconds=self.coins[symbol].holding_time)
+                    ].date - self.coins[symbol].holding_time
                 else:
                     self.coins[symbol].bought_date = None  # type: ignore
 
@@ -1027,10 +1033,12 @@ class Bot:
         if symbol not in self.tickers:
             return
         try:
-            date = datetime.fromisoformat(day)
-        except ValueError:
+            # datetime is very slow, discard the .microseconds and fetch a
+            # cached pre-calculated unix epoch timestamp
             day = day.split('.', maxsplit=1)[0]
-            date = datetime.fromisoformat(day)
+            date = c_date_from(day)
+        except ValueError:
+            date = c_date_from(day)
 
         market_price = float(parts[3])
 
@@ -1060,7 +1068,7 @@ class Bot:
             # reads, causing a similar effect if we were only
             # probing prices every PAUSE_FOR seconds
             if self.coins[symbol].last_read_date >= (
-                date - timedelta(seconds=self.pause)
+                date - self.pause
             ):
                 return
             self.coins[symbol].last_read_date = date
@@ -1150,16 +1158,13 @@ class Bot:
                 backtest_end_time = coin.date
                 end_unix_time = int(
                     (
-                        datetime.timestamp(
-                            backtest_end_time - timedelta(minutes=minutes_before_now)
-                        )
+                        backtest_end_time - (60  * minutes_before_now)
                     ) * 1000
                 )
             else:
                 end_unix_time = int(
                     (
-                        datetime.timestamp(
-                            udatetime.now() - timedelta(minutes=minutes_before_now))
+                            float(udatetime.utcnow().timestamp()) - ( 60 * minutes_before_now)
                     ) * 1000
                 )
 
@@ -1188,7 +1193,7 @@ class Bot:
             ]
 
             for d, v in averages[-timeslice:]:
-                coin.averages[unit].append((d, v))
+                coin.averages[unit].append((float(d.timestamp()), v))
                 if not self.clear_coin_stats_at_boot:
                     if v > coin.max:
                         coin.max = v
@@ -1277,7 +1282,7 @@ class BuyOnGrowthTrendAfterDropStrategy(Bot):
         ):
             coin.dip = coin.price
             logging.info(
-                f"{coin.date}: {coin.symbol} [{coin.status}] "
+                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
                 + f"-> [TARGET_DIP] ({coin.price})"
             )
             coin.status = "TARGET_DIP"
@@ -1342,7 +1347,7 @@ class BuyDropSellRecoveryStrategy(Bot):
         ):
             coin.dip = coin.price
             logging.info(
-                f"{coin.date}: {coin.symbol} [{coin.status}] "
+                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
                 + f"-> [TARGET_DIP] ({coin.price})"
             )
             coin.status = "TARGET_DIP"
@@ -1418,7 +1423,7 @@ class BuyDropSellRecoveryStrategyWhenBTCisUp(Bot):
         ):
             coin.dip = coin.price
             logging.info(
-                f"{coin.date}: {coin.symbol} [{coin.status}] "
+                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
                 + f"-> [TARGET_DIP] ({coin.price})"
             )
             coin.status = "TARGET_DIP"
@@ -1494,7 +1499,7 @@ class BuyDropSellRecoveryStrategyWhenBTCisDown(Bot):
         ):
             coin.dip = coin.price
             logging.info(
-                f"{coin.date}: {coin.symbol} [{coin.status}] "
+                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
                 + f"-> [TARGET_DIP] ({coin.price})"
             )
             coin.status = "TARGET_DIP"
