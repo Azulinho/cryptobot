@@ -475,7 +475,7 @@ class Bot:
             coin.price = self.extract_order_data(order_details, coin)[
                 "avgPrice"
             ]
-            coin.date = float(udatetime.utcnow().timestamp())
+            coin.date = float(udatetime.now().timestamp())
 
         coin.value = float(float(coin.volume) * float(coin.price))
         coin.profit = float(float(coin.value) - float(coin.cost))
@@ -600,9 +600,9 @@ class Bot:
         if self.mode == "testnet":
             price_log = "log/testnet.log"
         else:
-            price_log = f"log/{udatetime.utcnow().strftime('%Y%m%d')}.log"
+            price_log = f"log/{datetime.now().strftime('%Y%m%d')}.log"
         with open(price_log, "a", encoding="utf-8") as f:
-            f.write(f"{udatetime.utcnow()} {symbol} {price}\n")
+            f.write(f"{datetime.now()} {symbol} {price}\n")
 
     def init_or_update_coin(self, binance_data: Dict[str, Any]) -> None:
         """creates a new coin or updates its price with latest binance data"""
@@ -613,7 +613,7 @@ class Bot:
             self.coins[symbol] = Coin(
                 symbol,
                 # TODO: update this to consume binance_data[]
-                float(udatetime.utcnow().timestamp()),
+                float(udatetime.now().timestamp()),
                 market_price,
                 buy_at=self.tickers[symbol]["BUY_AT_PERCENTAGE"],
                 sell_at=self.tickers[symbol]["SELL_AT_PERCENTAGE"],
@@ -641,7 +641,7 @@ class Bot:
             self.load_klines_for_coin(self.coins[symbol])
         else:
             self.coins[symbol].update(
-                float(udatetime.utcnow().timestamp()),
+                float(udatetime.now().timestamp()),
                 market_price
             )
 
@@ -1165,7 +1165,9 @@ class Bot:
             else:
                 end_unix_time = int(
                     (
-                            float(udatetime.utcnow().timestamp()) - ( 60 * minutes_before_now)
+                            float(
+                                udatetime.now().timestamp()
+                            ) - ( 60 * minutes_before_now)
                     ) * 1000
                 )
 
