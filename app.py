@@ -77,6 +77,7 @@ def c_date_from(day):
     date = float(datetime.fromisoformat(day).timestamp())
     return date
 
+
 @lru_cache(1)
 def c_from_timestamp(date):
     """ returns a cached datetime.fromtimestamp()"""
@@ -1194,11 +1195,6 @@ class Bot:
 
             for d, v in averages[-timeslice:]:
                 coin.averages[unit].append((float(d.timestamp()), v))
-                if not self.clear_coin_stats_at_boot:
-                    if v > coin.max:
-                        coin.max = v
-                    if v < coin.min:
-                        coin.min = v
 
         if self.debug:
             logging.debug(f"{symbol} : price:{coin.price}")
