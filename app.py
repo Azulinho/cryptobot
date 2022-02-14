@@ -91,6 +91,7 @@ def requests_with_backoff(query):
     return requests.get(query)
 
 
+
 class Coin:  # pylint: disable=too-few-public-methods
     """Coin Class"""
 
@@ -301,6 +302,17 @@ class Coin:  # pylint: disable=too-few-public-methods
         for stored_date, price in self.averages["h"]:
             if stored_date < date - 86400:
                 self.averages["h"].remove((stored_date, price))
+
+    def check_for_pump_and_dump(self):
+        """ calculates current price vs 1 hour ago for pump/dump events """
+        # pump protection, only buy coin if the price is lower than one
+        # hour ago.
+        if self.averages["h"]:
+            _, last_hour_average = self.averages["h"][-1:][0]
+            if float(self.price) < float(last_hour_average):
+                return True
+        return False
+
 
 class Bot:
     """Bot Class"""
@@ -1266,23 +1278,6 @@ class BuyOnGrowthTrendAfterDropStrategy(Bot):
         if len(list(coin.averages["d"])) < 7:
             return False
 
-        # has the price gone down by x% on a coin we don't own?
-        if (
-            (float(coin.price) < percent(coin.buy_at_percentage, coin.max))
-            and coin.status == ""
-            and not coin.naughty
-        ):
-            coin.dip = coin.price
-            logging.info(
-                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
-                + f"-> [TARGET_DIP] ({coin.price})"
-            )
-            coin.status = "TARGET_DIP"
-            return False
-
-        if coin.status != "TARGET_DIP":
-            return False
-
         unit = coin.klines_trend_period[-1:]
         klines_trend_period = int(coin.klines_trend_period[:-1])
 
@@ -1301,8 +1296,28 @@ class BuyOnGrowthTrendAfterDropStrategy(Bot):
         if len(last_period) < klines_trend_period:
             return False
 
-        last_period_slice = last_period[0][1]
+        # has the price gone down by x% on a coin we don't own?
+        if (
+            (float(coin.price) < percent(coin.buy_at_percentage, coin.max))
+            and coin.status == ""
+            and not coin.naughty
+        ):
+            coin.dip = coin.price
+            logging.info(
+                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
+                + f"-> [TARGET_DIP] ({coin.price})"
+            )
+            # pump protection, only buy coin if the price is lower than one
+            # hour ago.
+            if coin.check_for_pump_and_dump():
+                coin.status = "TARGET_DIP"
+                return False
+
+        if coin.status != "TARGET_DIP":
+            return False
+
         # if the price keeps going down, skip it
+        last_period_slice = last_period[0][1]
         for _, n in last_period[1:]:
             if (
                 percent(
@@ -1368,13 +1383,16 @@ class BuyOnRecoveryAfterDropDuringGrowthTrendStrategy(Bot):
             and coin.status == ""
             and not coin.naughty
         ):
-            coin.dip = coin.price
-            logging.info(
-                f"{coin.date}: {coin.symbol} [{coin.status}] "
-                + f"-> [TARGET_DIP] ({coin.price})"
-            )
-            coin.status = "TARGET_DIP"
-            return False
+            # pump protection, only buy coin if the price is lower than one
+            # hour ago.
+            if coin.check_for_pump_and_dump():
+                coin.dip = coin.price
+                logging.info(
+                    f"{coin.date}: {coin.symbol} [{coin.status}] "
+                    + f"-> [TARGET_DIP] ({coin.price})"
+                )
+                coin.status = "TARGET_DIP"
+                return False
 
         if coin.status != "TARGET_DIP":
             return False
@@ -1405,18 +1423,26 @@ class BuyDropSellRecoveryStrategy(Bot):
         if len(list(coin.averages["d"])) < 7:
             return False
 
+        # this strategy doesn't consume averages, we force an average setting
+        # in here of 1hour so that we can use an anti-pump protection
+        coin.klines_trend_period = "1h"
+        coin.klines_slice_percentage_change = float(1)
+
         # has the price gone down by x% on a coin we don't own?
         if (
             (float(coin.price) < percent(coin.buy_at_percentage, coin.max))
             and coin.status == ""
             and not coin.naughty
         ):
-            coin.dip = coin.price
-            logging.info(
-                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
-                + f"-> [TARGET_DIP] ({coin.price})"
-            )
-            coin.status = "TARGET_DIP"
+            # pump protection, only buy coin if the price is lower than one
+            # hour ago.
+            if coin.check_for_pump_and_dump():
+                coin.dip = coin.price
+                logging.info(
+                    f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
+                    + f"-> [TARGET_DIP] ({coin.price})"
+                )
+                coin.status = "TARGET_DIP"
 
         if coin.status != "TARGET_DIP":
             return False
@@ -1439,6 +1465,10 @@ class BuyDropSellRecoveryStrategyWhenBTCisUp(Bot):
     def buy_strategy(self, coin: Coin) -> bool:
         """bot buy strategy"""
 
+        # with this strategy we never buy BTC
+        if coin.symbol == "BTCUSDT":
+            return False
+
         # wait a few days before going to buy a new coin
         # since we list what coins we buy in TICKERS the bot would never
         # buy a coin as soon it is listed.
@@ -1449,6 +1479,11 @@ class BuyDropSellRecoveryStrategyWhenBTCisUp(Bot):
 
         if 'BTCUSDT' not in self.coins:
             return False
+
+        # this strategy doesn't consume averages, we force an average setting
+        # in here of 1hour so that we can use an anti-pump protection
+        coin.klines_trend_period = "1h"
+        coin.klines_slice_percentage_change = float(1)
 
         unit = self.coins['BTCUSDT'].klines_trend_period[-1:]
         klines_trend_period = int(self.coins['BTCUSDT'].klines_trend_period[:-1])
@@ -1480,19 +1515,21 @@ class BuyDropSellRecoveryStrategyWhenBTCisUp(Bot):
                 return False
             last_period_slice = n
 
-
         # has the price gone down by x% on a coin we don't own?
         if (
             (float(coin.price) < percent(coin.buy_at_percentage, coin.max))
             and coin.status == ""
             and not coin.naughty
         ):
-            coin.dip = coin.price
-            logging.info(
-                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
-                + f"-> [TARGET_DIP] ({coin.price})"
-            )
-            coin.status = "TARGET_DIP"
+            # pump protection, only buy coin if the price is lower than one
+            # hour ago.
+            if coin.check_for_pump_and_dump():
+                coin.dip = coin.price
+                logging.info(
+                    f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
+                    + f"-> [TARGET_DIP] ({coin.price})"
+                )
+                coin.status = "TARGET_DIP"
 
         if coin.status != "TARGET_DIP":
             return False
@@ -1516,6 +1553,10 @@ class BuyDropSellRecoveryStrategyWhenBTCisDown(Bot):
     def buy_strategy(self, coin: Coin) -> bool:
         """bot buy strategy"""
 
+        # with this strategy we never buy BTC
+        if coin.symbol == "BTCUSDT":
+            return False
+
         # wait a few days before going to buy a new coin
         # since we list what coins we buy in TICKERS the bot would never
         # buy a coin as soon it is listed.
@@ -1526,6 +1567,11 @@ class BuyDropSellRecoveryStrategyWhenBTCisDown(Bot):
 
         if 'BTCUSDT' not in self.coins:
             return False
+
+        # this strategy doesn't consume averages, we force an average setting
+        # in here of 1hour so that we can use an anti-pump protection
+        coin.klines_trend_period = "1h"
+        coin.klines_slice_percentage_change = float(1)
 
         unit = self.coins['BTCUSDT'].klines_trend_period[-1:]
         klines_trend_period = int(self.coins['BTCUSDT'].klines_trend_period[:-1])
@@ -1563,12 +1609,15 @@ class BuyDropSellRecoveryStrategyWhenBTCisDown(Bot):
             and coin.status == ""
             and not coin.naughty
         ):
-            coin.dip = coin.price
-            logging.info(
-                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
-                + f"-> [TARGET_DIP] ({coin.price})"
-            )
-            coin.status = "TARGET_DIP"
+            # pump protection, only buy coin if the price is lower than one
+            # hour ago.
+            if coin.check_for_pump_and_dump():
+                coin.dip = coin.price
+                logging.info(
+                    f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
+                    + f"-> [TARGET_DIP] ({coin.price})"
+                )
+                coin.status = "TARGET_DIP"
 
         if coin.status != "TARGET_DIP":
             return False
@@ -1625,12 +1674,15 @@ class BuyOnRecoveryAfterDropFromAverageStrategy(Bot):
             and coin.status == ""
             and not coin.naughty
         ):
-            coin.dip = coin.price
-            logging.info(
-                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
-                + f"-> [TARGET_DIP] ({coin.price})"
-            )
-            coin.status = "TARGET_DIP"
+            # pump protection, only buy coin if the price is lower than one
+            # hour ago.
+            if coin.check_for_pump_and_dump():
+                coin.dip = coin.price
+                logging.info(
+                    f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
+                    + f"-> [TARGET_DIP] ({coin.price})"
+                )
+                coin.status = "TARGET_DIP"
 
         if coin.status != "TARGET_DIP":
             return False
