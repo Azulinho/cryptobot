@@ -42,11 +42,33 @@ jobs:
       - name: run backtesting strategies
         run: |
           set -e
-          python app.py -c tests/BuyOnGrowthTrendAfterDropStrategy.yaml -m backtesting -s tests/fake.yaml
-          python app.py -c tests/BuyDropSellRecoveryStrategy.yaml -m backtesting -s tests/fake.yaml
-          python app.py -c tests/BuyDropSellRecoveryStrategyWhenBTCisUp.yaml -m backtesting -s tests/fake.yaml
-          python app.py -c tests/BuyDropSellRecoveryStrategyWhenBTCisDown.yaml -m backtesting -s tests/fake.yaml
-          python app.py -c tests/BuyMoonSellRecoveryStrategy.yaml -m backtesting -s tests/fake.yaml
+          echo BuyMoonSellRecoveryStrategy.yaml
+          python app.py -c tests/BuyMoonSellRecoveryStrategy.yaml -m backtesting -s tests/fake.yaml |tail | tee result.txt
+          grep 'wins:4 losses:3 stales:0 holds:0' result.txt
+
+          echo BuyOnGrowthTrendAfterDropStrategy.yaml
+          python app.py -c tests/BuyOnGrowthTrendAfterDropStrategy.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
+          grep ' wins:0 losses:0 stales:5 holds:0' result.txt
+
+          echo BuyDropSellRecoveryStrategy.yaml
+          python app.py -c tests/BuyDropSellRecoveryStrategy.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
+          grep 'wins:0 losses:0 stales:2 holds:0' result.txt
+
+          echo BuyDropSellRecoveryStrategyWhenBTCisUp.yaml
+          python app.py -c tests/BuyDropSellRecoveryStrategyWhenBTCisUp.yaml -m backtesting -s tests/fake.yaml | tail |tee result.txt
+          grep 'wins:2 losses:0 stales:62 holds:0' result.txt
+
+          echo BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
+          python app.py -c tests/BuyDropSellRecoveryStrategyWhenBTCisDown.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
+          grep 'wins:0 losses:0 stales:23 holds:0' result.txt
+
+          echo BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml
+          python app.py -c tests/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
+          grep 'wins:1 losses:0 stales:33 holds:0' result.txt
+
+          echo BuyOnRecoveryAfterDropFromAverageStrategy.yaml
+          python app.py -c tests/BuyOnRecoveryAfterDropFromAverageStrategy.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
+          grep 'wins:6 losses:2 stales:78 holds:0' result.txt
 
   docker_build_tests:
     name: Run docker-compose build tests tests

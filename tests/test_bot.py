@@ -764,6 +764,9 @@ class StrategyBaseTestClass:
         coin.max = 100
         for _ in range(14):
             coin.averages['d'].append(0)
+            coin.averages['h'].append(
+                (datetime.now().timestamp(), 9999)
+            ) # address pump_checks
 
         result = bot.buy_strategy(coin)
         assert result == False
