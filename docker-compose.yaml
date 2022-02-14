@@ -9,6 +9,7 @@ services:
       - "5555"
 
     volumes:
+      - /etc/timezone:/etc/timezone:ro
       - ./configs:/configs
       - ./secrets:/secrets
       - ./log:/cryptobot/log:rw
