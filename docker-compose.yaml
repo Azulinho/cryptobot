@@ -10,6 +10,7 @@ services:
 
     volumes:
       - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
       - ./configs:/configs
       - ./secrets:/secrets
       - ./log:/cryptobot/log:rw
