@@ -70,6 +70,17 @@ jobs:
           python app.py -c tests/BuyOnRecoveryAfterDropFromAverageStrategy.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
           grep 'wins:6 losses:2 stales:78 holds:0' result.txt
 
+      - name: run automated-backtesting
+        run: |
+          set -e
+          echo automated-tests
+          LOGFILE=tests/price.log.gz
+          CONFIG=tests/automated-backtesting.yaml
+          MIN=1
+          FILTER=""
+          python -u utils/automated-backtesting.py -l ${LOGFILE} -c ${CONFIG} -m ${MIN} -f "${FILTER}" | tail | tee result.txt
+          grep 'creating log/coin.ETHUSDT.log config for BuyOnRecoveryAfterDropFromAverageStrategy' result.txt
+
   docker_build_tests:
     name: Run docker-compose build tests tests
     runs-on: ubuntu-latest

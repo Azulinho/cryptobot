@@ -1755,11 +1755,6 @@ if __name__ == "__main__":
             + f"{json.dumps(args.config, indent=4)}"
         )
 
-        # start command-control-center (ipdb on port 5555)
-        t = threading.Thread(target=control_center)
-        t.daemon = True
-        t.start()
-
         if bot.mode == "backtesting":
             bot.backtesting()
 
@@ -1767,10 +1762,18 @@ if __name__ == "__main__":
             bot.logmode()
 
         if bot.mode == "testnet":
+            # start command-control-center (ipdb on port 5555)
+            t = threading.Thread(target=control_center)
+            t.daemon = True
+            t.start()
             bot.client.API_URL = "https://testnet.binance.vision/api"
             bot.run()
 
         if bot.mode == "live":
+            # start command-control-center (ipdb on port 5555)
+            t = threading.Thread(target=control_center)
+            t.daemon = True
+            t.start()
             bot.run()
 
         bot.print_final_balance_report()
