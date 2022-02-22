@@ -1542,10 +1542,9 @@ class BuyDropSellRecoveryStrategyWhenBTCisUp(Bot):
             if float(coin.price) > percent(
                 float(coin.trail_recovery_percentage), coin.dip
             ):
-                return False
-
-        self.buy_coin(coin)
-        return True
+                self.buy_coin(coin)
+                return True
+        return False
 
 class BuyDropSellRecoveryStrategyWhenBTCisDown(Bot):
     """Base Strategy Class"""
@@ -1626,14 +1625,13 @@ class BuyDropSellRecoveryStrategyWhenBTCisDown(Bot):
         # but only buy it when the price is now higher than the last
         # price recorded. This way we ensure that we got the dip
         self.log_debug_coin(coin)
-        if float(coin.price) < float(coin.last):
+        if float(coin.price) > float(coin.last):
             if float(coin.price) > percent(
                 float(coin.trail_recovery_percentage), coin.dip
             ):
-                return False
-
-        self.buy_coin(coin)
-        return True
+                self.buy_coin(coin)
+                return True
+        return False
 
 class BuyOnRecoveryAfterDropFromAverageStrategy(Bot):
     """Base Strategy Class"""
