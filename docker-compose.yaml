@@ -11,8 +11,10 @@ services:
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
-      - ./configs:/configs
-      - ./secrets:/secrets
+      - ./configs:/cryptobot/configs
+      - ./secrets:/cryptobot/secrets:ro
       - ./log:/cryptobot/log:rw
       - ./state:/cryptobot/state:rw
       - ./cache:/cryptobot/cache:rw
+      - ./results:/cryptobot/results:rw
+      - ./tests:/cryptobot/tests:rw
