@@ -30,7 +30,8 @@ A python based trading bot for Binance, which relies heavily on backtesting.
    * [TRADING_FEE](#trading_fee)
    * [PRICE_LOGS](#price_logs)
 5. [Bot command center](#bot-command-center)
-6. [Development/New features](#development/new-features)
+6. [Automated Backtesting](#automated-backtesting)
+7. [Development/New features](#development/new-features)
 
 ## Overview
 
@@ -607,10 +608,46 @@ dir(bot)
 to see all available methods
 
 
+
+## Automated Backtesting
+
+In the utils/ directory there's a python script to automate backtesting of the
+different coins over a period of days. It works by parsing a price.log file
+combining a number of days, and running a set of different defined strategies
+(config.yamls) against each coin individually. Then gathering the best config
+for each coin and combining them into a single tuned config for that particular
+strategy. Before running a normal backtesting session using all the coins listed
+in that new config.yaml.
+
+Use it as:
+
+1. First compress all non-active logs
+
+```
+make compress-logs
+```
+
+2. Generate a logfile for the last days we want to test
+
+```
+make lastfewdays DAYS=14 PAIR=USDT
+mv lastfewdays.USDT.log.gz
+```
+
+3. Create a backtesting file in configs/automated-backtesting.yaml
+   see the examples/automated-backtesting.yaml.
+
+
+4. Run backtesting on all scenarios listed in automated-backtesting.yaml using
+ the lastfewdays.USDT.log.gz created above, and only consume coins that returned
+ at least 10% in profit.
+
+```
+make automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG=automated-backtesting.yaml MIN=10 FILTER=''
+```
+
 ## Development/New features
 
 Want this bot to do something it doesn't do today?
 
 Easy, fork it, make the changes you need, add tests, raise a PR.
-
-
