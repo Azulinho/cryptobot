@@ -631,7 +631,7 @@ make compress-logs
 
 ```
 make lastfewdays DAYS=14 PAIR=USDT
-mv lastfewdays.USDT.log.gz
+mv lastfewdays.USDT.log.gz log/
 ```
 
 3. Create a backtesting file in configs/automated-backtesting.yaml
