@@ -1,7 +1,7 @@
 version: '3'
 services:
   cryptobot:
-    image: ghcr.io/azulinho/cryptobot
+    image: ${IMAGE:-ghcr.io/azulinho/cryptobot}:${TAG:-latest}
     user: "${U}:${G}"
     build: ./
 
