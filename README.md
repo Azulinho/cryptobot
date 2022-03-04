@@ -642,9 +642,18 @@ mv lastfewdays.USDT.log.gz log/
  the lastfewdays.USDT.log.gz created above, and only consume coins that returned
  at least 10% in profit.
 
+This will generate a config.yaml with the coins sorted by which strategy
+returned the highest profit for each coin.
+
 ```
-make automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG=automated-backtesting.yaml MIN=10 FILTER=''
+make automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='profit'
 ```
+
+This will generate a config.yaml with the coins sorted by which strategy
+returned the highest number of wins for each coin.
+
+make automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='wins'
+
 
 ## Development/New features
 
