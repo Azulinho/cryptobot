@@ -67,7 +67,7 @@ def wrap_subprocessing(config):
     )
 
 
-def gather_best_results_from_backtesting_log(log, min, kind, word, strategy):
+def gather_best_results_from_backtesting_log(log, min, kind, word, strategy, sortby):
     coins = {}
     results = dict()
     if os.path.exists(log):
@@ -86,10 +86,10 @@ def gather_best_results_from_backtesting_log(log, min, kind, word, strategy):
                     continue
 
                 coin = cfgname[9:].split(".")[0]
-                w, l, s, h = wls.split(",")
+                w, l, s, h = [ int(x[1:]) for x in wls.split(",")]
 
                 # drop any results containing losses, stales, or holds
-                if l != "l0" or s != "s0" or h != "h0" or w == "w0":
+                if l != 0 or s != 0 or h != 0 or w == 0:
                     continue
 
                 coincfg = eval(_cfg)["TICKERS"][coin]
@@ -97,26 +97,39 @@ def gather_best_results_from_backtesting_log(log, min, kind, word, strategy):
                     coins[coin] = {
                         "profit": profit,
                         "wls": wls,
-                        "w": "".join(w[1:]),
-                        "l": "".join(l[1:]),
-                        "s": "".join(s[1:]),
-                        "h": "".join(h[1:]),
+                        "w": w,
+                        "l": l,
+                        "s": s,
+                        "h": h,
                         "cfgname": cfgname,
                         "coincfg": coincfg,
                     }
 
                 if coin in coins:
-                    if profit > coins[coin]["profit"]:
-                        coins[coin] = {
-                            "profit": profit,
-                            "wls": wls,
-                            "w": w,
-                            "l": l,
-                            "s": s,
-                            "h": h,
-                            "cfgname": cfgname,
-                            "coincfg": coincfg,
-                        }
+                    if sortby == "profit":
+                        if profit > coins[coin]["profit"]:
+                            coins[coin] = {
+                                "profit": profit,
+                                "wls": wls,
+                                "w": w,
+                                "l": l,
+                                "s": s,
+                                "h": h,
+                                "cfgname": cfgname,
+                                "coincfg": coincfg,
+                            }
+                    else:
+                        if w > coins[coin]["w"]:
+                            coins[coin] = {
+                                "profit": profit,
+                                "wls": wls,
+                                "w": w,
+                                "l": l,
+                                "s": s,
+                                "h": h,
+                                "cfgname": cfgname,
+                                "coincfg": coincfg,
+                            }
 
         _coins = coins
         coins = OrderedDict(sorted(_coins.items(), key=lambda x: x[1]["w"]))
@@ -250,6 +263,7 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--cfgs", help="backtesting cfg")
     parser.add_argument("-m", "--min", help="min coin profit")
     parser.add_argument("-f", "--filter", help="filter by")
+    parser.add_argument("-s", "--sortby", help="sort by 'profit' or 'wins'")
     args = parser.parse_args()
 
     logfile = args.log
@@ -297,6 +311,7 @@ if __name__ == "__main__":
                 "coincfg",
                 args.filter,
                 strategy,
+                args.sortby
             )
             generate_config_for_tuned_strategy_run(
                 strategy, cfgs["DEFAULTS"], results, logfile
