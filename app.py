@@ -292,16 +292,22 @@ class Coin:  # pylint: disable=too-few-public-methods
         for stored_date, price in self.averages["s"]:
             if stored_date < date - 60:
                 self.averages["s"].remove((stored_date, price))
+            else:
+                break
 
         # discard any measurements older than 1h
         for stored_date, price in self.averages["m"]:
             if stored_date < date - 3600:
                 self.averages["m"].remove((stored_date, price))
+            else:
+                break
 
         # discard any measurements older than 24h
         for stored_date, price in self.averages["h"]:
             if stored_date < date - 86400:
                 self.averages["h"].remove((stored_date, price))
+            else:
+                break
 
     def check_for_pump_and_dump(self):
         """ calculates current price vs 1 hour ago for pump/dump events """
