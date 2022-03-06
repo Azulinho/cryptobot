@@ -2,7 +2,7 @@ name: Run PR tests
 on: pull_request
 
 jobs:
-  python_tests:
+  pr_tests:
     name: Run PR tests
     runs-on: ubuntu-latest
     env:
@@ -70,31 +70,18 @@ jobs:
           python app.py -c tests/BuyOnRecoveryAfterDropFromAverageStrategy.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
           grep 'wins:6 losses:2 stales:78 holds:0' result.txt
 
-      - name: run automated-backtesting
-        run: |
-          set -e
-          echo automated-tests
-          LOGFILE=tests/price.log.gz
-          CONFIG=tests/automated-backtesting.yaml
-          MIN=1
-          FILTER=""
-          python -u utils/automated-backtesting.py -l ${LOGFILE} -c ${CONFIG} -m ${MIN} -f "${FILTER}" -s "profit"| tail | tee result.txt
-          grep 'creating log/coin.ETHUSDT.log config for BuyOnRecoveryAfterDropFromAverageStrategy' result.txt
-
-  docker_build_tests:
-    name: Run docker-compose build tests tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out the repo
-        uses: actions/checkout@v2
-
-      - name: setup python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.9
-
       - name: local docker-compose build
         run: |
           set -e
           pip install docker-compose
           docker-compose build
+
+      - name: run automated-backtesting
+        run: |
+          set -ex
+          echo automated-tests
+          LOGFILE=tests/price.log.gz
+          CONFIG=tests/automated-backtesting.yaml
+          MIN=1
+          FILTER=""
+          python -u utils/automated-backtesting.py -l ${LOGFILE} -c ${CONFIG} -m ${MIN} -f "${FILTER}" -s "profit"| tail
