@@ -49,7 +49,7 @@ RUN python -m venv /cryptobot/.venv
 ADD requirements.txt .
 RUN /cryptobot/.venv/bin/pip install --upgrade pip setuptools wheel
 # pyenv is failling to compile isal without setting C_INCLUDE_PATH
-RUN C_INCLUDE_PATH=/cryptobot/.pyenv/versions/pyston-2.3.1/include/python3.8-pyston2.3/ /cryptobot/.venv/bin/pip install -r requirements.txt
+RUN C_INCLUDE_PATH=/cryptobot/.pyenv/versions/pyston-2.3.2/include/python3.8-pyston2.3/ /cryptobot/.venv/bin/pip install -r requirements.txt
 
 FROM bitnami/minideb:bullseye AS cryptobot
 RUN useradd -d /cryptobot -u 1001 -ms /bin/bash cryptobot
