@@ -55,12 +55,14 @@ def mean(values: list) -> float:
     return sum(values) / len(values)
 
 
+@lru_cache(1024)
 def percent(part: float, whole: float) -> float:
     """returns the percentage value of a number"""
     result = float(whole) / 100 * float(part)
     return result
 
 
+@lru_cache(1024)
 def add_100(number: float) -> float:
     """adds 100 to a number"""
     return float(100 + number)
@@ -71,25 +73,30 @@ def control_center():
     web_pdb.set_trace()
 
 
-@lru_cache(1)
+@lru_cache(8)
 def c_date_from(day):
     """ returns a cached datetime.fromisoformat()"""
-    date = float(datetime.fromisoformat(day).timestamp())
+    try:
+        # datetime is very slow, discard the .microseconds and fetch a
+        # cached pre-calculated unix epoch timestamp
+        day = day.split('.', maxsplit=1)[0]
+        date = float(datetime.fromisoformat(day).timestamp())
+    except ValueError:
+        date = float(datetime.fromisoformat(day).timestamp())
     return date
 
 
-@lru_cache(1)
+@lru_cache(8)
 def c_from_timestamp(date):
     """ returns a cached datetime.fromtimestamp()"""
     return datetime.fromtimestamp(date)
 
 
-@lru_cache()
+@lru_cache(512)
 @retry(wait=wait_exponential(multiplier=1, max=10))
 def requests_with_backoff(query):
     """ retry wrapper for requests calls """
     return requests.get(query)
-
 
 
 class Coin:  # pylint: disable=too-few-public-methods
@@ -249,7 +256,6 @@ class Coin:  # pylint: disable=too-few-public-methods
                     (date, float(last_minute_average))
                 )
 
-
         # append the latest 60m averaged values,
         # but only if the latest 'h' record, is older than 1 hour.
         if self.averages["h"]:
@@ -288,24 +294,22 @@ class Coin:  # pylint: disable=too-few-public-methods
                         (date, float(last_day_average))
                     )
 
-        # discard any measurements older than 1minute.
-        for stored_date, price in self.averages["s"]:
-            if stored_date < date - 60:
-                self.averages["s"].remove((stored_date, price))
-            else:
-                break
+        # discard old measurements from averages
+        for unit in ["s", "m", "h"]:
+            self.trim_averages(date, unit)
 
-        # discard any measurements older than 1h
-        for stored_date, price in self.averages["m"]:
-            if stored_date < date - 3600:
-                self.averages["m"].remove((stored_date, price))
-            else:
-                break
 
-        # discard any measurements older than 24h
-        for stored_date, price in self.averages["h"]:
-            if stored_date < date - 86400:
-                self.averages["h"].remove((stored_date, price))
+    def trim_averages(self, date: float, unit: str) -> None:
+        ''' removes older values from self.averages '''
+        offset = {
+            "s": 60,
+            "m": 3600,
+            "h": 86400
+        }
+
+        for stored_date, price in self.averages[unit]:
+            if stored_date < date - offset[unit]:
+                self.averages[unit].remove((stored_date, price))
             else:
                 break
 
@@ -1040,18 +1044,11 @@ class Bot:
         if self.pairing not in line:
             return
 
-        parts = line.split(" ")
+        parts = line.split(" ", maxsplit=4)
         symbol = parts[2]
-        day = " ".join(parts[0:2])
         if symbol not in self.tickers:
             return
-        try:
-            # datetime is very slow, discard the .microseconds and fetch a
-            # cached pre-calculated unix epoch timestamp
-            day = day.split('.', maxsplit=1)[0]
-            date = c_date_from(day)
-        except ValueError:
-            date = c_date_from(day)
+        date = c_date_from(" ".join(parts[0:2]))
 
         market_price = float(parts[3])
 
