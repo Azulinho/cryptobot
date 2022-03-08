@@ -301,9 +301,8 @@ if __name__ == "__main__":
                     )
                     tasks.append(job)
 
-            # gather all runs from this strategy
-            for t in tasks:
-                t.get()
+                for t in tasks:
+                    t.get()
 
             # finally we soak up the backtesting.log and generate the best
             # config from all the runs in this strategy
