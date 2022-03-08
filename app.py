@@ -73,17 +73,10 @@ def control_center():
     web_pdb.set_trace()
 
 
-@lru_cache(8)
-def c_date_from(day):
+@lru_cache(1)
+def c_date_from(day: str) -> float:
     """ returns a cached datetime.fromisoformat()"""
-    try:
-        # datetime is very slow, discard the .microseconds and fetch a
-        # cached pre-calculated unix epoch timestamp
-        day = day.split('.', maxsplit=1)[0]
-        date = float(datetime.fromisoformat(day).timestamp())
-    except ValueError:
-        date = float(datetime.fromisoformat(day).timestamp())
-    return date
+    return float(datetime.fromisoformat(day).timestamp())
 
 
 @lru_cache(8)
@@ -1048,7 +1041,14 @@ class Bot:
         symbol = parts[2]
         if symbol not in self.tickers:
             return
-        date = c_date_from(" ".join(parts[0:2]))
+        day = " ".join(parts[0:2])
+        try:
+            # datetime is very slow, discard the .microseconds and fetch a
+            # cached pre-calculated unix epoch timestamp
+            day = day.split('.', maxsplit=1)[0]
+            date = c_date_from(day)
+        except ValueError:
+            date = c_date_from(day)
 
         market_price = float(parts[3])
 
