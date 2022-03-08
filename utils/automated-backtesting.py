@@ -271,7 +271,7 @@ if __name__ == "__main__":
     with open(args.cfgs, "rt") as f:
         cfgs = yaml.safe_load(f.read())
 
-    with mp.Pool(processes=os.cpu_count()) as pool:
+    with mp.Pool(processes=os.cpu_count() * 2) as pool:
         # process one strategy at a time
         for strategy in cfgs["STRATEGIES"]:
             # cleanup backtesting.log
@@ -300,8 +300,10 @@ if __name__ == "__main__":
                         wrap_subprocessing, (f"coin.{symbol}.yaml",)
                     )
                     tasks.append(job)
-                for t in tasks:
-                    t.get()
+
+            # gather all runs from this strategy
+            for t in tasks:
+                t.get()
 
             # finally we soak up the backtesting.log and generate the best
             # config from all the runs in this strategy
