@@ -319,6 +319,8 @@ if __name__ == "__main__":
         # cleanup backtesting.log
         if os.path.exists("log/backtesting.log"):
             os.remove("log/backtesting.log")
+
+    with mp.Pool(processes=os.cpu_count()) as pool:
         for strategy in cfgs["STRATEGIES"]:
             tasks = []
             job = pool.apply_async(wrap_subprocessing, (f"{strategy}.yaml",))
