@@ -53,6 +53,16 @@ RUN /cryptobot/.venv/bin/pip install --upgrade pip setuptools wheel
 RUN C_INCLUDE_PATH=/cryptobot/.pyenv/versions/pyston-2.3.2/include/python3.8-pyston2.3/ /cryptobot/.venv/bin/pip install -r requirements.txt
 
 FROM bitnami/minideb:bullseye AS cryptobot
+RUN install_packages \
+	xz-utils \
+	isal \
+	gzip \
+	pigz \
+	bzip2 \
+	pbzip2 \
+	isal \
+	libisal2
+
 RUN useradd -d /cryptobot -u 1001 -ms /bin/bash cryptobot
 USER cryptobot
 ENV HOME /cryptobot
