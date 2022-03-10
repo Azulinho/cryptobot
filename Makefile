@@ -20,7 +20,7 @@ slice-of-log:
 	cut -c1- log/backtesting.log | grep cfg: |  cut -d "|" -f 1,3,4,5,6 | cut -d " " -f 1,22-40 | tr -d " " |cut -c8- | sort -n | cut -d "|" -f 1-4
 
 compress-logs:
-	find log -name "202*.log" -mmin +60 | xargs -i gzip -9 {}
+	find log -name "202*.log" -mmin +60 | xargs -i gzip -3 {}
 
 lastfewdays:
 	rm -f lastfewdays.log.gz; for ta in `find log -name '202*.gz' |sort -n | tail -$(DAYS)` ; do zcat $$ta | grep $(PAIR) | grep -vE 'DOWN$(PAIR)|UP$(PAIR)|BULL$(PAIR)|BEAR$(PAIR)' | gzip >> lastfewdays.log.gz; done
