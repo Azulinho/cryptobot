@@ -19,6 +19,7 @@ RUN install_packages \
 	liblzma-dev \
 	git \
 	ca-certificates \
+	isal \
 	gzip \
 	pigz \
 	bzip2 \
