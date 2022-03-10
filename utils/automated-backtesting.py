@@ -5,7 +5,6 @@ import re
 import sys
 import traceback
 import glob
-import gzip
 import shutil
 import subprocess
 import yaml
@@ -17,6 +16,7 @@ from collections import OrderedDict
 from functools import partial
 from string import Template
 from pathlib import Path
+from xopen import xopen
 
 
 def backup_backtesting_log():
@@ -26,7 +26,7 @@ def backup_backtesting_log():
 def compress_file(filename):
     with open(filename) as uncompressed:
         print(f"\ncompressing file {filename}\n")
-        with gzip.open(f"{filename}.gz", mode="wt") as compressed:
+        with xopen(f"{filename}.gz", mode="wt") as compressed:
             shutil.copyfileobj(uncompressed, compressed)
     os.remove(filename)
 
@@ -35,7 +35,7 @@ def split_logs_into_coins(filename):
     coinfiles = set()
     coinfh = {}
     print(f"\nprocessing file {str(filename)}\n")
-    with gzip.open(f"{filename}", "rt") as logfile:
+    with xopen(f"{filename}", "rt") as logfile:
         for line in logfile:
             parts = line.split(" ")
             symbol = parts[2]
