@@ -23,7 +23,7 @@ compress-logs:
 	find log -name "202*.log" -mmin +60 | xargs -i gzip -3 {}
 
 lastfewdays:
-	rm -f lastfewdays.log.gz; for ta in `find log -name '202*.gz' |sort -n | tail -$(DAYS)` ; do zcat $$ta | grep $(PAIR) | grep -vE 'DOWN$(PAIR)|UP$(PAIR)|BULL$(PAIR)|BEAR$(PAIR)' | gzip >> lastfewdays.log.gz; done
+	rm -f lastfewdays.log.gz; for ta in `find log -name '202*.gz' |sort -n | tail -$(DAYS)` ; do zcat $$ta | grep $(PAIR) | grep -vE 'DOWN$(PAIR)|UP$(PAIR)|BULL$(PAIR)|BEAR$(PAIR)' | gzip -3 >> lastfewdays.log.gz; done
 
 automated-backtesting:
 	U="$$(id -u)" G="$$(id -g)" docker-compose run --name cryptobot.automated-backtesting --rm --entrypoint="/cryptobot/utils/automated-backtesting.sh" -e LOGFILE=/cryptobot/log/$(LOGFILE) -e CONFIG=configs/$(CONFIG) -e MIN=$(MIN) -e FILTER='$(FILTER)' -e SORTBY=$(SORTBY) cryptobot
