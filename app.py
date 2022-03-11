@@ -1050,7 +1050,12 @@ class Bot:
         except ValueError:
             date = c_date_from(day)
 
-        market_price = float(parts[3])
+        try:
+            # ocasionally binance returns incorrect prices
+            # we just skip it
+            market_price = float(parts[3])
+        except ValueError:
+            return
 
         # TODO: rework this, generate a binance_data blob to pass to
         # init_or_update_coin()
