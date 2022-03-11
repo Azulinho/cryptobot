@@ -92,6 +92,26 @@ def requests_with_backoff(query):
     return requests.get(query)
 
 
+@retry(wait=wait_exponential(multiplier=15, max=10))
+def cached_binance_client(access_key, secret_key):
+    """ retry wrapper for binance client first call """
+
+    # when running automated-testing with multiple threads, we will hit
+    # api requests limits, this happens during the client initialization
+    # which mostly issues a ping. To avoid this when running multiple processes
+    # we cache the client in a pickled state on disk and load it if it already
+    # exists.
+    cachefile = "cache/binance.client"
+    if exists(cachefile):
+        with open(cachefile, "rb") as f:
+            _client = pickle.load(f)
+    else:
+        _client = Client(access_key, secret_key)
+        with open(cachefile, "wb") as f:
+            pickle.dump(_client, f)
+
+    return _client
+
 class Coin:  # pylint: disable=too-few-public-methods
     """Coin Class"""
 
@@ -1721,7 +1741,12 @@ if __name__ == "__main__":
             secrets = yaml.safe_load(_f.read())
         cfg["MODE"] = args.mode
 
-        client = Client(secrets["ACCESS_KEY"], secrets["SECRET_KEY"])
+        if args.mode == "backtesting":
+            client = cached_binance_client(
+                secrets["ACCESS_KEY"], secrets["SECRET_KEY"]
+            )
+        else:
+            client = Client(secrets["ACCESS_KEY"], secrets["SECRET_KEY"])
 
         if cfg["STRATEGY"] == "BuyMoonSellRecoveryStrategy":
             bot = BuyMoonSellRecoveryStrategy(

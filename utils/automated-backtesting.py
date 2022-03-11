@@ -271,6 +271,10 @@ if __name__ == "__main__":
     with open(args.cfgs, "rt") as f:
         cfgs = yaml.safe_load(f.read())
 
+    # clean up old binance client cache file
+    if os.path.exists("cache/binance.client"):
+        os.remove("cache/binance.client")
+
     with mp.Pool(processes=os.cpu_count() * 2) as pool:
         # process one strategy at a time
         for strategy in cfgs["STRATEGIES"]:
