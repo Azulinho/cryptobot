@@ -36,6 +36,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Pull latest upstream base
+        run: |
+          docker pull bitnami/minideb:bullseye
+          docker pull ghcr.io/azulinho/cryptobot:latest
+
       - name: Push to GitHub Packages
         uses: docker/build-push-action@v2
         with:
