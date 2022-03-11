@@ -70,6 +70,11 @@ jobs:
           python app.py -c tests/BuyOnRecoveryAfterDropFromAverageStrategy.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
           grep 'wins:6 losses:2 stales:78 holds:0' result.txt
 
+      - name: Pull latest upstream base
+        run: |
+          docker pull bitnami/minideb:bullseye
+          docker pull ghcr.io/azulinho/cryptobot:latest
+
       - name: local docker-compose build
         run: |
           set -e
