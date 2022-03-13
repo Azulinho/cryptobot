@@ -12,7 +12,7 @@ from datetime import datetime
 from functools import lru_cache
 from hashlib import md5
 from itertools import islice
-from os.path import exists, basename
+from os.path import exists, basename, getctime
 from time import sleep
 from typing import Any, Dict, List, Tuple
 
@@ -102,7 +102,9 @@ def cached_binance_client(access_key, secret_key):
     # we cache the client in a pickled state on disk and load it if it already
     # exists.
     cachefile = "cache/binance.client"
-    if exists(cachefile):
+    if exists(cachefile) and (
+            udatetime.now().timestamp() - getctime(cachefile) < (30 * 60)
+    ):
         with open(cachefile, "rb") as f:
             _client = pickle.load(f)
     else:
