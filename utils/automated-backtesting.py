@@ -298,7 +298,7 @@ if __name__ == "__main__":
                 tasks = []
                 for coin in coinfiles:
                     symbol = coin.split(".")[1]
-                    print(f"\nbacktesting {symbol} for {run} on {strategy}\n")
+                    print(f"\nbacktesting {symbol} for {run} on {strategy} for {args.min} on {args.sortby}\n")
                     # then we backtesting this strategy run against each coin
                     job = pool.apply_async(
                         wrap_subprocessing, (f"coin.{symbol}.yaml",)
