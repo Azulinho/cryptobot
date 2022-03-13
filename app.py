@@ -1624,7 +1624,11 @@ class BuyDropSellRecoveryStrategyWhenBTCisDown(Bot):
         for _, n in last_period[1:]:
             if (
                 percent(
-                    100 + float(self.coins['BTCUSDT'].klines_slice_percentage_change),
+                    100 + (
+                        -abs(float(
+                            self.coins['BTCUSDT'].klines_slice_percentage_change
+                        ))
+                    ),
                     last_period_slice,
                 ) < n
             ):
