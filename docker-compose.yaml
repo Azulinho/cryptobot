@@ -1,6 +1,8 @@
 version: '3'
 services:
   cryptobot:
+    networks:
+      - cryptobot-network
     image: ${IMAGE:-ghcr.io/azulinho/cryptobot}:${TAG:-latest}
     user: "${U}:${G}"
     build: ./
@@ -18,3 +20,12 @@ services:
       - ./cache:/cryptobot/cache:rw
       - ./results:/cryptobot/results:rw
       - ./tests:/cryptobot/tests:rw
+
+
+networks:
+  cryptobot-network:
+    driver_opts:
+      com.docker.network.bridge.host_binding_ipv4: "${IP:-172.20.0.1}"
+    ipam:
+      config:
+        - subnet: "${NET:-172.20.0.0/16}"
