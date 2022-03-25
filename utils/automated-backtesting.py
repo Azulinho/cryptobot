@@ -330,8 +330,8 @@ if __name__ == "__main__":
             tasks = []
             job = pool.apply_async(wrap_subprocessing, (f"{strategy}.yaml",))
             tasks.append(job)
-            for t in tasks:
-                t.get()
+        for t in tasks:
+            t.get()
     for item in glob.glob('configs/coin.*.yaml'):
         os.remove(item)
     for item in glob.glob('results/coin.*.txt'):
