@@ -475,8 +475,15 @@ class Bot:
             + f"({len(self.wallet)}/{self.max_coins}) "
         )
         if self.debug:
-            logging.debug(f"averages[d]: {coin.averages['d']}")
+            logging.debug(f"lowest[m]: {coin.lowest['m']}")
+            logging.debug(f"averages[m]: {coin.averages['m']}")
+            logging.debug(f"highest[m]: {coin.highest['m']}")
+            logging.debug(f"lowest[h]: {coin.lowest['h']}")
             logging.debug(f"averages[h]: {coin.averages['h']}")
+            logging.debug(f"highest[h]: {coin.highest['h']}")
+            logging.debug(f"lowest[d]: {coin.lowest['d']}")
+            logging.debug(f"averages[d]: {coin.averages['d']}")
+            logging.debug(f"highest[d]: {coin.highest['d']}")
 
     def sell_coin(self, coin) -> None:
         """calls Binance to sell a coin"""
