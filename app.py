@@ -263,7 +263,25 @@ class Coin:  # pylint: disable=too-few-public-methods
             (date, float(market_price))
         )
 
-        # append the latest 60s averaged values,
+        # append the latest min lowest values,
+        # but only if the old 'm' record, is older than 1 minute.
+        if self.lowest["m"]:
+            latest_record_date, _ = self.lowest["m"][-1]
+            if latest_record_date <= date - 60:
+                last_minute_lowest = min([v for d,v in self.averages["s"]])
+                self.lowest["m"].append(
+                    (date, float(last_minute_lowest))
+                )
+        else:
+            # init 'm' lowest when we have seconds data older than 60s
+            oldest_record, _ = self.averages["s"][0]
+            if oldest_record <= date - 60:
+                last_minute_lowest = min([v for d,v in self.averages["s"]])
+                self.lowest["m"].append(
+                    (date, float(last_minute_lowest))
+                )
+
+        # append the latest min averaged values,
         # but only if the old 'm' record, is older than 1 minute.
         if self.averages["m"]:
             latest_record_date, _ = self.averages["m"][-1]
@@ -281,7 +299,46 @@ class Coin:  # pylint: disable=too-few-public-methods
                     (date, float(last_minute_average))
                 )
 
-        # append the latest 60m averaged values,
+        # append the latest min highest values,
+        # but only if the old 'm' record, is older than 1 minute.
+        if self.highest["m"]:
+            latest_record_date, _ = self.highest["m"][-1]
+            if latest_record_date <= date - 60:
+                last_minute_highest = max([v for d,v in self.averages["s"]])
+                self.highest["m"].append(
+                    (date, float(last_minute_highest))
+                )
+        else:
+            # init 'm' highest when we have seconds data older than 60s
+            oldest_record, _ = self.averages["s"][0]
+            if oldest_record <= date - 60:
+                last_minute_highest = max([v for d,v in self.averages["s"]])
+                self.highest["m"].append(
+                    (date, float(last_minute_highest))
+                )
+
+
+
+        # append the latest hour lowest values,
+        # but only if the latest 'h' record, is older than 1 hour.
+        if self.lowest["h"]:
+            latest_record_date, _ = self.lowest["h"][-1]
+            if latest_record_date <= date - 3600:
+                last_hour_lowest = min([v for d,v in self.lowest["m"]])
+                self.lowest["h"].append(
+                    (date, float(last_hour_lowest))
+                )
+        else:
+            # init 'h' lowest when we have min data older than 60m
+            if self.lowest["m"]:
+                oldest_record, _ = self.lowest["m"][0]
+                if oldest_record <= date - 3600:
+                    last_hour_lowest = min([v for d,v in self.lowest["m"]])
+                    self.lowest["h"].append(
+                        (date, float(last_hour_lowest))
+                    )
+
+        # append the latest hour averaged values,
         # but only if the latest 'h' record, is older than 1 hour.
         if self.averages["h"]:
             latest_record_date, _ = self.averages["h"][-1]
@@ -298,6 +355,47 @@ class Coin:  # pylint: disable=too-few-public-methods
                     last_hour_average = mean([v for d,v in self.averages["m"]])
                     self.averages["h"].append(
                         (date, float(last_hour_average))
+                    )
+
+        # append the latest hour highest values,
+        # but only if the latest 'h' record, is older than 1 hour.
+        if self.highest["h"]:
+            latest_record_date, _ = self.highest["h"][-1]
+            if latest_record_date <= date - 3600:
+                last_hour_highest = max([v for d,v in self.highest["m"]], default=0)
+                self.highest["h"].append(
+                    (date, float(last_hour_highest))
+                )
+        else:
+            # init 'h' highest when we have max data older than 60m
+            if self.highest["m"]:
+                oldest_record, _ = self.highest["m"][0]
+                if oldest_record <= date - 3600:
+                    last_hour_highest = max([v for d,v in self.highest["m"]], default=0)
+                    self.highest["h"].append(
+                        (date, float(last_hour_highest))
+                    )
+
+
+
+
+        # append the latest 24h lowest value,
+        # but only if the latest 'd' record, is older than 1 day.
+        if self.lowest["d"]:
+            latest_record_date, _ = self.lowest["d"][-1]
+            if latest_record_date <= date - 86400:
+                last_day_lowest = min([v for d,v in self.lowest["h"]], default=0)
+                self.lowest["d"].append(
+                    (date, float(last_day_lowest))
+                )
+        else:
+            if self.lowest["h"]:
+                # init 'd' lowest when we have hours data older than 24h
+                oldest_record, _ = self.lowest["h"][0]
+                if oldest_record <= date - 86400:
+                    last_day_lowest = min([v for d,v in self.lowest["h"]], default=0)
+                    self.lowest["d"].append(
+                        (date, float(last_day_lowest))
                     )
 
         # append the latest 24h averaged value,
@@ -317,6 +415,25 @@ class Coin:  # pylint: disable=too-few-public-methods
                     last_day_average = mean([v for d,v in self.averages["h"]])
                     self.averages["d"].append(
                         (date, float(last_day_average))
+                    )
+
+        # append the latest 24h highest value,
+        # but only if the latest 'd' record, is older than 1 day.
+        if self.highest["d"]:
+            latest_record_date, _ = self.highest["d"][-1]
+            if latest_record_date <= date - 86400:
+                last_day_highest = max([v for d,v in self.highest["h"]], default=0)
+                self.highest["d"].append(
+                    (date, float(last_day_highest))
+                )
+        else:
+            if self.highest["h"]:
+                # init 'd' highest when we have hours data older than 24h
+                oldest_record, _ = self.highest["h"][0]
+                if oldest_record <= date - 86400:
+                    last_day_highest = max([v for d,v in self.highest["h"]], default=0)
+                    self.highest["d"].append(
+                        (date, float(last_day_highest))
                     )
 
         # discard old measurements from averages
