@@ -1426,7 +1426,7 @@ class BuyOnRecoveryAfterDropDuringGrowthTrendStrategy(Bot):
             if coin.check_for_pump_and_dump():
                 coin.dip = coin.price
                 logging.info(
-                    f"{coin.date}: {coin.symbol} [{coin.status}] "
+                    f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
                     + f"-> [TARGET_DIP] ({coin.price})"
                 )
                 coin.status = "TARGET_DIP"
