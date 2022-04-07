@@ -449,11 +449,26 @@ class Coin:  # pylint: disable=too-few-public-methods
             "h": 86400
         }
 
-        for stored_date, price in self.averages[unit]:
-            if stored_date < date - offset[unit]:
-                self.averages[unit].remove((stored_date, price))
-            else:
-                break
+        if unit in self.lowest:
+            for stored_date, price in self.lowest[unit]:
+                if stored_date < date - offset[unit]:
+                    self.lowest[unit].remove((stored_date, price))
+                else:
+                   break
+
+        if unit in self.averages:
+            for stored_date, price in self.averages[unit]:
+                if stored_date < date - offset[unit]:
+                    self.averages[unit].remove((stored_date, price))
+                else:
+                    break
+
+        if unit in self.highest:
+            for stored_date, price in self.highest[unit]:
+                if stored_date < date - offset[unit]:
+                    self.highest[unit].remove((stored_date, price))
+                else:
+                    break
 
     def check_for_pump_and_dump(self):
         """ calculates current price vs 1 hour ago for pump/dump events """
