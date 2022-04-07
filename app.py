@@ -169,6 +169,16 @@ class Coin:  # pylint: disable=too-few-public-methods
             "h": [],
             "d": [],
         }
+        self.lowest: dict = {
+            "m": [],
+            "h": [],
+            "d": [],
+        }
+        self.highest: dict = {
+            "m": [],
+            "h": [],
+            "d": [],
+        }
         self.klines_trend_period: str = str(klines_trend_period)
         self.klines_slice_percentage_change: float = float(
             klines_slice_percentage_change
