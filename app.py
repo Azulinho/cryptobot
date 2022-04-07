@@ -46,7 +46,7 @@ f_handler.setLevel(logging.DEBUG)
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format="[%(levelname)s] %(message)s",
+    format="[%(levelname)s] %(lineno)d %(funcName)s %(message)s",
     handlers=[f_handler, c_handler],
 )
 
