@@ -868,8 +868,9 @@ class Bot:
         coin.dip = float(0)
         coin.tip = float(0)
         coin.status = ""
-        coin.min = float(coin.price)
-        coin.max = float(coin.price)
+        if self.clean_coin_stats_at_sale:
+            coin.min = float(coin.price)
+            coin.max = float(coin.price)
 
     def save_coins(self) -> None:
         """saves coins and wallet to a local pickle file"""
