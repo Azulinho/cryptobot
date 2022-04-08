@@ -375,9 +375,6 @@ class Coin:  # pylint: disable=too-few-public-methods
                         (date, float(last_hour_highest))
                     )
 
-
-
-
         # append the latest 24h lowest value,
         # but only if the latest 'd' record, is older than 1 day.
         if self.lowest["d"]:
@@ -1466,7 +1463,7 @@ class BuyMoonSellRecoveryStrategy(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7:
+        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
             return False
 
         if float(coin.price) > percent(coin.buy_at_percentage, coin.last):
@@ -1492,7 +1489,7 @@ class BuyOnGrowthTrendAfterDropStrategy(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7:
+        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
             return False
 
         unit = coin.klines_trend_period[-1:]
@@ -1560,7 +1557,7 @@ class BuyOnRecoveryAfterDropDuringGrowthTrendStrategy(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7:
+        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
             return False
 
         unit = coin.klines_trend_period[-1:]
@@ -1637,7 +1634,7 @@ class BuyDropSellRecoveryStrategy(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7:
+        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
             return False
 
         # this strategy doesn't consume averages, we force an average setting
@@ -1691,7 +1688,7 @@ class BuyDropSellRecoveryStrategyWhenBTCisUp(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7:
+        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
             return False
 
         if 'BTCUSDT' not in self.coins:
@@ -1778,7 +1775,7 @@ class BuyDropSellRecoveryStrategyWhenBTCisDown(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7:
+        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
             return False
 
         if 'BTCUSDT' not in self.coins:
@@ -1865,7 +1862,7 @@ class BuyOnRecoveryAfterDropFromAverageStrategy(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7:
+        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
             return False
 
         unit = coin.klines_trend_period[-1:]
