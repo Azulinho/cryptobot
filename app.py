@@ -1317,7 +1317,7 @@ class Bot:
         """fetches from binance or a local cache klines for a coin"""
 
         symbol = coin.symbol
-        logging.info(f"loading klines for: {symbol}")
+        logging.info(f"{c_from_timestamp(coin.date)}: loading klines for: {symbol}")
 
 
         api_url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&"
