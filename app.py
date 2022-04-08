@@ -131,12 +131,12 @@ class Coin:  # pylint: disable=too-few-public-methods
         hard_limit_holding_time: int,
         naughty_timeout: int,
         klines_trend_period: str,
-        klines_slice_percentage_change: float,
+        klines_slice_percentage_change: float
     ) -> None:
         """Coin object"""
         self.symbol = symbol
-        self.volume: float = 0
-        self.bought_at: float = 0
+        self.volume: float = float(0)
+        self.bought_at: float = float(0)
         self.min = float(market_price)
         self.max = float(market_price)
         self.date = date
@@ -161,15 +161,14 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.profit = float(0)
         self.soft_limit_holding_time: int = int(soft_limit_holding_time)
         self.hard_limit_holding_time: int = int(hard_limit_holding_time)
-        self.naughty_timeout: int = naughty_timeout
-        # TODO: this must support PAUSE_FOR values different than 1s
-        self.averages: dict = {
-            "s": [],
+        self.naughty_timeout: int = int(naughty_timeout)
+        self.lowest: dict = {
             "m": [],
             "h": [],
             "d": [],
         }
-        self.lowest: dict = {
+        self.averages: dict = {
+            "s": [],
             "m": [],
             "h": [],
             "d": [],
@@ -1107,6 +1106,20 @@ class Bot:
                 else:
                     self.coins[symbol].bought_date = None  # type: ignore
 
+            if "lowest" not in dir(self.coins[symbol]):
+                self.coins[symbol].lowest = {'m': [], 'h': [], 'd': []}
+
+            if "averages" not in dir(self.coins[symbol]):
+                self.coins[symbol].averages = {
+                    's': [],
+                    'm': [],
+                    'h': [],
+                    'd': []
+                }
+
+            if "highest" not in dir(self.coins[symbol]):
+                self.coins[symbol].highest = {'m': [], 'h': [], 'd': []}
+
             self.coins[symbol].naughty_timeout = int(
                 self.tickers[symbol]["NAUGHTY_TIMEOUT"]
             )
@@ -1338,7 +1351,10 @@ class Bot:
                 # TODO: collecting a large number of historic day values
                 # could be dangerous as we could trigger an immediate buy on
                 # a coin that has gone down in price by % over last few days
-                timeslice = 7
+                if coin.klines_trend_period[1] in ['d', 'D']:
+                    timeslice = int(coin.klines_trend_period[0])
+                else:
+                    timeslice = 0
                 minutes_before_now = 60 * 24
 
             if self.mode == "backtesting":
@@ -1374,23 +1390,44 @@ class Bot:
             if self.debug:
                 logging.debug(f"{symbol} : last_{unit}:{results[-1:]}")
 
-            averages = [
-                (
-                    datetime.fromtimestamp(y[6] / 1000),
-                    (float(y[2]) + float(y[3])) /2
-                ) for y in results
-            ]
+            if timeslice != 0:
+                lowest = []
+                averages = []
+                highest = []
+                for _, _, high, low, _, _, closetime, _, _, _, _,_ in results:
+                    date = float(
+                        datetime.fromtimestamp(closetime / 1000).timestamp()
+                    )
+                    low = float(low)
+                    high = float(high)
+                    avg = (low  + high ) / 2
 
-            for d, v in averages[-timeslice:]:
-                coin.averages[unit].append((float(d.timestamp()), v))
+                    lowest.append((date, low ))
+                    averages.append((date, avg ))
+                    highest.append((date, high ))
+
+                for d, v in lowest[-timeslice:]:
+                    coin.lowest[unit].append((d, v))
+
+                for d, v in averages[-timeslice:]:
+                    coin.averages[unit].append((d, v))
+
+                for d, v in highest[-timeslice:]:
+                    coin.highest[unit].append((d, v))
 
         if self.debug:
             logging.debug(f"{symbol} : price:{coin.price}")
             logging.debug(f"{symbol} : min:{coin.min}")
             logging.debug(f"{symbol} : max:{coin.max}")
-            logging.debug(f"{symbol} : d:{coin.averages['d']}")
-            logging.debug(f"{symbol} : h:{coin.averages['h']}")
-            logging.debug(f"{symbol} : m:{coin.averages['m']}")
+            logging.debug(f"{symbol} : lowest['m']:{coin.lowest['m']}")
+            logging.debug(f"{symbol} : lowest['h']:{coin.lowest['h']}")
+            logging.debug(f"{symbol} : lowest['d']:{coin.lowest['d']}")
+            logging.debug(f"{symbol} : averages['m']:{coin.averages['m']}")
+            logging.debug(f"{symbol} : averages['h']:{coin.averages['h']}")
+            logging.debug(f"{symbol} : averages['d']:{coin.averages['d']}")
+            logging.debug(f"{symbol} : highest['m']:{coin.highest['m']}")
+            logging.debug(f"{symbol} : highest['h']:{coin.highest['h']}")
+            logging.debug(f"{symbol} : highest['d']:{coin.highest['d']}")
 
     def print_final_balance_report(self):
         """ calculates and outputs final balance """
