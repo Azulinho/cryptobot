@@ -453,7 +453,7 @@ class Coin:  # pylint: disable=too-few-public-methods
                 if stored_date < date - offset[unit]:
                     self.lowest[unit].remove((stored_date, price))
                 else:
-                   break
+                    break
 
         if unit in self.averages:
             for stored_date, price in self.averages[unit]:
