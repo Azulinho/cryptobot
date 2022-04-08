@@ -46,7 +46,7 @@ f_handler.setLevel(logging.DEBUG)
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format="[%(levelname)s] %(message)s",
+    format="[%(levelname)s] %(lineno)d %(funcName)s %(message)s",
     handlers=[f_handler, c_handler],
 )
 
@@ -131,12 +131,12 @@ class Coin:  # pylint: disable=too-few-public-methods
         hard_limit_holding_time: int,
         naughty_timeout: int,
         klines_trend_period: str,
-        klines_slice_percentage_change: float,
+        klines_slice_percentage_change: float
     ) -> None:
         """Coin object"""
         self.symbol = symbol
-        self.volume: float = 0
-        self.bought_at: float = 0
+        self.volume: float = float(0)
+        self.bought_at: float = float(0)
         self.min = float(market_price)
         self.max = float(market_price)
         self.date = date
@@ -161,10 +161,19 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.profit = float(0)
         self.soft_limit_holding_time: int = int(soft_limit_holding_time)
         self.hard_limit_holding_time: int = int(hard_limit_holding_time)
-        self.naughty_timeout: int = naughty_timeout
-        # TODO: this must support PAUSE_FOR values different than 1s
+        self.naughty_timeout: int = int(naughty_timeout)
+        self.lowest: dict = {
+            "m": [],
+            "h": [],
+            "d": [],
+        }
         self.averages: dict = {
             "s": [],
+            "m": [],
+            "h": [],
+            "d": [],
+        }
+        self.highest: dict = {
             "m": [],
             "h": [],
             "d": [],
@@ -253,7 +262,25 @@ class Coin:  # pylint: disable=too-few-public-methods
             (date, float(market_price))
         )
 
-        # append the latest 60s averaged values,
+        # append the latest min lowest values,
+        # but only if the old 'm' record, is older than 1 minute.
+        if self.lowest["m"]:
+            latest_record_date, _ = self.lowest["m"][-1]
+            if latest_record_date <= date - 60:
+                last_minute_lowest = min([v for d,v in self.averages["s"]])
+                self.lowest["m"].append(
+                    (date, float(last_minute_lowest))
+                )
+        else:
+            # init 'm' lowest when we have seconds data older than 60s
+            oldest_record, _ = self.averages["s"][0]
+            if oldest_record <= date - 60:
+                last_minute_lowest = min([v for d,v in self.averages["s"]])
+                self.lowest["m"].append(
+                    (date, float(last_minute_lowest))
+                )
+
+        # append the latest min averaged values,
         # but only if the old 'm' record, is older than 1 minute.
         if self.averages["m"]:
             latest_record_date, _ = self.averages["m"][-1]
@@ -271,7 +298,46 @@ class Coin:  # pylint: disable=too-few-public-methods
                     (date, float(last_minute_average))
                 )
 
-        # append the latest 60m averaged values,
+        # append the latest min highest values,
+        # but only if the old 'm' record, is older than 1 minute.
+        if self.highest["m"]:
+            latest_record_date, _ = self.highest["m"][-1]
+            if latest_record_date <= date - 60:
+                last_minute_highest = max([v for d,v in self.averages["s"]])
+                self.highest["m"].append(
+                    (date, float(last_minute_highest))
+                )
+        else:
+            # init 'm' highest when we have seconds data older than 60s
+            oldest_record, _ = self.averages["s"][0]
+            if oldest_record <= date - 60:
+                last_minute_highest = max([v for d,v in self.averages["s"]])
+                self.highest["m"].append(
+                    (date, float(last_minute_highest))
+                )
+
+
+
+        # append the latest hour lowest values,
+        # but only if the latest 'h' record, is older than 1 hour.
+        if self.lowest["h"]:
+            latest_record_date, _ = self.lowest["h"][-1]
+            if latest_record_date <= date - 3600:
+                last_hour_lowest = min([v for d,v in self.lowest["m"]])
+                self.lowest["h"].append(
+                    (date, float(last_hour_lowest))
+                )
+        else:
+            # init 'h' lowest when we have min data older than 60m
+            if self.lowest["m"]:
+                oldest_record, _ = self.lowest["m"][0]
+                if oldest_record <= date - 3600:
+                    last_hour_lowest = min([v for d,v in self.lowest["m"]])
+                    self.lowest["h"].append(
+                        (date, float(last_hour_lowest))
+                    )
+
+        # append the latest hour averaged values,
         # but only if the latest 'h' record, is older than 1 hour.
         if self.averages["h"]:
             latest_record_date, _ = self.averages["h"][-1]
@@ -288,6 +354,44 @@ class Coin:  # pylint: disable=too-few-public-methods
                     last_hour_average = mean([v for d,v in self.averages["m"]])
                     self.averages["h"].append(
                         (date, float(last_hour_average))
+                    )
+
+        # append the latest hour highest values,
+        # but only if the latest 'h' record, is older than 1 hour.
+        if self.highest["h"]:
+            latest_record_date, _ = self.highest["h"][-1]
+            if latest_record_date <= date - 3600:
+                last_hour_highest = max([v for d,v in self.highest["m"]], default=0)
+                self.highest["h"].append(
+                    (date, float(last_hour_highest))
+                )
+        else:
+            # init 'h' highest when we have max data older than 60m
+            if self.highest["m"]:
+                oldest_record, _ = self.highest["m"][0]
+                if oldest_record <= date - 3600:
+                    last_hour_highest = max([v for d,v in self.highest["m"]], default=0)
+                    self.highest["h"].append(
+                        (date, float(last_hour_highest))
+                    )
+
+        # append the latest 24h lowest value,
+        # but only if the latest 'd' record, is older than 1 day.
+        if self.lowest["d"]:
+            latest_record_date, _ = self.lowest["d"][-1]
+            if latest_record_date <= date - 86400:
+                last_day_lowest = min([v for d,v in self.lowest["h"]], default=0)
+                self.lowest["d"].append(
+                    (date, float(last_day_lowest))
+                )
+        else:
+            if self.lowest["h"]:
+                # init 'd' lowest when we have hours data older than 24h
+                oldest_record, _ = self.lowest["h"][0]
+                if oldest_record <= date - 86400:
+                    last_day_lowest = min([v for d,v in self.lowest["h"]], default=0)
+                    self.lowest["d"].append(
+                        (date, float(last_day_lowest))
                     )
 
         # append the latest 24h averaged value,
@@ -309,6 +413,25 @@ class Coin:  # pylint: disable=too-few-public-methods
                         (date, float(last_day_average))
                     )
 
+        # append the latest 24h highest value,
+        # but only if the latest 'd' record, is older than 1 day.
+        if self.highest["d"]:
+            latest_record_date, _ = self.highest["d"][-1]
+            if latest_record_date <= date - 86400:
+                last_day_highest = max([v for d,v in self.highest["h"]], default=0)
+                self.highest["d"].append(
+                    (date, float(last_day_highest))
+                )
+        else:
+            if self.highest["h"]:
+                # init 'd' highest when we have hours data older than 24h
+                oldest_record, _ = self.highest["h"][0]
+                if oldest_record <= date - 86400:
+                    last_day_highest = max([v for d,v in self.highest["h"]], default=0)
+                    self.highest["d"].append(
+                        (date, float(last_day_highest))
+                    )
+
         # discard old measurements from averages
         for unit in ["s", "m", "h"]:
             self.trim_averages(date, unit)
@@ -322,11 +445,26 @@ class Coin:  # pylint: disable=too-few-public-methods
             "h": 86400
         }
 
-        for stored_date, price in self.averages[unit]:
-            if stored_date < date - offset[unit]:
-                self.averages[unit].remove((stored_date, price))
-            else:
-                break
+        if unit in self.lowest:
+            for stored_date, price in self.lowest[unit]:
+                if stored_date < date - offset[unit]:
+                    self.lowest[unit].remove((stored_date, price))
+                else:
+                    break
+
+        if unit in self.averages:
+            for stored_date, price in self.averages[unit]:
+                if stored_date < date - offset[unit]:
+                    self.averages[unit].remove((stored_date, price))
+                else:
+                    break
+
+        if unit in self.highest:
+            for stored_date, price in self.highest[unit]:
+                if stored_date < date - offset[unit]:
+                    self.highest[unit].remove((stored_date, price))
+                else:
+                    break
 
     def check_for_pump_and_dump(self):
         """ calculates current price vs 1 hour ago for pump/dump events """
@@ -475,8 +613,15 @@ class Bot:
             + f"({len(self.wallet)}/{self.max_coins}) "
         )
         if self.debug:
-            logging.debug(f"averages[d]: {coin.averages['d']}")
+            logging.debug(f"lowest[m]: {coin.lowest['m']}")
+            logging.debug(f"averages[m]: {coin.averages['m']}")
+            logging.debug(f"highest[m]: {coin.highest['m']}")
+            logging.debug(f"lowest[h]: {coin.lowest['h']}")
             logging.debug(f"averages[h]: {coin.averages['h']}")
+            logging.debug(f"highest[h]: {coin.highest['h']}")
+            logging.debug(f"lowest[d]: {coin.lowest['d']}")
+            logging.debug(f"averages[d]: {coin.averages['d']}")
+            logging.debug(f"highest[d]: {coin.highest['d']}")
 
     def sell_coin(self, coin) -> None:
         """calls Binance to sell a coin"""
@@ -958,6 +1103,20 @@ class Bot:
                 else:
                     self.coins[symbol].bought_date = None  # type: ignore
 
+            if "lowest" not in dir(self.coins[symbol]):
+                self.coins[symbol].lowest = {'m': [], 'h': [], 'd': []}
+
+            if "averages" not in dir(self.coins[symbol]):
+                self.coins[symbol].averages = {
+                    's': [],
+                    'm': [],
+                    'h': [],
+                    'd': []
+                }
+
+            if "highest" not in dir(self.coins[symbol]):
+                self.coins[symbol].highest = {'m': [], 'h': [], 'd': []}
+
             self.coins[symbol].naughty_timeout = int(
                 self.tickers[symbol]["NAUGHTY_TIMEOUT"]
             )
@@ -1168,7 +1327,7 @@ class Bot:
         """fetches from binance or a local cache klines for a coin"""
 
         symbol = coin.symbol
-        logging.info(f"loading klines for: {symbol}")
+        logging.info(f"{c_from_timestamp(coin.date)}: loading klines for: {symbol}")
 
 
         api_url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&"
@@ -1189,7 +1348,10 @@ class Bot:
                 # TODO: collecting a large number of historic day values
                 # could be dangerous as we could trigger an immediate buy on
                 # a coin that has gone down in price by % over last few days
-                timeslice = 7
+                if coin.klines_trend_period[1] in ['d', 'D']:
+                    timeslice = int(coin.klines_trend_period[0])
+                else:
+                    timeslice = 0
                 minutes_before_now = 60 * 24
 
             if self.mode == "backtesting":
@@ -1225,23 +1387,44 @@ class Bot:
             if self.debug:
                 logging.debug(f"{symbol} : last_{unit}:{results[-1:]}")
 
-            averages = [
-                (
-                    datetime.fromtimestamp(y[6] / 1000),
-                    (float(y[2]) + float(y[3])) /2
-                ) for y in results
-            ]
+            if timeslice != 0:
+                lowest = []
+                averages = []
+                highest = []
+                for _, _, high, low, _, _, closetime, _, _, _, _,_ in results:
+                    date = float(
+                        datetime.fromtimestamp(closetime / 1000).timestamp()
+                    )
+                    low = float(low)
+                    high = float(high)
+                    avg = (low  + high ) / 2
 
-            for d, v in averages[-timeslice:]:
-                coin.averages[unit].append((float(d.timestamp()), v))
+                    lowest.append((date, low ))
+                    averages.append((date, avg ))
+                    highest.append((date, high ))
+
+                for d, v in lowest[-timeslice:]:
+                    coin.lowest[unit].append((d, v))
+
+                for d, v in averages[-timeslice:]:
+                    coin.averages[unit].append((d, v))
+
+                for d, v in highest[-timeslice:]:
+                    coin.highest[unit].append((d, v))
 
         if self.debug:
             logging.debug(f"{symbol} : price:{coin.price}")
             logging.debug(f"{symbol} : min:{coin.min}")
             logging.debug(f"{symbol} : max:{coin.max}")
-            logging.debug(f"{symbol} : d:{coin.averages['d']}")
-            logging.debug(f"{symbol} : h:{coin.averages['h']}")
-            logging.debug(f"{symbol} : m:{coin.averages['m']}")
+            logging.debug(f"{symbol} : lowest['m']:{coin.lowest['m']}")
+            logging.debug(f"{symbol} : lowest['h']:{coin.lowest['h']}")
+            logging.debug(f"{symbol} : lowest['d']:{coin.lowest['d']}")
+            logging.debug(f"{symbol} : averages['m']:{coin.averages['m']}")
+            logging.debug(f"{symbol} : averages['h']:{coin.averages['h']}")
+            logging.debug(f"{symbol} : averages['d']:{coin.averages['d']}")
+            logging.debug(f"{symbol} : highest['m']:{coin.highest['m']}")
+            logging.debug(f"{symbol} : highest['h']:{coin.highest['h']}")
+            logging.debug(f"{symbol} : highest['d']:{coin.highest['d']}")
 
     def print_final_balance_report(self):
         """ calculates and outputs final balance """
@@ -1280,7 +1463,7 @@ class BuyMoonSellRecoveryStrategy(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7:
+        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
             return False
 
         if float(coin.price) > percent(coin.buy_at_percentage, coin.last):
@@ -1306,7 +1489,7 @@ class BuyOnGrowthTrendAfterDropStrategy(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7:
+        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
             return False
 
         unit = coin.klines_trend_period[-1:]
@@ -1374,7 +1557,7 @@ class BuyOnRecoveryAfterDropDuringGrowthTrendStrategy(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7:
+        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
             return False
 
         unit = coin.klines_trend_period[-1:]
@@ -1419,7 +1602,7 @@ class BuyOnRecoveryAfterDropDuringGrowthTrendStrategy(Bot):
             if coin.check_for_pump_and_dump():
                 coin.dip = coin.price
                 logging.info(
-                    f"{coin.date}: {coin.symbol} [{coin.status}] "
+                    f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
                     + f"-> [TARGET_DIP] ({coin.price})"
                 )
                 coin.status = "TARGET_DIP"
@@ -1451,7 +1634,7 @@ class BuyDropSellRecoveryStrategy(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7:
+        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
             return False
 
         # this strategy doesn't consume averages, we force an average setting
@@ -1505,7 +1688,7 @@ class BuyDropSellRecoveryStrategyWhenBTCisUp(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7:
+        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
             return False
 
         if 'BTCUSDT' not in self.coins:
@@ -1592,7 +1775,7 @@ class BuyDropSellRecoveryStrategyWhenBTCisDown(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7:
+        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
             return False
 
         if 'BTCUSDT' not in self.coins:
@@ -1679,7 +1862,7 @@ class BuyOnRecoveryAfterDropFromAverageStrategy(Bot):
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7:
+        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
             return False
 
         unit = coin.klines_trend_period[-1:]
