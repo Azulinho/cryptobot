@@ -12,6 +12,7 @@ from datetime import datetime
 from functools import lru_cache
 from hashlib import md5
 from itertools import islice
+from os import fsync
 from os.path import exists, basename, getctime
 from time import sleep
 from typing import Any, Dict, List, Tuple
@@ -1019,10 +1020,23 @@ class Bot:
 
     def save_coins(self) -> None:
         """saves coins and wallet to a local pickle file"""
+
+        for statefile in ["state/coins.pickle", "state/wallet.pickle"]:
+            if exists(statefile):
+                with open(statefile, "rb") as f:
+                    with open(f"{statefile}.backup", "wb") as b:
+                        b.write(f.read())
+                        b.flush()
+                        fsync(b.fileno())
+
         with open("state/coins.pickle", "wb") as f:
             pickle.dump(self.coins, f)
+            f.flush()
+            fsync(f.fileno())
         with open("state/wallet.pickle", "wb") as f:
             pickle.dump(self.wallet, f)
+            f.flush()
+            fsync(f.fileno())
 
     def load_coins(self) -> None:
         """loads coins and wallet from a local pickle file"""
