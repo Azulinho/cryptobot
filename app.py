@@ -1454,12 +1454,6 @@ class Bot:
             + f"stales:{self.stales} holds:{len(self.wallet)}"
         )
 
-
-class BuyMoonSellRecoveryStrategy(Bot):
-    """Base Strategy Class"""
-
-    def buy_strategy(self, coin: Coin) -> bool:
-        """bot buy strategy"""
     def new_listing(self, coin):
         """ checks if coin is a new listing """
         # wait a few days before going to buy a new coin
@@ -1470,6 +1464,7 @@ class BuyMoonSellRecoveryStrategy(Bot):
         # we want to avoid buy these new listings as they will very volatile
         if len(list(coin.averages['d'])) < 31 and self.mode == "backtesting":
             return True
+
     def check_for_pump_and_dump(self, coin):
         """ calculates current price vs 1 hour ago for pump/dump events """
 
@@ -1489,7 +1484,11 @@ class BuyMoonSellRecoveryStrategy(Bot):
         return False
 
 
+class BuyMoonSellRecoveryStrategy(Bot):
+    """Base Strategy Class"""
 
+    def buy_strategy(self, coin: Coin) -> bool:
+        """bot buy strategy"""
         if float(coin.price) > percent(coin.buy_at_percentage, coin.last):
             self.buy_coin(coin)
             self.log_debug_coin(coin)
@@ -1657,7 +1656,9 @@ class BuyDropSellRecoveryStrategyWhenBTCisUp(Bot):
             ''.join(self.coins['BTCUSDT'].klines_trend_period[:-1])
         )
 
-        last_period = list(self.coins['BTCUSDT'].averages[unit])[-klines_trend_period:]
+        last_period = list(
+            self.coins['BTCUSDT'].averages[unit]
+        )[-klines_trend_period:]
 
         if len(last_period) < klines_trend_period:
             return False
@@ -1666,7 +1667,9 @@ class BuyDropSellRecoveryStrategyWhenBTCisUp(Bot):
         for _, n in last_period[1:]:
             if (
                 percent(
-                    100 + float(self.coins['BTCUSDT'].klines_slice_percentage_change),
+                    100 + float(
+                        self.coins['BTCUSDT'].klines_slice_percentage_change
+                    ),
                     last_period_slice,
                 )
                 > n
