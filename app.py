@@ -849,6 +849,9 @@ class Bot:
             if self.coins[coin_symbol].naughty:
                 continue
 
+            if self.new_listing(self.coins[coin_symbol]):
+                continue
+
             if coin_symbol in self.tickers or coin_symbol in self.wallet:
                 self.run_strategy(self.coins[coin_symbol])
             if coin_symbol in self.wallet:
@@ -1275,7 +1278,9 @@ class Bot:
             self.coins[symbol].last_read_date = date
 
             self.coins[symbol].update(date, market_price)
-        self.run_strategy(self.coins[symbol])
+
+        if not self.new_listing(self.coins[symbol]):
+            self.run_strategy(self.coins[symbol])
 
     def backtest_logfile(self, price_log: str) -> None:
         """processes one price.log file for backtesting"""
@@ -1332,7 +1337,6 @@ class Bot:
 
         symbol = coin.symbol
         logging.info(f"{c_from_timestamp(coin.date)}: loading klines for: {symbol}")
-
 
         api_url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&"
 
@@ -1462,13 +1466,16 @@ class BuyMoonSellRecoveryStrategy(Bot):
 
     def buy_strategy(self, coin: Coin) -> bool:
         """bot buy strategy"""
+    def new_listing(self, coin):
+        """ checks if coin is a new listing """
         # wait a few days before going to buy a new coin
         # since we list what coins we buy in TICKERS the bot would never
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
-            return False
+        # we want to avoid buy these new listings as they will very volatile
+        if len(list(coin.averages['d'])) < 31 and self.mode == "backtesting":
+            return True
     def check_for_pump_and_dump(self, coin):
         """ calculates current price vs 1 hour ago for pump/dump events """
 
@@ -1507,28 +1514,10 @@ class BuyOnGrowthTrendAfterDropStrategy(Bot):
 
     def buy_strategy(self, coin: Coin) -> bool:
         """bot buy strategy"""
-        # wait a few days before going to buy a new coin
-        # since we list what coins we buy in TICKERS the bot would never
-        # buy a coin as soon it is listed.
-        # However in backtesting, the bot will buy that coin as its listed in
-        # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
-            return False
 
-        unit = coin.klines_trend_period[-1:]
-        klines_trend_period = int(coin.klines_trend_period[:-1])
-
-        if unit in ["D", "d"]:
-            last_period = list(coin.averages["d"])[-klines_trend_period:]
-
-        if unit in ["H", "h"]:
-            last_period = list(coin.averages["h"])[-klines_trend_period:]
-
-        if unit in ["M", "m"]:
-            last_period = list(coin.averages["m"])[-klines_trend_period:]
-
-        if unit in ["S", "s"]:
-            last_period = list(coin.averages["s"])[-klines_trend_period:]
+        unit = str(coin.klines_trend_period[-1:]).lower()
+        klines_trend_period = int(''.join(coin.klines_trend_period[:-1]))
+        last_period = list(coin.averages[unit])[-klines_trend_period:]
 
         if len(last_period) < klines_trend_period:
             return False
@@ -1571,28 +1560,11 @@ class BuyOnRecoveryAfterDropDuringGrowthTrendStrategy(Bot):
 
     def buy_strategy(self, coin: Coin) -> bool:
         """bot buy strategy"""
-        # wait a few days before going to buy a new coin
-        # since we list what coins we buy in TICKERS the bot would never
-        # buy a coin as soon it is listed.
-        # However in backtesting, the bot will buy that coin as its listed in
-        # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
-            return False
 
-        unit = coin.klines_trend_period[-1:]
+        unit = str(coin.klines_trend_period[-1:]).lower()
         klines_trend_period = int(coin.klines_trend_period[:-1])
 
-        if unit in ["D", "d"]:
-            last_period = list(coin.averages["d"])[-klines_trend_period:]
-
-        if unit in ["H", "h"]:
-            last_period = list(coin.averages["h"])[-klines_trend_period:]
-
-        if unit in ["M", "m"]:
-            last_period = list(coin.averages["m"])[-klines_trend_period:]
-
-        if unit in ["S", "s"]:
-            last_period = list(coin.averages["s"])[-klines_trend_period:]
+        last_period = list(coin.averages[unit])[-klines_trend_period:]
 
         if len(last_period) < klines_trend_period:
             return False
@@ -1645,19 +1617,6 @@ class BuyDropSellRecoveryStrategy(Bot):
     def buy_strategy(self, coin: Coin) -> bool:
         """bot buy strategy"""
 
-        # wait a few days before going to buy a new coin
-        # since we list what coins we buy in TICKERS the bot would never
-        # buy a coin as soon it is listed.
-        # However in backtesting, the bot will buy that coin as its listed in
-        # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
-            return False
-
-        # this strategy doesn't consume averages, we force an average setting
-        # in here of 1hour so that we can use an anti-pump protection
-        coin.klines_trend_period = "1h"
-        coin.klines_slice_percentage_change = float(1)
-
         # has the price gone down by x% on a coin we don't own?
         if (
             (float(coin.price) < percent(coin.buy_at_percentage, coin.max))
@@ -1696,36 +1655,15 @@ class BuyDropSellRecoveryStrategyWhenBTCisUp(Bot):
         if coin.symbol == "BTCUSDT":
             return False
 
-        # wait a few days before going to buy a new coin
-        # since we list what coins we buy in TICKERS the bot would never
-        # buy a coin as soon it is listed.
-        # However in backtesting, the bot will buy that coin as its listed in
-        # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
-            return False
-
         if 'BTCUSDT' not in self.coins:
             return False
 
-        # this strategy doesn't consume averages, we force an average setting
-        # in here of 1hour so that we can use an anti-pump protection
-        coin.klines_trend_period = "1h"
-        coin.klines_slice_percentage_change = float(1)
+        unit = str(self.coins['BTCUSDT'].klines_trend_period[-1:]).lower()
+        klines_trend_period = int(
+            ''.join(self.coins['BTCUSDT'].klines_trend_period[:-1])
+        )
 
-        unit = self.coins['BTCUSDT'].klines_trend_period[-1:]
-        klines_trend_period = int(self.coins['BTCUSDT'].klines_trend_period[:-1])
-
-        if unit in ["D", "d"]:
-            last_period = list(self.coins['BTCUSDT'].averages["d"])[-klines_trend_period:]
-
-        if unit in ["H", "h"]:
-            last_period = list(self.coins['BTCUSDT'].averages["h"])[-klines_trend_period:]
-
-        if unit in ["M", "m"]:
-            last_period = list(self.coins['BTCUSDT'].averages["m"])[-klines_trend_period:]
-
-        if unit in ["S", "s"]:
-            last_period = list(self.coins['BTCUSDT'].averages["s"])[-klines_trend_period:]
+        last_period = list(self.coins['BTCUSDT'].averages[unit])[-klines_trend_period:]
 
         if len(last_period) < klines_trend_period:
             return False
@@ -1780,36 +1718,15 @@ class BuyDropSellRecoveryStrategyWhenBTCisDown(Bot):
         if coin.symbol == "BTCUSDT":
             return False
 
-        # wait a few days before going to buy a new coin
-        # since we list what coins we buy in TICKERS the bot would never
-        # buy a coin as soon it is listed.
-        # However in backtesting, the bot will buy that coin as its listed in
-        # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
-            return False
-
         if 'BTCUSDT' not in self.coins:
             return False
 
-        # this strategy doesn't consume averages, we force an average setting
-        # in here of 1hour so that we can use an anti-pump protection
-        coin.klines_trend_period = "1h"
-        coin.klines_slice_percentage_change = float(1)
-
-        unit = self.coins['BTCUSDT'].klines_trend_period[-1:]
+        unit = str(self.coins['BTCUSDT'].klines_trend_period[-1:]).lower()
         klines_trend_period = int(self.coins['BTCUSDT'].klines_trend_period[:-1])
 
-        if unit in ["D", "d"]:
-            last_period = list(self.coins['BTCUSDT'].averages["d"])[-klines_trend_period:]
-
-        if unit in ["H", "h"]:
-            last_period = list(self.coins['BTCUSDT'].averages["h"])[-klines_trend_period:]
-
-        if unit in ["M", "m"]:
-            last_period = list(self.coins['BTCUSDT'].averages["m"])[-klines_trend_period:]
-
-        if unit in ["S", "s"]:
-            last_period = list(self.coins['BTCUSDT'].averages["s"])[-klines_trend_period:]
+        last_period = list(
+            self.coins['BTCUSDT'].averages[unit]
+        )[-klines_trend_period:]
 
         if len(last_period) < klines_trend_period:
             return False
@@ -1864,25 +1781,44 @@ class BuyOnRecoveryAfterDropFromAverageStrategy(Bot):
     def buy_strategy(self, coin: Coin) -> bool:
         """bot buy strategy"""
 
-        # wait a few days before going to buy a new coin
-        # since we list what coins we buy in TICKERS the bot would never
-        # buy a coin as soon it is listed.
-        # However in backtesting, the bot will buy that coin as its listed in
-        # the TICKERS list and the price lines show up in the price logs.
-        if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
+        unit = str(coin.klines_trend_period[-1:]).lower()
+        klines_trend_period = int(''.join(coin.klines_trend_period[:-1]))
+
+        last_period = list(coin.averages[unit])[-klines_trend_period:]
+
+        if len(last_period) < klines_trend_period:
             return False
 
-        unit = coin.klines_trend_period[-1:]
-        klines_trend_period = int(coin.klines_trend_period[:-1])
+        average = mean([v for d,v in last_period])
+        # has the price gone down by x% on a coin we don't own?
+        if (
+            (float(coin.price) < percent(coin.buy_at_percentage, average))
+            and coin.status == ""
+            and not coin.naughty
+        ):
+            coin.dip = coin.price
+            logging.info(
+                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
+                + f"-> [TARGET_DIP] ({coin.price})"
+            )
+            coin.status = "TARGET_DIP"
 
-        if unit in ["D", "d"]:
-            last_period = list(coin.averages["d"])[-klines_trend_period:]
+        if coin.status != "TARGET_DIP":
+            return False
 
-        if unit in ["H", "h"]:
-            last_period = list(coin.averages["h"])[-klines_trend_period:]
+        # do some gimmicks, and don't buy the coin straight away
+        # but only buy it when the price is now higher than the last
+        # price recorded. This way we ensure that we got the dip
+        self.log_debug_coin(coin)
+        if float(coin.price) > float(coin.last):
+            if float(coin.price) > percent(
+                float(coin.trail_recovery_percentage), coin.dip
+            ):
+                self.buy_coin(coin)
+                return True
+        return False
 
-        if unit in ["M", "m"]:
-            last_period = list(coin.averages["m"])[-klines_trend_period:]
+
 
         if unit in ["S", "s"]:
             last_period = list(coin.averages["s"])[-klines_trend_period:]
