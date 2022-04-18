@@ -467,16 +467,6 @@ class Coin:  # pylint: disable=too-few-public-methods
                 else:
                     break
 
-    def check_for_pump_and_dump(self):
-        """ calculates current price vs 1 hour ago for pump/dump events """
-        # pump protection, only buy coin if the price is lower than one
-        # hour ago.
-        if self.averages["h"]:
-            _, last_hour_average = self.averages["h"][-1:][0]
-            if float(self.price) < float(last_hour_average):
-                return True
-        return False
-
 
 class Bot:
     """Bot Class"""
@@ -517,7 +507,9 @@ class Bot:
     def run_strategy(self, *argvs, **kwargs) -> None:
         """runs a specific strategy against a coin"""
         if len(self.wallet) != self.max_coins:
-            self.buy_strategy(*argvs, **kwargs)
+            coin = argvs[0]  # TODO: refactor this
+            if not self.check_for_pump_and_dump(coin):
+                self.buy_strategy(*argvs, **kwargs)
 
         if len(self.wallet) != 0:
             self.check_for_sale_conditions(*argvs, **kwargs)
@@ -1477,6 +1469,25 @@ class BuyMoonSellRecoveryStrategy(Bot):
         # the TICKERS list and the price lines show up in the price logs.
         if len(list(coin.averages["d"])) < 7 and self.mode == "backtesting":
             return False
+    def check_for_pump_and_dump(self, coin):
+        """ calculates current price vs 1 hour ago for pump/dump events """
+
+        # if the strategy doesn't consume averages, we force an average setting
+        # in here of 1hour so that we can use an anti-pump protection
+        timeslice = int(''.join(coin.klines_trend_period[:-1]))
+        if timeslice == 0:
+            coin.klines_trend_period = "1h"
+            coin.klines_slice_percentage_change = float(1)
+
+        # pump protection, only buy coin if the price is lower than one
+        # hour ago.
+        if coin.averages["h"]:
+            _, last_hour_average = coin.averages["h"][-1:][0]
+            if float(coin.price) < float(last_hour_average):
+                return True
+        return False
+
+
 
         if float(coin.price) > percent(coin.buy_at_percentage, coin.last):
             self.buy_coin(coin)
@@ -1529,15 +1540,11 @@ class BuyOnGrowthTrendAfterDropStrategy(Bot):
             and not coin.naughty
         ):
             coin.dip = coin.price
+            coin.status = "TARGET_DIP"
             logging.info(
                 f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
                 + f"-> [TARGET_DIP] ({coin.price})"
             )
-            # pump protection, only buy coin if the price is lower than one
-            # hour ago.
-            if coin.check_for_pump_and_dump():
-                coin.status = "TARGET_DIP"
-                return False
 
         if coin.status != "TARGET_DIP":
             return False
@@ -1609,16 +1616,13 @@ class BuyOnRecoveryAfterDropDuringGrowthTrendStrategy(Bot):
             and coin.status == ""
             and not coin.naughty
         ):
-            # pump protection, only buy coin if the price is lower than one
-            # hour ago.
-            if coin.check_for_pump_and_dump():
-                coin.dip = coin.price
-                logging.info(
-                    f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
-                    + f"-> [TARGET_DIP] ({coin.price})"
-                )
-                coin.status = "TARGET_DIP"
-                return False
+            coin.dip = coin.price
+            logging.info(
+                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
+                + f"-> [TARGET_DIP] ({coin.price})"
+            )
+            coin.status = "TARGET_DIP"
+            return False
 
         if coin.status != "TARGET_DIP":
             return False
@@ -1660,15 +1664,12 @@ class BuyDropSellRecoveryStrategy(Bot):
             and coin.status == ""
             and not coin.naughty
         ):
-            # pump protection, only buy coin if the price is lower than one
-            # hour ago.
-            if coin.check_for_pump_and_dump():
-                coin.dip = coin.price
-                logging.info(
-                    f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
-                    + f"-> [TARGET_DIP] ({coin.price})"
-                )
-                coin.status = "TARGET_DIP"
+            coin.dip = coin.price
+            logging.info(
+                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
+                + f"-> [TARGET_DIP] ({coin.price})"
+            )
+            coin.status = "TARGET_DIP"
 
         if coin.status != "TARGET_DIP":
             return False
@@ -1747,15 +1748,12 @@ class BuyDropSellRecoveryStrategyWhenBTCisUp(Bot):
             and coin.status == ""
             and not coin.naughty
         ):
-            # pump protection, only buy coin if the price is lower than one
-            # hour ago.
-            if coin.check_for_pump_and_dump():
-                coin.dip = coin.price
-                logging.info(
-                    f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
-                    + f"-> [TARGET_DIP] ({coin.price})"
-                )
-                coin.status = "TARGET_DIP"
+            coin.dip = coin.price
+            logging.info(
+                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
+                + f"-> [TARGET_DIP] ({coin.price})"
+            )
+            coin.status = "TARGET_DIP"
 
         if coin.status != "TARGET_DIP":
             return False
@@ -1838,15 +1836,12 @@ class BuyDropSellRecoveryStrategyWhenBTCisDown(Bot):
             and coin.status == ""
             and not coin.naughty
         ):
-            # pump protection, only buy coin if the price is lower than one
-            # hour ago.
-            if coin.check_for_pump_and_dump():
-                coin.dip = coin.price
-                logging.info(
-                    f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
-                    + f"-> [TARGET_DIP] ({coin.price})"
-                )
-                coin.status = "TARGET_DIP"
+            coin.dip = coin.price
+            logging.info(
+                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
+                + f"-> [TARGET_DIP] ({coin.price})"
+            )
+            coin.status = "TARGET_DIP"
 
         if coin.status != "TARGET_DIP":
             return False
@@ -1902,15 +1897,12 @@ class BuyOnRecoveryAfterDropFromAverageStrategy(Bot):
             and coin.status == ""
             and not coin.naughty
         ):
-            # pump protection, only buy coin if the price is lower than one
-            # hour ago.
-            if coin.check_for_pump_and_dump():
-                coin.dip = coin.price
-                logging.info(
-                    f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
-                    + f"-> [TARGET_DIP] ({coin.price})"
-                )
-                coin.status = "TARGET_DIP"
+            coin.dip = coin.price
+            logging.info(
+                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
+                + f"-> [TARGET_DIP] ({coin.price})"
+            )
+            coin.status = "TARGET_DIP"
 
         if coin.status != "TARGET_DIP":
             return False
