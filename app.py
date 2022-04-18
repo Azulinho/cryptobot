@@ -1353,13 +1353,7 @@ class Bot:
                 minutes_before_now = 60
 
             if unit == "d":
-                # TODO: collecting a large number of historic day values
-                # could be dangerous as we could trigger an immediate buy on
-                # a coin that has gone down in price by % over last few days
-                if coin.klines_trend_period[1] in ['d', 'D']:
-                    timeslice = int(coin.klines_trend_period[0])
-                else:
-                    timeslice = 0
+                timeslice = 1000  # retrieve 1000 days, binance API default
                 minutes_before_now = 60 * 24
 
             if self.mode == "backtesting":
