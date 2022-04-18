@@ -1819,17 +1819,19 @@ class BuyOnRecoveryAfterDropFromAverageStrategy(Bot):
         return False
 
 
+class BuyDropSellRecoveryStrategyWhenBTCisBelow50K(Bot):
+    """Base Strategy Class"""
 
-        if unit in ["S", "s"]:
-            last_period = list(coin.averages["s"])[-klines_trend_period:]
+    def buy_strategy(self, coin: Coin) -> bool:
+        """bot buy strategy"""
 
-        if len(last_period) < klines_trend_period:
+        btc_price = self.coins[f"BTC{self.pairing}"].price
+        if btc_price > 50000 or btc_price < 40000:
             return False
 
-        average = mean([v for d,v in last_period])
         # has the price gone down by x% on a coin we don't own?
         if (
-            (float(coin.price) < percent(coin.buy_at_percentage, average))
+            (float(coin.price) < percent(coin.buy_at_percentage, coin.max))
             and coin.status == ""
             and not coin.naughty
         ):
@@ -1854,6 +1856,7 @@ class BuyOnRecoveryAfterDropFromAverageStrategy(Bot):
                 self.buy_coin(coin)
                 return True
         return False
+
 
 if __name__ == "__main__":
     try:
@@ -1912,6 +1915,12 @@ if __name__ == "__main__":
             bot = BuyOnRecoveryAfterDropFromAverageStrategy(
                 client, args.config, cfg
             )  # type: ignore
+
+        elif cfg["STRATEGY"] == "BuyDropSellRecoveryStrategyWhenBTCisBelow50K":
+            bot = BuyDropSellRecoveryStrategyWhenBTCisBelow50K(
+                client, args.config, cfg
+            )  # type: ignore
+
 
         logging.info(
             f"running in {bot.mode} mode with "
