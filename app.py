@@ -1278,9 +1278,7 @@ class Bot:
             # we essentially skip a number of iterations between
             # reads, causing a similar effect if we were only
             # probing prices every PAUSE_FOR seconds
-            if self.coins[symbol].last_read_date >= (
-                date - self.pause
-            ):
+            if self.coins[symbol].last_read_date + self.pause > date:
                 return
             self.coins[symbol].last_read_date = date
 
