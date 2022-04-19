@@ -44,31 +44,31 @@ jobs:
           set -e
           echo BuyMoonSellRecoveryStrategy.yaml
           python app.py -c tests/BuyMoonSellRecoveryStrategy.yaml -m backtesting -s tests/fake.yaml |tail | tee result.txt
-          grep 'wins:121 losses:29 stales:41 holds:1' result.txt
+          grep 'wins:228 losses:57 stales:96 holds:1' result.txt
 
           echo BuyOnGrowthTrendAfterDropStrategy.yaml
           python app.py -c tests/BuyOnGrowthTrendAfterDropStrategy.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:1 losses:1 stales:18 holds:0' result.txt
+          grep 'wins:2 losses:4 stales:53 holds:0' result.txt
 
           echo BuyDropSellRecoveryStrategy.yaml
           python app.py -c tests/BuyDropSellRecoveryStrategy.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:0 losses:3 stales:0 holds:0' result.txt
+          grep 'wins:0 losses:4 stales:8 holds:0' result.txt
 
           echo BuyDropSellRecoveryStrategyWhenBTCisUp.yaml
           python app.py -c tests/BuyDropSellRecoveryStrategyWhenBTCisUp.yaml -m backtesting -s tests/fake.yaml | tail |tee result.txt
-          grep 'wins:0 losses:0 stales:245 holds:0' result.txt
+          grep 'wins:3 losses:0 stales:588 holds:0' result.txt
 
           echo BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
           python app.py -c tests/BuyDropSellRecoveryStrategyWhenBTCisDown.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:0 losses:0 stales:43 holds:0' result.txt
+          grep 'wins:0 losses:0 stales:49 holds:0' result.txt
 
           echo BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml
           python app.py -c tests/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:0 losses:0 stales:113 holds:0' result.txt
+          grep 'wins:2 losses:1 stales:322 holds:0' result.txt
 
           echo BuyOnRecoveryAfterDropFromAverageStrategy.yaml
           python app.py -c tests/BuyOnRecoveryAfterDropFromAverageStrategy.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:2 losses:0 stales:265 holds:0' result.txt
+          grep 'wins:3 losses:0 stales:360 holds:0' result.txt
 
       - name: Pull latest upstream base
         run: |
