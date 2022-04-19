@@ -504,15 +504,21 @@ class Bot:
         self.config_file: str = config_file
         self.oldprice: Dict[str, float] = {}
 
-    def run_strategy(self, *argvs, **kwargs) -> None:
+    def run_strategy(self, coin) -> None:
         """runs a specific strategy against a coin"""
+        if coin.symbol not in self.tickers:
+            return
+
+        if self.coins[coin.symbol].naughty:
+            return
+
         if len(self.wallet) != self.max_coins:
-            coin = argvs[0]  # TODO: refactor this
-            if not self.check_for_pump_and_dump(coin):
-                self.buy_strategy(*argvs, **kwargs)
+            if not self.new_listing(coin):
+                if not self.check_for_pump_and_dump(coin):
+                    self.buy_strategy(coin)
 
         if len(self.wallet) != 0:
-            self.check_for_sale_conditions(*argvs, **kwargs)
+            self.check_for_sale_conditions(coin)
 
     def update_investment(self) -> None:
         """updates our investment or balance with our profits"""
@@ -846,14 +852,7 @@ class Bot:
             if self.coins[coin_symbol].naughty:
                 self.clear_coin_stats(self.coins[coin_symbol])
 
-            if self.coins[coin_symbol].naughty:
-                continue
-
-            if self.new_listing(self.coins[coin_symbol]):
-                continue
-
-            if coin_symbol in self.tickers or coin_symbol in self.wallet:
-                self.run_strategy(self.coins[coin_symbol])
+            self.run_strategy(self.coins[coin_symbol])
             if coin_symbol in self.wallet:
                 self.log_debug_coin(self.coins[coin_symbol])
 
@@ -1279,8 +1278,7 @@ class Bot:
 
             self.coins[symbol].update(date, market_price)
 
-        if not self.new_listing(self.coins[symbol]):
-            self.run_strategy(self.coins[symbol])
+        self.run_strategy(self.coins[symbol])
 
     def backtest_logfile(self, price_log: str) -> None:
         """processes one price.log file for backtesting"""
