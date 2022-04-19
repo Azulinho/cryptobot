@@ -1354,21 +1354,12 @@ class Bot:
                 timeslice = 1000  # retrieve 1000 days, binance API default
                 minutes_before_now = 60 * 24
 
-            if self.mode == "backtesting":
-                backtest_end_time = coin.date
-                end_unix_time = int(
-                    (
-                        backtest_end_time - (60  * minutes_before_now)
-                    ) * 1000
-                )
-            else:
-                end_unix_time = int(
-                    (
-                            float(
-                                udatetime.now().timestamp()
-                            ) - ( 60 * minutes_before_now)
-                    ) * 1000
-                )
+            backtest_end_time = coin.date
+            end_unix_time = int(
+                (
+                    backtest_end_time - (60  * minutes_before_now)
+                ) * 1000
+            )
 
             query = f"{api_url}endTime={end_unix_time}&interval=1{unit}"
             md5_query = md5(query.encode()).hexdigest()
