@@ -115,6 +115,7 @@ def cached_binance_client(access_key, secret_key):
 
     return _client
 
+
 class Coin:  # pylint: disable=too-few-public-methods
     """Coin Class"""
 
@@ -468,6 +469,25 @@ class Coin:  # pylint: disable=too-few-public-methods
                     break
 
 
+    def check_for_pump_and_dump(self):
+        """ calculates current price vs 1 hour ago for pump/dump events """
+
+        # if the strategy doesn't consume averages, we force an average setting
+        # in here of 1hour so that we can use an anti-pump protection
+        timeslice = int(''.join(self.klines_trend_period[:-1]))
+        if timeslice == 0:
+            self.klines_trend_period = "1h"
+            self.klines_slice_percentage_change = float(1)
+
+        # pump protection, only buy coin if the price is lower than one
+        # hour ago.
+        if self.averages["h"]:
+            _, last_hour_average = self.averages["h"][-1:][0]
+            if float(self.price) < float(last_hour_average):
+                return True
+        return False
+
+
 class Bot:
     """Bot Class"""
 
@@ -514,7 +534,7 @@ class Bot:
 
         if len(self.wallet) != self.max_coins:
             if not self.new_listing(coin):
-                if not self.check_for_pump_and_dump(coin):
+                if not coin.check_for_pump_and_dump():
                     self.buy_strategy(coin)
 
         if len(self.wallet) != 0:
@@ -1453,23 +1473,6 @@ class Bot:
         # we want to avoid buy these new listings as they will very volatile
         if len(list(coin.averages['d'])) < 31 and self.mode == "backtesting":
             return True
-
-    def check_for_pump_and_dump(self, coin):
-        """ calculates current price vs 1 hour ago for pump/dump events """
-
-        # if the strategy doesn't consume averages, we force an average setting
-        # in here of 1hour so that we can use an anti-pump protection
-        timeslice = int(''.join(coin.klines_trend_period[:-1]))
-        if timeslice == 0:
-            coin.klines_trend_period = "1h"
-            coin.klines_slice_percentage_change = float(1)
-
-        # pump protection, only buy coin if the price is lower than one
-        # hour ago.
-        if coin.averages["h"]:
-            _, last_hour_average = coin.averages["h"][-1:][0]
-            if float(coin.price) < float(last_hour_average):
-                return True
         return False
 
 
