@@ -135,7 +135,6 @@ class TestCoin:
         assert 120.00 == coin.averages['s'][0][1]
         assert len(coin.averages['s']) == 1
 
-
     def test_update_coin_updates_minutes_averages(self, coin):
         for x in list(reversed(range(60 * 2 + 1))):
             coin_time = float(udatetime.now().timestamp() - x)

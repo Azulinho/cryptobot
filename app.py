@@ -1806,45 +1806,6 @@ class BuyOnRecoveryAfterDropFromAverageStrategy(Bot):
         return False
 
 
-class BuyDropSellRecoveryStrategyWhenBTCisBelow50K(Bot):
-    """Base Strategy Class"""
-
-    def buy_strategy(self, coin: Coin) -> bool:
-        """bot buy strategy"""
-
-        btc_price = self.coins[f"BTC{self.pairing}"].price
-        if btc_price > 50000 or btc_price < 40000:
-            return False
-
-        # has the price gone down by x% on a coin we don't own?
-        if (
-            (float(coin.price) < percent(coin.buy_at_percentage, coin.max))
-            and coin.status == ""
-            and not coin.naughty
-        ):
-            coin.dip = coin.price
-            logging.info(
-                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
-                + f"-> [TARGET_DIP] ({coin.price})"
-            )
-            coin.status = "TARGET_DIP"
-
-        if coin.status != "TARGET_DIP":
-            return False
-
-        # do some gimmicks, and don't buy the coin straight away
-        # but only buy it when the price is now higher than the last
-        # price recorded. This way we ensure that we got the dip
-        self.log_debug_coin(coin)
-        if float(coin.price) > float(coin.last):
-            if float(coin.price) > percent(
-                float(coin.trail_recovery_percentage), coin.dip
-            ):
-                self.buy_coin(coin)
-                return True
-        return False
-
-
 if __name__ == "__main__":
     try:
         parser = argparse.ArgumentParser()
@@ -1900,11 +1861,6 @@ if __name__ == "__main__":
 
         elif cfg["STRATEGY"] == "BuyOnRecoveryAfterDropFromAverageStrategy":
             bot = BuyOnRecoveryAfterDropFromAverageStrategy(
-                client, args.config, cfg
-            )  # type: ignore
-
-        elif cfg["STRATEGY"] == "BuyDropSellRecoveryStrategyWhenBTCisBelow50K":
-            bot = BuyDropSellRecoveryStrategyWhenBTCisBelow50K(
                 client, args.config, cfg
             )  # type: ignore
 
