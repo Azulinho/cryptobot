@@ -177,7 +177,6 @@ class TestCoin:
         assert len(coin.averages['d']) == 1
         assert list(coin.averages['d'])[0][1] == 100.0
 
-
     def test_update_coin_updates_minutes_lowest_highest(self, coin):
         price = 100
         for x in list(reversed(range(60 * 2 + 1))):
@@ -221,6 +220,26 @@ class TestCoin:
 
         assert list(coin.lowest['d'])[0][1] == 100.0
         assert list(coin.highest['d'])[0][1] == 90160.0
+
+    def test_trim_averages(self, coin):
+        price = 100
+        now = udatetime.now().timestamp()
+
+        for x in list(reversed(range(3600 * 48 + 3600 + 60 + 1))):
+            coin_time = float(now - x)
+            coin.update(coin_time , price)
+
+        for unit in ['s', 'm', 'h']:
+            coin.trim_averages(now, unit)
+
+        assert coin.averages['s'][0] == (now - 60, 100.0)
+        assert coin.averages['s'][59] == (now - 1, 100.0)
+
+        assert coin.averages['m'][0] == (now - 3600, 100.0)
+        assert coin.averages['m'][59] == (now - 60, 100.0)
+
+        assert coin.averages['h'][0] == (now - 86400, 100.0)
+        assert coin.averages['h'][23] == (now - 3600, 100.0)
 
 
 class TestBot:

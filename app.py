@@ -318,8 +318,6 @@ class Coin:  # pylint: disable=too-few-public-methods
                     (date, float(last_minute_highest))
                 )
 
-
-
         # append the latest hour lowest values,
         # but only if the latest 'h' record, is older than 1 hour.
         if self.lowest["h"]:
