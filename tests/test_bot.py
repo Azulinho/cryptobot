@@ -241,6 +241,34 @@ class TestCoin:
         assert coin.averages['h'][0] == (now - 86400, 100.0)
         assert coin.averages['h'][23] == (now - 3600, 100.0)
 
+    def test_for_pump_and_dump_returns_true_on_pump(self, coin):
+        now = udatetime.now().timestamp()
+
+        coin.klines_trend_period = "2h"
+        coin.klines_slice_percentage_change = float(1)
+
+        coin.update(now - 3600 * 3, 500)
+        coin.update(now - 3600 * 2, 500)
+        coin.update(now - 3600 , 500)
+        # price has gone up 500%
+        coin.update(now, 100)
+
+        assert coin.check_for_pump_and_dump() is True
+
+    def test_for_pump_and_dump_returns_false_on_pump(self, coin):
+        now = udatetime.now().timestamp()
+
+        coin.klines_trend_period = "1h"
+        coin.klines_slice_percentage_change = float(1)
+
+        coin.update(now - 3600 * 3, 100)
+        coin.update(now - 3600 * 2, 100)
+        coin.update(now - 3600 , 100)
+        # price has gone up 500%
+        coin.update(now, 500)
+
+        assert coin.check_for_pump_and_dump() is False
+
 
 class TestBot:
     def test_sell_coin_in_testnet(self, bot, coin):
