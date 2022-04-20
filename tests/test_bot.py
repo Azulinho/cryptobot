@@ -135,7 +135,6 @@ class TestCoin:
         assert 120.00 == coin.averages['s'][0][1]
         assert len(coin.averages['s']) == 1
 
-
     def test_update_coin_updates_minutes_averages(self, coin):
         for x in list(reversed(range(60 * 2 + 1))):
             coin_time = float(udatetime.now().timestamp() - x)
@@ -176,7 +175,6 @@ class TestCoin:
 
         assert len(coin.averages['d']) == 1
         assert list(coin.averages['d'])[0][1] == 100.0
-
 
     def test_update_coin_updates_minutes_lowest_highest(self, coin):
         price = 100
@@ -221,6 +219,54 @@ class TestCoin:
 
         assert list(coin.lowest['d'])[0][1] == 100.0
         assert list(coin.highest['d'])[0][1] == 90160.0
+
+    def test_trim_averages(self, coin):
+        price = 100
+        now = udatetime.now().timestamp()
+
+        for x in list(reversed(range(3600 * 48 + 3600 + 60 + 1))):
+            coin_time = float(now - x)
+            coin.update(coin_time , price)
+
+        for unit in ['s', 'm', 'h']:
+            coin.trim_averages(now, unit)
+
+        assert coin.averages['s'][0] == (now - 60, 100.0)
+        assert coin.averages['s'][59] == (now - 1, 100.0)
+
+        assert coin.averages['m'][0] == (now - 3600, 100.0)
+        assert coin.averages['m'][59] == (now - 60, 100.0)
+
+        assert coin.averages['h'][0] == (now - 86400, 100.0)
+        assert coin.averages['h'][23] == (now - 3600, 100.0)
+
+    def test_for_pump_and_dump_returns_true_on_pump(self, coin):
+        now = udatetime.now().timestamp()
+
+        coin.klines_trend_period = "2h"
+        coin.klines_slice_percentage_change = float(1)
+
+        coin.update(now - 3600 * 3, 500)
+        coin.update(now - 3600 * 2, 500)
+        coin.update(now - 3600 , 500)
+        # price has gone up 500%
+        coin.update(now, 100)
+
+        assert coin.check_for_pump_and_dump() is True
+
+    def test_for_pump_and_dump_returns_false_on_pump(self, coin):
+        now = udatetime.now().timestamp()
+
+        coin.klines_trend_period = "1h"
+        coin.klines_slice_percentage_change = float(1)
+
+        coin.update(now - 3600 * 3, 100)
+        coin.update(now - 3600 * 2, 100)
+        coin.update(now - 3600 , 100)
+        # price has gone up 500%
+        coin.update(now, 500)
+
+        assert coin.check_for_pump_and_dump() is False
 
 
 class TestBot:
@@ -318,9 +364,14 @@ class TestBot:
         )
 
     def test_process_coins(self, bot, coin):
+        # the bot will not buy coins when we have less than 31days of prices
+        # so we mock those calls done in process_coins() to so that
+        # the new_listing() check doesn't return False
+        # as the coin won't have any averages['d'] value
         bot.load_klines_for_coin = mock.Mock()
+        bot.new_listing = mock.Mock()
 
-        for x in list(reversed(range(14))):
+        for x in list(reversed(range(32))):
             coin_time = float(udatetime.now().timestamp() - (x * 86400))
             coin.update(coin_time , 0)
 
@@ -401,15 +452,17 @@ class TestBot:
             app.open =  mock.mock_open()
             bot.load_klines_for_coin(coin)
 
-        assert len(coin.lowest['d']) == 7
+        # upstream we retrieve 1000 days of history, but we only mock 60 days
+        # in here. so we should expect 60 days of data
+        assert len(coin.lowest['d']) == 60
         assert len(coin.lowest['h']) == 24
         assert len(coin.lowest['m']) == 60
 
-        assert len(coin.averages['d']) == 7
+        assert len(coin.averages['d']) == 60
         assert len(coin.averages['h']) == 24
         assert len(coin.averages['m']) == 60
 
-        assert len(coin.highest['d']) == 7
+        assert len(coin.highest['d']) == 60
         assert len(coin.highest['h']) == 24
         assert len(coin.highest['m']) == 60
 
@@ -515,23 +568,13 @@ class TestBot:
             (1638598.805694, 59.0), (1638598.865694, 60.0), (1638598.925694, 61.0)
         ]
 
-        assert coin.lowest['d'] == [
-            (1638598.565694, 53.0), (1638598.625694, 54.0), (1638598.685694, 55.0),
-            (1638598.745694, 56.0), (1638598.805694, 57.0), (1638598.865694, 58.0),
-            (1638598.925694, 59.0)
-        ]
+        # we're mocking 60 data points, which is the number of data points
+        # in the minutes counters, so we should be able to consume those
+        # instead of providing a full set of values here
+        assert coin.lowest['d'] == coin.lowest['m']
+        assert coin.averages['d'] == coin.averages['m']
+        assert coin.highest['d'] == coin.highest['m']
 
-        assert coin.averages['d'] == [
-            (1638598.565694, 54.0), (1638598.625694, 55.0), (1638598.685694, 56.0),
-            (1638598.745694, 57.0), (1638598.805694, 58.0), (1638598.865694, 59.0),
-            (1638598.925694, 60.0)
-        ]
-
-        assert coin.highest['d'] == [
-            (1638598.565694, 55.0), (1638598.625694, 56.0), (1638598.685694, 57.0),
-            (1638598.745694, 58.0), (1638598.805694, 59.0), (1638598.865694, 60.0),
-            (1638598.925694, 61.0)
-        ]
 
 class TestBotCheckForSaleConditions:
     def test_returns_early_on_empty_wallet(self, bot, coin):
@@ -930,11 +973,15 @@ class StrategyBaseTestClass:
         coin.status = ""
         coin.price = 90
         coin.max = 100
-        for _ in range(14):
-            coin.averages['d'].append(0)
+        for _ in range(32):
+            # TODO: mock new_listing()
+            # address pump_checks
+            coin.averages['d'].append(
+                (datetime.now().timestamp(), 9999)
+            )
             coin.averages['h'].append(
                 (datetime.now().timestamp(), 9999)
-            ) # address pump_checks
+            )
 
         result = bot.buy_strategy(coin)
         assert result == False

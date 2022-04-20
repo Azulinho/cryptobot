@@ -6,6 +6,7 @@ services:
     image: ${IMAGE:-ghcr.io/azulinho/cryptobot}:${TAG:-latest}
     user: "${U}:${G}"
     build: ./
+    privileged: true
 
     ports:
       - "5555"
