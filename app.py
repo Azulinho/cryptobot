@@ -2,7 +2,7 @@
 
 import argparse
 import json
-import logging
+import importlib
 import math
 import pickle
 import sys
@@ -1425,7 +1425,12 @@ if __name__ == "__main__":
         else:
             client = Client(secrets["ACCESS_KEY"], secrets["SECRET_KEY"])
 
+        module = importlib.import_module(f"strategies.{cfg['STRATEGY']}")
+        Strategy = getattr(module, 'Strategy')
 
+        bot = Strategy(
+            client, args.config, cfg
+        )  # type: ignore
 
         logger.send("info",
             f"running in {bot.mode} mode with "
