@@ -21,7 +21,10 @@ disable = [
   "logging-not-lazy",
   "unspecified-encoding",
   "too-many-locals",
-  "fixme"
+  "fixme",
+  "Similar lines in 2 files",
+  "R0801",
+  "C0103"
 ]
 [tool.pylint.basic]
 good-names-rgxs = "^[_a-z][_a-z0-9]?$"

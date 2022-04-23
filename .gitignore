@@ -17,3 +17,4 @@ results/*
 .mypy_cache
 __pycache__
 .venv
+strategies/Local*
