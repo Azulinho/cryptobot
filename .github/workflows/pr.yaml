@@ -34,10 +34,14 @@ jobs:
       - name: mypy
         run: |
           mypy app.py
+          mypy strategies/*.py
+          mypy lib/*.py
 
       - name: pylint
         run: |
           pylint app.py
+          pylint lib/*.py
+          pylint strategies/*.py
 
       - name: run backtesting strategies
         run: |
