@@ -73,6 +73,8 @@ COPY --from=builder /cryptobot/.python-version /cryptobot/
 COPY --from=builder /cryptobot/.pyenv/ /cryptobot/.pyenv/
 COPY --from=builder /cryptobot/.venv/ /cryptobot/.venv/
 ADD app.py .
+ADD lib/ lib/
+ADD strategies/ strategies/
 ADD utils/automated-backtesting.py utils/automated-backtesting.py
 ADD utils/automated-backtesting.sh utils/automated-backtesting.sh
 ENTRYPOINT ["/cryptobot/.venv/bin/python", "-u",  "app.py"]
