@@ -1,5 +1,6 @@
 import sys
 sys.path.insert(0, '')
+sys.path.insert(0, '')
 
 import json
 import app
@@ -10,6 +11,7 @@ import yaml
 import udatetime
 from datetime import datetime, timedelta
 from unittest import mock
+
 
 from binance.client import Client
 
@@ -997,8 +999,11 @@ class StrategyBaseTestClass:
 
 
 class TestStrategyBuyDropSellRecovery(StrategyBaseTestClass):
+
     @pytest.fixture()
     def bot(self, cfg):
+        from strategies.BuyDropSellRecoveryStrategy import Strategy
+
         with mock.patch('binance.client.Client', new_callable=mock.PropertyMock
         ) as mock1:
             mock1.return_value = None
@@ -1007,7 +1012,7 @@ class TestStrategyBuyDropSellRecovery(StrategyBaseTestClass):
             with mock.patch('requests.get', return_value={}
             ) as mock2:
 
-                bot = app.BuyDropSellRecoveryStrategy(
+                bot = Strategy(
                     client, 'configfilename', cfg
                 )
                 bot.client.API_URL = "https://www.google.com"
@@ -1046,6 +1051,8 @@ class TestStrategyBuyDropSellRecovery(StrategyBaseTestClass):
 class TestStrategyMoonSellRecovery:
     @pytest.fixture()
     def bot(self, cfg):
+        from strategies.BuyMoonSellRecoveryStrategy import Strategy
+
         with mock.patch('binance.client.Client', new_callable=mock.PropertyMock
         ) as mock1:
             mock1.return_value = None
@@ -1054,7 +1061,7 @@ class TestStrategyMoonSellRecovery:
             with mock.patch('requests.get', return_value={}
             ) as mock2:
 
-                bot = app.BuyMoonSellRecoveryStrategy(
+                bot = Strategy(
                     client, 'configfilename', cfg
                 )
                 bot.client.API_URL = "https://www.google.com"
@@ -1092,6 +1099,8 @@ class TestStrategyMoonSellRecovery:
 class TestStrategyBuyOnGrowthTrendAfterDrop(StrategyBaseTestClass):
     @pytest.fixture()
     def bot(self, cfg):
+        from strategies.BuyOnGrowthTrendAfterDropStrategy import Strategy
+
         with mock.patch('binance.client.Client', new_callable=mock.PropertyMock
         ) as mock1:
             mock1.return_value = None
@@ -1100,7 +1109,7 @@ class TestStrategyBuyOnGrowthTrendAfterDrop(StrategyBaseTestClass):
             with mock.patch('requests.get', return_value={}
             ) as mock2:
 
-                bot = app.BuyOnGrowthTrendAfterDropStrategy(
+                bot = Strategy(
                     client, 'configfilename', cfg
                 )
                 bot.client.API_URL = "https://www.google.com"
