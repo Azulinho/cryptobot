@@ -1,3 +1,4 @@
+""" bot buy strategy file """
 from app import Bot, Coin
 from lib.helpers import percent
 

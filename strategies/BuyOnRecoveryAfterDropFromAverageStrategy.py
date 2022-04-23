@@ -1,4 +1,4 @@
-from functools import lru_cache
+""" bot buy strategy file """
 from app import Bot, Coin, logger
 from lib.helpers import percent, mean, c_from_timestamp
 

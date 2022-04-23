@@ -1,3 +1,4 @@
+""" helpers module """
 import logging
 import pickle
 import sys
@@ -24,6 +25,7 @@ class QLog:  # pylint: disable=too-few-public-methods
         self.t.start()
 
     def log_worker(self):
+        """ thread logging worker """
         c_handler = colorlog.StreamHandler(sys.stdout)
         c_handler.setFormatter(
             colorlog.ColoredFormatter(
@@ -69,9 +71,11 @@ class QLog:  # pylint: disable=too-few-public-methods
 
 
     def send(self, sev, message):
+        """ sends message to logging thread worker """
         self.q.put((sev, message))
 
     def stop(self):
+        """ signals thread worker to stop """
         self.terminate = True
         self.t.join(1)
 
