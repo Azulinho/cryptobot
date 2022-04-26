@@ -1484,4 +1484,5 @@ if __name__ == "__main__":
 
     except Exception:  # pylint: disable=broad-except
         logger.send("error", traceback.format_exc())
+        sleep(1)
         sys.exit(1)
