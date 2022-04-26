@@ -484,13 +484,20 @@ class Bot:
         if self.coins[coin.symbol].naughty:
             return
 
-        if len(self.wallet) != self.max_coins:
-            if not self.new_listing(coin):
-                if not coin.check_for_pump_and_dump():
-                    self.buy_strategy(coin)
-
-        if len(self.wallet) != 0:
+        if self.wallet:
             self.check_for_sale_conditions(coin)
+
+        if len(self.wallet) == self.max_coins:
+            return
+
+        if coin.new_listing(self.mode):
+            return
+
+        if coin.check_for_pump_and_dump():
+            return
+
+        self.buy_strategy(coin)
+
 
     def update_investment(self) -> None:
         """updates our investment or balance with our profits"""
