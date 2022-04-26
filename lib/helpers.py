@@ -18,7 +18,7 @@ from tenacity import retry, wait_exponential
 class QLog:  # pylint: disable=too-few-public-methods
     """ queue base logging """
     def __init__(self):
-        self.q = Queue()
+        self.q = Queue(1)
         self.t = threading.Thread(target=self.log_worker)
         self.terminate = False
         self.t.daemon = True
