@@ -427,6 +427,17 @@ class Coin:  # pylint: disable=too-few-public-methods
 
         return False
 
+    def new_listing(self, mode):
+        """ checks if coin is a new listing """
+        # wait a few days before going to buy a new coin
+        # since we list what coins we buy in TICKERS the bot would never
+        # buy a coin as soon it is listed.
+        # However in backtesting, the bot will buy that coin as its listed in
+        # the TICKERS list and the price lines show up in the price logs.
+        # we want to avoid buy these new listings as they will very volatile
+        if mode == "backtesting" and len(self.averages['d']) < 31:
+            return True
+        return False
 
 class Bot:
     """Bot Class"""
@@ -1403,19 +1414,6 @@ class Bot:
             f"wins:{self.wins} losses:{self.losses} "
             + f"stales:{self.stales} holds:{len(self.wallet)}"
         )
-
-    def new_listing(self, coin):
-        """ checks if coin is a new listing """
-        # wait a few days before going to buy a new coin
-        # since we list what coins we buy in TICKERS the bot would never
-        # buy a coin as soon it is listed.
-        # However in backtesting, the bot will buy that coin as its listed in
-        # the TICKERS list and the price lines show up in the price logs.
-        # we want to avoid buy these new listings as they will very volatile
-        if len(list(coin.averages['d'])) < 31 and self.mode == "backtesting":
-            return True
-        return False
-
 
 if __name__ == "__main__":
     try:
