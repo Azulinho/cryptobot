@@ -397,18 +397,34 @@ class Coin:  # pylint: disable=too-few-public-methods
         """ calculates current price vs 1 hour ago for pump/dump events """
 
         # if the strategy doesn't consume averages, we force an average setting
-        # in here of 1hour so that we can use an anti-pump protection
+        # in here of 2hours so that we can use an anti-pump protection
         timeslice = int(''.join(self.klines_trend_period[:-1]))
         if timeslice == 0:
-            self.klines_trend_period = "1h"
+            self.klines_trend_period = "2h"
             self.klines_slice_percentage_change = float(1)
 
-        # pump protection, only buy coin if the price is lower than one
-        # hour ago.
-        if self.averages["h"]:
-            _, last_hour_average = self.averages["h"][-1:][0]
-            if float(self.price) < float(last_hour_average):
-                return True
+        # make the coin as a pump if we don't have enough data to validate if
+        # this could possibly be a pump
+        if len(self.averages["h"]) < 2:
+            return True
+
+        # on a pump, we would have a low price, followed by a pump(high price),
+        # followed by a dump(low price)
+        # so don't buy if we see this pattern over the last 2 hours.
+        last2hours = self.averages["h"][-2:]
+
+        two_hours_ago = last2hours[0][1]
+        one_hour_ago = last2hours[1][1]
+
+        if (
+            two_hours_ago < one_hour_ago
+        ) and (
+            one_hour_ago > self.price
+        ) and (
+            self.price > two_hours_ago
+        ):
+            return True
+
         return False
 
 

@@ -248,11 +248,10 @@ class TestCoin:
         coin.klines_trend_period = "2h"
         coin.klines_slice_percentage_change = float(1)
 
-        coin.update(now - 3600 * 3, 500)
-        coin.update(now - 3600 * 2, 500)
-        coin.update(now - 3600 , 500)
+        coin.update(now - 3600 * 2, 100)
+        coin.update(now - 3600 * 1, 1500)
         # price has gone up 500%
-        coin.update(now, 100)
+        coin.update(now, 200)
 
         assert coin.check_for_pump_and_dump() is True
 
