@@ -24,7 +24,7 @@ class QLog:  # pylint: disable=too-few-public-methods
         self.t.daemon = True
         self.t.start()
 
-    def log_worker(self):
+    def log_worker(self) -> None:
         """ thread logging worker """
         c_handler = colorlog.StreamHandler(sys.stdout)
         c_handler.setFormatter(
@@ -70,11 +70,11 @@ class QLog:  # pylint: disable=too-few-public-methods
             self.q.task_done()
 
 
-    def send(self, sev, message):
+    def send(self, sev: str, message: str) -> None:
         """ sends message to logging thread worker """
         self.q.put((sev, message))
 
-    def stop(self):
+    def stop(self) -> None:
         """ signals thread worker to stop """
         self.terminate = True
         self.t.join(1)
@@ -96,7 +96,7 @@ def add_100(number: float) -> float:
     return float(100 + number)
 
 
-def control_center():
+def control_center() -> None:
     """pdb web endpoint"""
     web_pdb.set_trace()
 
@@ -108,20 +108,20 @@ def c_date_from(day: str) -> float:
 
 
 @lru_cache(8)
-def c_from_timestamp(date):
+def c_from_timestamp(date: float) -> datetime:
     """ returns a cached datetime.fromtimestamp()"""
     return datetime.fromtimestamp(date)
 
 
 @lru_cache(512)
 @retry(wait=wait_exponential(multiplier=1, max=10))
-def requests_with_backoff(query):
+def requests_with_backoff(query: str):
     """ retry wrapper for requests calls """
     return requests.get(query)
 
 
 @retry(wait=wait_exponential(multiplier=15, max=10))
-def cached_binance_client(access_key, secret_key):
+def cached_binance_client(access_key: str, secret_key: str) -> Client:
     """ retry wrapper for binance client first call """
 
     # when running automated-testing with multiple threads, we will hit
