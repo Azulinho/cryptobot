@@ -397,20 +397,47 @@ class Coin:  # pylint: disable=too-few-public-methods
         """ calculates current price vs 1 hour ago for pump/dump events """
 
         # if the strategy doesn't consume averages, we force an average setting
-        # in here of 1hour so that we can use an anti-pump protection
+        # in here of 2hours so that we can use an anti-pump protection
         timeslice = int(''.join(self.klines_trend_period[:-1]))
         if timeslice == 0:
-            self.klines_trend_period = "1h"
+            self.klines_trend_period = "2h"
             self.klines_slice_percentage_change = float(1)
 
-        # pump protection, only buy coin if the price is lower than one
-        # hour ago.
-        if self.averages["h"]:
-            _, last_hour_average = self.averages["h"][-1:][0]
-            if float(self.price) < float(last_hour_average):
-                return True
+        # make the coin as a pump if we don't have enough data to validate if
+        # this could possibly be a pump
+        if len(self.averages["h"]) < 2:
+            return True
+
+        # on a pump, we would have a low price, followed by a pump(high price),
+        # followed by a dump(low price)
+        # so don't buy if we see this pattern over the last 2 hours.
+        last2hours = self.averages["h"][-2:]
+
+        two_hours_ago = last2hours[0][1]
+        one_hour_ago = last2hours[1][1]
+
+        if (
+            two_hours_ago < one_hour_ago
+        ) and (
+            one_hour_ago > self.price
+        ) and (
+            self.price > two_hours_ago
+        ):
+            return True
+
         return False
 
+    def new_listing(self, mode):
+        """ checks if coin is a new listing """
+        # wait a few days before going to buy a new coin
+        # since we list what coins we buy in TICKERS the bot would never
+        # buy a coin as soon it is listed.
+        # However in backtesting, the bot will buy that coin as its listed in
+        # the TICKERS list and the price lines show up in the price logs.
+        # we want to avoid buy these new listings as they will very volatile
+        if mode == "backtesting" and len(self.averages['d']) < 31:
+            return True
+        return False
 
 class Bot:
     """Bot Class"""
@@ -448,6 +475,9 @@ class Bot:
         self.config_file: str = config_file
         self.oldprice: Dict[str, float] = {}
         self.cfg = config
+        self.enable_pump_and_dump_checks : bool = config.get(
+            "ENABLE_PUMP_AND_DUMP_CHECKS", True
+        )
 
     def run_strategy(self, coin) -> None:
         """runs a specific strategy against a coin"""
@@ -457,13 +487,21 @@ class Bot:
         if self.coins[coin.symbol].naughty:
             return
 
-        if len(self.wallet) != self.max_coins:
-            if not self.new_listing(coin):
-                if not coin.check_for_pump_and_dump():
-                    self.buy_strategy(coin)
-
-        if len(self.wallet) != 0:
+        if self.wallet:
             self.check_for_sale_conditions(coin)
+
+        if len(self.wallet) == self.max_coins:
+            return
+
+        if coin.new_listing(self.mode):
+            return
+
+        if self.enable_pump_and_dump_checks:
+            if coin.check_for_pump_and_dump():
+                return
+
+        self.buy_strategy(coin)
+
 
     def update_investment(self) -> None:
         """updates our investment or balance with our profits"""
@@ -1388,19 +1426,6 @@ class Bot:
             + f"stales:{self.stales} holds:{len(self.wallet)}"
         )
 
-    def new_listing(self, coin):
-        """ checks if coin is a new listing """
-        # wait a few days before going to buy a new coin
-        # since we list what coins we buy in TICKERS the bot would never
-        # buy a coin as soon it is listed.
-        # However in backtesting, the bot will buy that coin as its listed in
-        # the TICKERS list and the price lines show up in the price logs.
-        # we want to avoid buy these new listings as they will very volatile
-        if len(list(coin.averages['d'])) < 31 and self.mode == "backtesting":
-            return True
-        return False
-
-
 if __name__ == "__main__":
     try:
         parser = argparse.ArgumentParser()
@@ -1463,4 +1488,5 @@ if __name__ == "__main__":
 
     except Exception:  # pylint: disable=broad-except
         logger.send("error", traceback.format_exc())
+        sleep(1)
         sys.exit(1)

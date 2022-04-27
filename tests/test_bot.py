@@ -243,16 +243,16 @@ class TestCoin:
         assert coin.averages['h'][23] == (now - 3600, 100.0)
 
     def test_for_pump_and_dump_returns_true_on_pump(self, coin):
+        self.enable_pump_and_dump_checks = True
         now = udatetime.now().timestamp()
 
         coin.klines_trend_period = "2h"
         coin.klines_slice_percentage_change = float(1)
 
-        coin.update(now - 3600 * 3, 500)
-        coin.update(now - 3600 * 2, 500)
-        coin.update(now - 3600 , 500)
+        coin.update(now - 3600 * 2, 100)
+        coin.update(now - 3600 * 1, 1500)
         # price has gone up 500%
-        coin.update(now, 100)
+        coin.update(now, 200)
 
         assert coin.check_for_pump_and_dump() is True
 

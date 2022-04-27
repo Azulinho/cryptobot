@@ -29,6 +29,7 @@ A python based trading bot for Binance, which relies heavily on backtesting.
    * [TICKERS](#tickers)
    * [TRADING_FEE](#trading_fee)
    * [PRICE_LOGS](#price_logs)
+   * [ENABLE_PUMP_AND_DUMP_CHECKS](#enable_pump_and_dump_checks)
 5. [Bot command center](#bot-command-center)
 6. [Automated Backtesting](#automated-backtesting)
 7. [Development/New features](#development/new-features)
@@ -582,6 +583,16 @@ PRICE_LOGS: [""]
 ```
 The list of price logs to be used for backtesting.
 
+
+### ENABLE_PUMP_AND_DUMP_CHECKS
+```
+ENABLE_PUMP_AND_DUMP_CHECKS: True
+
+defaults to True
+
+Checks the price of a coin over the last 2 hours and prevents the bot from
+buying if the price 2 hours ago was lower than 1 hour ago (pump) and the current
+price is higher than 2 hours ago (dump pending).
 
 ## Bot command center
 
