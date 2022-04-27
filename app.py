@@ -475,6 +475,9 @@ class Bot:
         self.config_file: str = config_file
         self.oldprice: Dict[str, float] = {}
         self.cfg = config
+        self.enable_pump_and_dump_checks : bool = config.get(
+            "ENABLE_PUMP_AND_DUMP_CHECKS", True
+        )
 
     def run_strategy(self, coin) -> None:
         """runs a specific strategy against a coin"""
@@ -493,8 +496,9 @@ class Bot:
         if coin.new_listing(self.mode):
             return
 
-        if coin.check_for_pump_and_dump():
-            return
+        if self.enable_pump_and_dump_checks:
+            if coin.check_for_pump_and_dump():
+                return
 
         self.buy_strategy(coin)
 

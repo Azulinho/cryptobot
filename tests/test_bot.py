@@ -243,6 +243,7 @@ class TestCoin:
         assert coin.averages['h'][23] == (now - 3600, 100.0)
 
     def test_for_pump_and_dump_returns_true_on_pump(self, coin):
+        self.enable_pump_and_dump_checks = True
         now = udatetime.now().timestamp()
 
         coin.klines_trend_period = "2h"
