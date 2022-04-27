@@ -20,7 +20,7 @@ class Strategy(Bot):
         average = mean([v for d,v in last_period])
         # has the price gone down by x% on a coin we don't own?
         if (
-            (float(coin.price) < percent(coin.buy_at_percentage, average))
+            (coin.price < percent(coin.buy_at_percentage, average))
             and coin.status == ""
             and not coin.naughty
         ):
@@ -38,9 +38,9 @@ class Strategy(Bot):
         # but only buy it when the price is now higher than the last
         # price recorded. This way we ensure that we got the dip
         self.log_debug_coin(coin)
-        if float(coin.price) > float(coin.last):
-            if float(coin.price) > percent(
-                float(coin.trail_recovery_percentage), coin.dip
+        if coin.price > coin.last:
+            if coin.price > percent(
+                coin.trail_recovery_percentage, coin.dip
             ):
                 self.buy_coin(coin)
                 return True

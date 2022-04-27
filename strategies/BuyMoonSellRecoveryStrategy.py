@@ -8,7 +8,7 @@ class Strategy(Bot):
 
     def buy_strategy(self, coin: Coin) -> bool:
         """bot buy strategy"""
-        if float(coin.price) > percent(coin.buy_at_percentage, coin.last):
+        if coin.price > percent(coin.buy_at_percentage, coin.last):
             self.buy_coin(coin)
             self.log_debug_coin(coin)
             return True
