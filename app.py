@@ -68,7 +68,7 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.min = float(market_price)
         self.max = float(market_price)
         self.date = date
-        self.price = market_price
+        self.price = float(market_price)
         self.holding_time = int(0)
         self.value = float(0)
         self.lot_size = float(0)
@@ -419,7 +419,7 @@ class Coin:  # pylint: disable=too-few-public-methods
         if (
             two_hours_ago < one_hour_ago
         ) and (
-            one_hour_ago > self.price
+            one_hour_ago > float(self.price)
         ) and (
             self.price > two_hours_ago
         ):
