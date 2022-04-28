@@ -10,7 +10,6 @@ from queue import Queue
 import colorlog
 import requests
 import udatetime
-import web_pdb
 from binance.client import Client
 from tenacity import retry, wait_exponential
 
@@ -94,11 +93,6 @@ def percent(part: float, whole: float) -> float:
 def add_100(number: float) -> float:
     """adds 100 to a number"""
     return float(100 + number)
-
-
-def control_center() -> None:
-    """pdb web endpoint"""
-    web_pdb.set_trace()
 
 
 @lru_cache(1)
