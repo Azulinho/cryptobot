@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Tuple
 
 import yaml
 import udatetime
+import web_pdb
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
 from lz4.frame import open as lz4open
@@ -29,7 +30,6 @@ from lib.helpers import (
     mean,
     percent,
     add_100,
-    control_center,
     c_date_from,
     c_from_timestamp,
     requests_with_backoff,
@@ -40,6 +40,10 @@ from lib.helpers import (
 # initialize the Queue based logger
 logger = QLog()
 
+
+def control_center() -> None:
+    """pdb web endpoint"""
+    web_pdb.set_trace()
 
 
 class Coin:  # pylint: disable=too-few-public-methods
@@ -1462,6 +1466,12 @@ if __name__ == "__main__":
             + f"{json.dumps(args.config, indent=4)}"
         )
 
+        if bot.mode in ["testnet", "live"]:
+            # start command-control-center (ipdb on port 5555)
+            t = threading.Thread(target=control_center)
+            t.daemon = True
+            t.start()
+
         if bot.mode == "backtesting":
             bot.backtesting()
 
@@ -1469,18 +1479,10 @@ if __name__ == "__main__":
             bot.logmode()
 
         if bot.mode == "testnet":
-            # start command-control-center (ipdb on port 5555)
-            t = threading.Thread(target=control_center)
-            t.daemon = True
-            t.start()
             bot.client.API_URL = "https://testnet.binance.vision/api"
             bot.run()
 
         if bot.mode == "live":
-            # start command-control-center (ipdb on port 5555)
-            t = threading.Thread(target=control_center)
-            t.daemon = True
-            t.start()
             bot.run()
 
         bot.print_final_balance_report()
