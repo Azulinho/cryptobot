@@ -230,8 +230,6 @@ class TestCoin:
             coin_time = float(now - x)
             coin.update(coin_time , price)
 
-        for unit in ['s', 'm', 'h']:
-            coin.trim_averages(now, unit)
 
         assert coin.averages['s'][0] == (now - 60, 100.0)
         assert coin.averages['s'][59] == (now - 1, 100.0)

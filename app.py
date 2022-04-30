@@ -49,6 +49,12 @@ def control_center() -> None:
 class Coin:  # pylint: disable=too-few-public-methods
     """Coin Class"""
 
+    offset = {
+        "s": 60,
+        "m": 3600,
+        "h": 86400
+    }
+
     def __init__(
         self,
         symbol: str,
@@ -123,7 +129,7 @@ class Coin:  # pylint: disable=too-few-public-methods
         """updates a coin object with latest market values"""
         self.date = date
         self.last = self.price
-        self.price = float(market_price)
+        self.price = market_price
 
         if self.status in ["TARGET_SELL", "HOLD"]:
             self.holding_time = int(self.date - self.bought_date)
@@ -133,20 +139,20 @@ class Coin:  # pylint: disable=too-few-public-methods
                 self.naughty = False
 
         # do we have a new min price?
-        if float(market_price) < float(self.min):
-            self.min = float(market_price)
+        if market_price < self.min:
+            self.min = market_price
 
         # do we have a new max price?
-        if float(market_price) > float(self.max):
-            self.max = float(market_price)
+        if market_price > self.max:
+            self.max = market_price
 
         if self.volume:
-            self.value = float(float(self.volume) * float(self.price))
-            self.cost = float(self.bought_at) * float(self.volume)
-            self.profit = float(float(self.value) - float(self.cost))
+            self.value = self.volume * self.price
+            self.cost = self.bought_at * self.volume
+            self.profit = self.value - self.cost
 
         if self.status == "HOLD":
-            if float(market_price) > percent(
+            if market_price > percent(
                 self.sell_at_percentage, self.bought_at
             ):
                 self.status = "TARGET_SELL"
@@ -169,21 +175,16 @@ class Coin:  # pylint: disable=too-few-public-methods
                 )
 
         if self.status == "TARGET_SELL":
-            if float(market_price) > float(self.tip):
+            if market_price > self.tip:
                 self.tip = market_price
 
         if self.status == "TARGET_DIP":
-            if float(market_price) < float(self.dip):
+            if market_price < self.dip:
                 self.dip = market_price
 
-        # consolidate_averages has a significant performance impact,
-        # so don't run it if our strategy doesn't use it.
-        # note this mostly applies to backtesting
-        if (
-            self.klines_trend_period[0] != "0" and
-            float(self.klines_slice_percentage_change) != 0
-        ):
-            self.consolidate_averages(date, market_price)
+        self.consolidate_averages(date, market_price)
+        self.trim_averages(date)
+
 
     def consolidate_averages(self, date, market_price: float) -> None:
         """consolidates all coin price averages over the different buckets"""
@@ -191,210 +192,106 @@ class Coin:  # pylint: disable=too-few-public-methods
         # append the latest 's' value, this could done more frequently than once
         # per second.
         self.averages["s"].append(
-            (date, float(market_price))
+            (date, market_price)
         )
 
-        # append the latest min lowest values,
-        # but only if the old 'm' record, is older than 1 minute.
-        if self.lowest["m"]:
-            latest_record_date, _ = self.lowest["m"][-1]
-            if latest_record_date <= date - 60:
-                last_minute_lowest = min([v for d,v in self.averages["s"]])
-                self.lowest["m"].append(
-                    (date, float(last_minute_lowest))
-                )
+        # append the latest values,
+        # but only if the old 'm' record, is older than 1 minute
+        new_minute = False
+        if not self.averages["m"] and self.averages['s']:
+            if self.averages['s'][0][0] <= date - 60:
+                new_minute = True
+
+        if self.averages["m"] and not new_minute:
+            record_date, _ = self.averages["m"][-1]
+            if record_date <= date - 60:
+                new_minute = True
+
+        if new_minute:
+            self.lowest['m'].append(
+                (date, min([v for d,v in self.averages['s']]))
+            )
+            self.averages['m'].append(
+                (date, mean([v for d,v in self.averages['s']]))
+            )
+            self.highest['m'].append(
+                (date, max([v for d,v in self.averages['s']]))
+            )
         else:
-            # init 'm' lowest when we have seconds data older than 60s
-            oldest_record, _ = self.averages["s"][0]
-            if oldest_record <= date - 60:
-                last_minute_lowest = min([v for d,v in self.averages["s"]])
-                self.lowest["m"].append(
-                    (date, float(last_minute_lowest))
-                )
+            return
 
-        # append the latest min averaged values,
-        # but only if the old 'm' record, is older than 1 minute.
-        if self.averages["m"]:
-            latest_record_date, _ = self.averages["m"][-1]
-            if latest_record_date <= date - 60:
-                last_minute_average = mean([v for d,v in self.averages["s"]])
-                self.averages["m"].append(
-                    (date, float(last_minute_average))
-                )
+
+        # append the latest values,
+        # but only if the old 'h' record, is older than 1 hour
+        new_hour = False
+        if not self.averages["h"] and self.averages['m']:
+            if self.averages['m'][0][0] <= date - 3600:
+                new_hour = True
+
+        if self.averages["h"] and not new_hour:
+            record_date, _ = self.averages["h"][-1]
+            if record_date <= date - 3600:
+                new_hour = True
+
+        if new_hour:
+            self.lowest['h'].append(
+                (date, min([v for d,v in self.lowest['m']]))
+            )
+            self.averages['h'].append(
+                (date, mean([v for d,v in self.averages['m']]))
+            )
+            self.highest['h'].append(
+                (date, max([v for d,v in self.highest['m']]))
+            )
         else:
-            # init 'm' averages when we have seconds data older than 60s
-            oldest_record, _ = self.averages["s"][0]
-            if oldest_record <= date - 60:
-                last_minute_average = mean([v for d,v in self.averages["s"]])
-                self.averages["m"].append(
-                    (date, float(last_minute_average))
-                )
-
-        # append the latest min highest values,
-        # but only if the old 'm' record, is older than 1 minute.
-        if self.highest["m"]:
-            latest_record_date, _ = self.highest["m"][-1]
-            if latest_record_date <= date - 60:
-                last_minute_highest = max([v for d,v in self.averages["s"]])
-                self.highest["m"].append(
-                    (date, float(last_minute_highest))
-                )
-        else:
-            # init 'm' highest when we have seconds data older than 60s
-            oldest_record, _ = self.averages["s"][0]
-            if oldest_record <= date - 60:
-                last_minute_highest = max([v for d,v in self.averages["s"]])
-                self.highest["m"].append(
-                    (date, float(last_minute_highest))
-                )
-
-        # append the latest hour lowest values,
-        # but only if the latest 'h' record, is older than 1 hour.
-        if self.lowest["h"]:
-            latest_record_date, _ = self.lowest["h"][-1]
-            if latest_record_date <= date - 3600:
-                last_hour_lowest = min([v for d,v in self.lowest["m"]])
-                self.lowest["h"].append(
-                    (date, float(last_hour_lowest))
-                )
-        else:
-            # init 'h' lowest when we have min data older than 60m
-            if self.lowest["m"]:
-                oldest_record, _ = self.lowest["m"][0]
-                if oldest_record <= date - 3600:
-                    last_hour_lowest = min([v for d,v in self.lowest["m"]])
-                    self.lowest["h"].append(
-                        (date, float(last_hour_lowest))
-                    )
-
-        # append the latest hour averaged values,
-        # but only if the latest 'h' record, is older than 1 hour.
-        if self.averages["h"]:
-            latest_record_date, _ = self.averages["h"][-1]
-            if latest_record_date <= date - 3600:
-                last_hour_average = mean([v for d,v in self.averages["m"]])
-                self.averages["h"].append(
-                    (date, float(last_hour_average))
-                )
-        else:
-            # init 'h' averages when we have min data older than 60m
-            if self.averages["m"]:
-                oldest_record, _ = self.averages["m"][0]
-                if oldest_record <= date - 3600:
-                    last_hour_average = mean([v for d,v in self.averages["m"]])
-                    self.averages["h"].append(
-                        (date, float(last_hour_average))
-                    )
-
-        # append the latest hour highest values,
-        # but only if the latest 'h' record, is older than 1 hour.
-        if self.highest["h"]:
-            latest_record_date, _ = self.highest["h"][-1]
-            if latest_record_date <= date - 3600:
-                last_hour_highest = max([v for d,v in self.highest["m"]], default=0)
-                self.highest["h"].append(
-                    (date, float(last_hour_highest))
-                )
-        else:
-            # init 'h' highest when we have max data older than 60m
-            if self.highest["m"]:
-                oldest_record, _ = self.highest["m"][0]
-                if oldest_record <= date - 3600:
-                    last_hour_highest = max([v for d,v in self.highest["m"]], default=0)
-                    self.highest["h"].append(
-                        (date, float(last_hour_highest))
-                    )
-
-        # append the latest 24h lowest value,
-        # but only if the latest 'd' record, is older than 1 day.
-        if self.lowest["d"]:
-            latest_record_date, _ = self.lowest["d"][-1]
-            if latest_record_date <= date - 86400:
-                last_day_lowest = min([v for d,v in self.lowest["h"]], default=0)
-                self.lowest["d"].append(
-                    (date, float(last_day_lowest))
-                )
-        else:
-            if self.lowest["h"]:
-                # init 'd' lowest when we have hours data older than 24h
-                oldest_record, _ = self.lowest["h"][0]
-                if oldest_record <= date - 86400:
-                    last_day_lowest = min([v for d,v in self.lowest["h"]], default=0)
-                    self.lowest["d"].append(
-                        (date, float(last_day_lowest))
-                    )
-
-        # append the latest 24h averaged value,
-        # but only if the latest 'd' record, is older than 1 day.
-        if self.averages["d"]:
-            latest_record_date, _ = self.averages["d"][-1]
-            if latest_record_date <= date - 86400:
-                last_day_average = mean([v for d,v in self.averages["h"]])
-                self.averages["d"].append(
-                    (date, float(last_day_average))
-                )
-        else:
-            if self.averages["h"]:
-                # init 'd' averages when we have hours data older than 24h
-                oldest_record, _ = self.averages["h"][0]
-                if oldest_record <= date - 86400:
-                    last_day_average = mean([v for d,v in self.averages["h"]])
-                    self.averages["d"].append(
-                        (date, float(last_day_average))
-                    )
-
-        # append the latest 24h highest value,
-        # but only if the latest 'd' record, is older than 1 day.
-        if self.highest["d"]:
-            latest_record_date, _ = self.highest["d"][-1]
-            if latest_record_date <= date - 86400:
-                last_day_highest = max([v for d,v in self.highest["h"]], default=0)
-                self.highest["d"].append(
-                    (date, float(last_day_highest))
-                )
-        else:
-            if self.highest["h"]:
-                # init 'd' highest when we have hours data older than 24h
-                oldest_record, _ = self.highest["h"][0]
-                if oldest_record <= date - 86400:
-                    last_day_highest = max([v for d,v in self.highest["h"]], default=0)
-                    self.highest["d"].append(
-                        (date, float(last_day_highest))
-                    )
-
-        # discard old measurements from averages
-        for unit in ["s", "m", "h"]:
-            self.trim_averages(date, unit)
+            return
 
 
-    def trim_averages(self, date: float, unit: str) -> None:
-        ''' removes older values from self.averages '''
-        offset = {
-            "s": 60,
-            "m": 3600,
-            "h": 86400
-        }
+        # append the latest values,
+        # but only if the old 'd' record, is older than 1 day
+        new_day = False
+        if not self.averages["d"] and self.averages['h']:
+            if self.averages['h'][0][0] <= date - 86400:
+                new_day = True
 
-        if unit in self.lowest:
-            for stored_date, price in self.lowest[unit]:
-                if stored_date < date - offset[unit]:
-                    self.lowest[unit].remove((stored_date, price))
-                else:
-                    break
+        if self.averages["d"] and not new_day:
+            record_date, _ = self.averages["d"][-1]
+            if record_date <= date - 86400:
+                new_day = True
 
-        if unit in self.averages:
-            for stored_date, price in self.averages[unit]:
-                if stored_date < date - offset[unit]:
-                    self.averages[unit].remove((stored_date, price))
-                else:
-                    break
+        if new_day:
+            self.lowest['d'].append(
+                (date, min([v for d,v in self.lowest['h']]))
+            )
+            self.averages['d'].append(
+                (date, mean([v for d,v in self.averages['h']]))
+            )
+            self.highest['d'].append(
+                (date, max([v for d,v in self.highest['h']]))
+            )
 
-        if unit in self.highest:
-            for stored_date, price in self.highest[unit]:
-                if stored_date < date - offset[unit]:
-                    self.highest[unit].remove((stored_date, price))
-                else:
-                    break
+
+    def trim_averages(self, date: float) -> None:
+        """trims all coin price older than ... """
+
+        # clean up any old values older than 60s, 60m, 24h
+        d,_ = self.averages['s'][0]
+        if d < date - 60:
+            del self.averages['s'][0]
+
+            if self.averages['m']:
+                d,_ = self.averages['m'][0]
+                if d < date - 3600:
+                    del self.lowest['m'][0]
+                    del self.averages['m'][0]
+                    del self.highest['m'][0]
+
+                    if self.averages['h']:
+                        d,_ = self.averages['h'][0]
+                        if d < date - 86400:
+                            del self.lowest['h'][0]
+                            del self.averages['h'][0]
+                            del self.highest['h'][0]
 
 
     def check_for_pump_and_dump(self):
@@ -776,12 +673,12 @@ class Bot:
         """creates a new coin or updates its price with latest binance data"""
         symbol = binance_data["symbol"]
 
-        market_price = binance_data["price"]
+        market_price = float(binance_data["price"])
         if symbol not in self.coins:
             self.coins[symbol] = Coin(
                 symbol,
                 # TODO: update this to consume binance_data[]
-                float(udatetime.now().timestamp()),
+                udatetime.now().timestamp(),
                 market_price,
                 buy_at=self.tickers[symbol]["BUY_AT_PERCENTAGE"],
                 sell_at=self.tickers[symbol]["SELL_AT_PERCENTAGE"],
@@ -809,7 +706,7 @@ class Bot:
             self.load_klines_for_coin(self.coins[symbol])
         else:
             self.coins[symbol].update(
-                float(udatetime.now().timestamp()),
+                udatetime.now().timestamp(),
                 market_price
             )
 
@@ -847,7 +744,7 @@ class Bot:
         """checks for possible loss on a coin"""
         # oh we already own this one, lets check prices
         # deal with STOP_LOSS
-        if float(coin.price) < percent(
+        if coin.price < percent(
             coin.stop_loss_at_percentage, coin.bought_at
         ) and coin.status != "STOP_LOSS":
             coin.status = "STOP_LOSS"
@@ -861,7 +758,7 @@ class Bot:
 
     def coin_gone_up_and_dropped(self, coin) -> bool:
         """checks for a possible drop in price in a coin we hold"""
-        if coin.status == "TARGET_SELL" and float(coin.price) < percent(
+        if coin.status == "TARGET_SELL" and coin.price < percent(
             coin.sell_at_percentage, coin.bought_at
         ):
             coin.status = "GONE_UP_AND_DROPPED"
@@ -882,14 +779,14 @@ class Bot:
             # price recorded
             # TODO: incorrect date
 
-            if float(coin.price) != float(coin.last):
+            if coin.price != coin.last:
                 self.log_debug_coin(coin)
             # has price has gone down ?
-            if float(coin.price) < float(coin.last):
+            if coin.price < coin.last:
 
                 # and below our target sell percentage over the tip ?
-                if float(coin.price) < percent(
-                    float(coin.trail_target_sell_percentage), coin.tip
+                if coin.price < percent(
+                    coin.trail_target_sell_percentage, coin.tip
                 ):
                     # let's sell it then
                     self.sell_coin(coin)
@@ -920,7 +817,7 @@ class Bot:
         if coin.holding_time > coin.soft_limit_holding_time:
             ttl = 100 * (
                 1
-                - float(
+                - (
                     (coin.holding_time - coin.soft_limit_holding_time)
                     / (
                         coin.hard_limit_holding_time
@@ -933,8 +830,8 @@ class Bot:
                 percent(ttl, self.tickers[coin.symbol]["SELL_AT_PERCENTAGE"])
             )
 
-            if coin.sell_at_percentage < add_100(2 * float(self.trading_fee)):
-                coin.sell_at_percentage = add_100(2 * float(self.trading_fee))
+            if coin.sell_at_percentage < add_100(2 * self.trading_fee):
+                coin.sell_at_percentage = add_100(2 * self.trading_fee)
 
             coin.trail_target_sell_percentage = (
                 add_100(
@@ -996,8 +893,8 @@ class Bot:
         coin.tip = float(0)
         coin.status = ""
         if self.clean_coin_stats_at_sale:
-            coin.min = float(coin.price)
-            coin.max = float(coin.price)
+            coin.min = coin.price
+            coin.max = coin.price
 
     def save_coins(self) -> None:
         """saves coins and wallet to a local pickle file"""

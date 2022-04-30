@@ -85,20 +85,20 @@ def mean(values: list) -> float:
 @lru_cache(1024)
 def percent(part: float, whole: float) -> float:
     """returns the percentage value of a number"""
-    result = float(whole) / 100 * float(part)
+    result = whole / 100 * part
     return result
 
 
 @lru_cache(1024)
 def add_100(number: float) -> float:
     """adds 100 to a number"""
-    return float(100 + number)
+    return 100 + number
 
 
 @lru_cache(1)
 def c_date_from(day: str) -> float:
     """ returns a cached datetime.fromisoformat()"""
-    return float(datetime.fromisoformat(day).timestamp())
+    return datetime.fromisoformat(day).timestamp()
 
 
 @lru_cache(8)
