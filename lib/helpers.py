@@ -2,81 +2,36 @@
 import logging
 import pickle
 import sys
-import threading
 from datetime import datetime
 from functools import lru_cache
 from os.path import exists, getctime
-from queue import Queue
 import colorlog
 import requests
 import udatetime
 from binance.client import Client
 from tenacity import retry, wait_exponential
 
+c_handler = colorlog.StreamHandler(sys.stdout)
+c_handler.setFormatter(
+    colorlog.ColoredFormatter(
+        "%(log_color)s[%(levelname)s] %(message)s",
+        log_colors={
+            "WARNING": "yellow",
+            "ERROR": "red",
+            "CRITICAL": "red,bg_white",
+        },
+    )
+)
+c_handler.setLevel(logging.INFO)
 
-class QLog:  # pylint: disable=too-few-public-methods
-    """ queue base logging """
-    def __init__(self):
-        self.q = Queue(1)
-        self.t = threading.Thread(target=self.log_worker)
-        self.terminate = False
-        self.t.daemon = True
-        self.t.start()
+f_handler = logging.FileHandler("log/debug.log")
+f_handler.setLevel(logging.DEBUG)
 
-    def log_worker(self) -> None:
-        """ thread logging worker """
-        c_handler = colorlog.StreamHandler(sys.stdout)
-        c_handler.setFormatter(
-            colorlog.ColoredFormatter(
-                "%(log_color)s[%(levelname)s] %(message)s",
-                log_colors={
-                    "WARNING": "yellow",
-                    "ERROR": "red",
-                    "CRITICAL": "red,bg_white",
-                },
-            )
-        )
-        c_handler.setLevel(logging.INFO)
-
-        f_handler = logging.FileHandler("log/debug.log")
-        f_handler.setLevel(logging.DEBUG)
-
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format="[%(levelname)s] %(lineno)d %(funcName)s %(message)s",
-            handlers=[f_handler, c_handler],
-        )
-
-        qlogger = logging.getLogger("cryptobot")
-        while True:
-            if self.terminate:
-                if self.q.empty():
-                    return
-
-            sev, message = self.q.get()
-
-            if sev == "debug":
-                qlogger.debug(message)
-            if sev == "info":
-                qlogger.info(message)
-            if sev == "warning":
-                qlogger.warning(message)
-            if sev == "error":
-                qlogger.error(message)
-            if sev == "critical":
-                qlogger.critical(message)
-
-            self.q.task_done()
-
-
-    def send(self, sev: str, message: str) -> None:
-        """ sends message to logging thread worker """
-        self.q.put((sev, message))
-
-    def stop(self) -> None:
-        """ signals thread worker to stop """
-        self.terminate = True
-        self.t.join(1)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="[%(levelname)s] %(lineno)d %(funcName)s %(message)s",
+    handlers=[f_handler, c_handler],
+)
 
 def mean(values: list) -> float:
     """returns the mean value of an array of integers"""

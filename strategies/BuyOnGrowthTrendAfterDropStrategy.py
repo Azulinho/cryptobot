@@ -1,6 +1,6 @@
 """ bot buy strategy file """
-from app import Bot, Coin, logger
-from lib.helpers import percent, c_from_timestamp
+from app import Bot, Coin
+from lib.helpers import percent, c_from_timestamp, logging
 
 
 class Strategy(Bot):
@@ -30,7 +30,7 @@ class Strategy(Bot):
         ):
             coin.dip = coin.price
             coin.status = "TARGET_DIP"
-            logger.send("info",
+            logging.info(
                 f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
                 + f"-> [TARGET_DIP] ({coin.price})"
             )

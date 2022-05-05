@@ -34,11 +34,8 @@ from lib.helpers import (
     c_from_timestamp,
     requests_with_backoff,
     cached_binance_client,
-    QLog
+    logging
 )
-
-# initialize the Queue based logger
-logger = QLog()
 
 
 def control_center() -> None:
@@ -163,7 +160,7 @@ class Coin:  # pylint: disable=too-few-public-methods
                     )
                     - 100
                 )
-                logger.send("info",
+                logging.info(
                     f"{c_from_timestamp(self.date)}: {self.symbol} [HOLD] "
                     + f"-> [TARGET_SELL] ({self.price}) "
                     + f"A:{self.holding_time}s "
@@ -443,13 +440,13 @@ class Bot:
 
             # error handling here in case position cannot be placed
             except BinanceAPIException as error_msg:
-                logger.send("error", f"buy() exception: {error_msg}")
-                logger.send("error", f"tried to buy: {volume} of {coin.symbol}")
+                logging.error(f"buy() exception: {error_msg}")
+                logging.error(f"tried to buy: {volume} of {coin.symbol}")
                 return
 
             orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
             while orders == []:
-                logger.send("warning",
+                logging.warning(
                     "Binance is being slow in returning the order, "
                     + "calling the API again..."
                 )
@@ -484,7 +481,7 @@ class Bot:
             percent(coin.trail_target_sell_percentage, coin.sell_at_percentage)
             - 100
         )
-        logger.send("info",
+        logging.info(
             f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}] "
             + f"A:{coin.holding_time}s "
             + f"U:{coin.volume} P:{coin.price} T:{coin.value} "
@@ -496,15 +493,15 @@ class Bot:
             + f"({len(self.wallet)}/{self.max_coins}) "
         )
         if self.debug:
-            logger.send("debug", f"lowest[m]: {coin.lowest['m']}")
-            logger.send("debug",f"averages[m]: {coin.averages['m']}")
-            logger.send("debug",f"highest[m]: {coin.highest['m']}")
-            logger.send("debug",f"lowest[h]: {coin.lowest['h']}")
-            logger.send("debug",f"averages[h]: {coin.averages['h']}")
-            logger.send("debug",f"highest[h]: {coin.highest['h']}")
-            logger.send("debug",f"lowest[d]: {coin.lowest['d']}")
-            logger.send("debug",f"averages[d]: {coin.averages['d']}")
-            logger.send("debug",f"highest[d]: {coin.highest['d']}")
+            logging.debug(f"lowest[m]: {coin.lowest['m']}")
+            logging.debug(f"averages[m]: {coin.averages['m']}")
+            logging.debug(f"highest[m]: {coin.highest['m']}")
+            logging.debug(f"lowest[h]: {coin.lowest['h']}")
+            logging.debug(f"averages[h]: {coin.averages['h']}")
+            logging.debug(f"highest[h]: {coin.highest['h']}")
+            logging.debug(f"lowest[d]: {coin.lowest['d']}")
+            logging.debug(f"averages[d]: {coin.averages['d']}")
+            logging.debug(f"highest[d]: {coin.highest['d']}")
 
     def sell_coin(self, coin) -> None:
         """calls Binance to sell a coin"""
@@ -521,13 +518,13 @@ class Bot:
                 )
             # error handling here in case position cannot be placed
             except BinanceAPIException as error_msg:
-                logger.send("error", f"sell() exception: {error_msg}")
-                logger.send("error", f"tried to sell: {coin.volume} of {coin.symbol}")
+                logging.error(f"sell() exception: {error_msg}")
+                logging.error(f"tried to sell: {coin.volume} of {coin.symbol}")
                 return
 
             orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
             while orders == []:
-                logger.send("warning",
+                logging.warning(
                     "Binance is being slow in returning the order, "
                     + "calling the API again..."
                 )
@@ -567,9 +564,9 @@ class Bot:
         )
 
         if coin.profit < 0 or coin.holding_time > coin.hard_limit_holding_time:
-            logger.send("warning", message)
+            logging.warning(message)
         else:
-            logger.send("info", message)
+            logging.info(message)
 
         self.wallet.remove(coin.symbol)
         self.update_bot_profit(coin)
@@ -578,7 +575,7 @@ class Bot:
         self.clear_coin_stats(coin)
         self.clear_all_coins_stats()
 
-        logger.send("info",
+        logging.info(
             f"{c_from_timestamp(coin.date)}: INVESTMENT: {self.investment} "
             + f"PROFIT: {self.profit} WALLET: {self.wallet}"
         )
@@ -619,7 +616,7 @@ class Bot:
             try:
                 info = self.client.get_symbol_info(symbol)
             except BinanceAPIException as error_msg:
-                logger.send("error", error_msg)
+                logging.error(error_msg)
                 return -1
 
         step_size = float(info["filters"][2]["stepSize"])
@@ -640,7 +637,7 @@ class Bot:
         )
 
         if self.debug:
-            logger.send("debug",
+            logging.debug(
                 f"[{coin.symbol}] investment:{self.investment} "
                 + f"vol:{volume} price:{coin.price} precision:{precision}"
             )
@@ -762,7 +759,7 @@ class Bot:
             coin.sell_at_percentage, coin.bought_at
         ):
             coin.status = "GONE_UP_AND_DROPPED"
-            logger.send("info",
+            logging.info(
                 f"{c_from_timestamp(coin.date)} {coin.symbol} " +
                 "[TARGET_SELL] -> [GONE_UP_AND_DROPPED]"
             )
@@ -852,7 +849,7 @@ class Bot:
     def log_debug_coin(self, coin: Coin) -> None:
         """logs debug coin prices"""
         if self.debug:
-            logger.send("debug",
+            logging.debug(
                 f"{c_from_timestamp(coin.date)} {coin.symbol} "
                 + f"{coin.status} "
                 + f"age:{coin.holding_time} "
@@ -919,14 +916,14 @@ class Bot:
     def load_coins(self) -> None:
         """loads coins and wallet from a local pickle file"""
         if exists("state/coins.pickle"):
-            logger.send("warning", "found coins.pickle, loading coins")
+            logging.warning("found coins.pickle, loading coins")
             with open("state/coins.pickle", "rb") as f:
                 self.coins = pickle.load(f)
         if exists("state/wallet.pickle"):
-            logger.send("warning", "found wallet.pickle, loading wallet")
+            logging.warning("found wallet.pickle, loading wallet")
             with open("state/wallet.pickle", "rb") as f:
                 self.wallet = pickle.load(f)
-            logger.send("warning", f"wallet contains {self.wallet}")
+            logging.warning(f"wallet contains {self.wallet}")
 
         # sync our coins state with the list of coins we want to use.
         # but keep using coins we currently have on our wallet
@@ -941,7 +938,7 @@ class Bot:
         # finally apply the current settings in the config file
 
         symbols = " ".join(self.coins.keys())
-        logger.send("warning", f"overriding values from config for: {symbols}")
+        logging.warning(f"overriding values from config for: {symbols}")
         for symbol in self.coins:
             self.coins[symbol].buy_at_percentage = add_100(
                 self.tickers[symbol]["BUY_AT_PERCENTAGE"]
@@ -1014,7 +1011,7 @@ class Bot:
             )
 
         if self.wallet:
-            logger.send("info", "Wallet contains:")
+            logging.info("Wallet contains:")
             for symbol in self.wallet:
                 sell_price = (
                     float(
@@ -1030,7 +1027,7 @@ class Bot:
                     )
                     - 100
                 )
-                logger.send("info",
+                logging.info(
                     f"{self.coins[symbol].date}: {symbol} "
                     + f"{self.coins[symbol].status} "
                     + f"A:{self.coins[symbol].holding_time}s "
@@ -1087,8 +1084,8 @@ class Bot:
         """the bot LIVE main loop"""
         self.load_coins()
         if self.clear_coin_stats_at_boot:
-            logger.send("warning", "About the clear all coin stats...")
-            logger.send("warning", "CTRL-C to cancel in the next 10 seconds")
+            logging.warning("About the clear all coin stats...")
+            logging.warning("CTRL-C to cancel in the next 10 seconds")
             sleep(10)
             self.clear_all_coins_stats()
 
@@ -1097,7 +1094,7 @@ class Bot:
             self.save_coins()
             self.wait()
             if exists(".stop"):
-                logger.send("warning", ".stop flag found. Stopping bot.")
+                logging.warning(".stop flag found. Stopping bot.")
                 return
 
     def logmode(self) -> None:
@@ -1166,8 +1163,8 @@ class Bot:
 
     def backtest_logfile(self, price_log: str) -> None:
         """processes one price.log file for backtesting"""
-        logger.send("info", f"backtesting: {price_log}")
-        logger.send("info", f"wallet: {self.wallet}")
+        logging.info(f"backtesting: {price_log}")
+        logging.info(f"wallet: {self.wallet}")
         try:
             if price_log.endswith(".lz4"):
                 f = lz4open(price_log, mode="rt")
@@ -1182,14 +1179,14 @@ class Bot:
                     self.process_line(line)
             f.close()
         except Exception as error_msg:  # pylint: disable=broad-except
-            logger.send("error", "Exception:")
-            logger.send("error", traceback.format_exc())
+            logging.error("Exception:")
+            logging.error(traceback.format_exc())
             if error_msg == "KeyboardInterrupt":
                 sys.exit(1)
 
     def backtesting(self) -> None:
         """the bot Backtesting main loop"""
-        logger.send("info", json.dumps(self.cfg, indent=4))
+        logging.info(json.dumps(self.cfg, indent=4))
 
         self.clear_all_coins_stats()
 
@@ -1218,7 +1215,7 @@ class Bot:
         """fetches from binance or a local cache klines for a coin"""
 
         symbol = coin.symbol
-        logger.send("info", f"{c_from_timestamp(coin.date)}: loading klines for: {symbol}")
+        logging.info(f"{c_from_timestamp(coin.date)}: loading klines for: {symbol}")
 
         api_url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&"
 
@@ -1260,7 +1257,7 @@ class Bot:
                         f.write(json.dumps(results))
 
             if self.debug:
-                logger.send("debug", f"{symbol} : last_{unit}:{results[-1:]}")
+                logging.debug(f"{symbol} : last_{unit}:{results[-1:]}")
 
             if timeslice != 0:
                 lowest = []
@@ -1288,18 +1285,18 @@ class Bot:
                     coin.highest[unit].append((d, v))
 
         if self.debug:
-            logger.send("debug", f"{symbol} : price:{coin.price}")
-            logger.send("debug", f"{symbol} : min:{coin.min}")
-            logger.send("debug", f"{symbol} : max:{coin.max}")
-            logger.send("debug", f"{symbol} : lowest['m']:{coin.lowest['m']}")
-            logger.send("debug", f"{symbol} : lowest['h']:{coin.lowest['h']}")
-            logger.send("debug", f"{symbol} : lowest['d']:{coin.lowest['d']}")
-            logger.send("debug", f"{symbol} : averages['m']:{coin.averages['m']}")
-            logger.send("debug", f"{symbol} : averages['h']:{coin.averages['h']}")
-            logger.send("debug", f"{symbol} : averages['d']:{coin.averages['d']}")
-            logger.send("debug", f"{symbol} : highest['m']:{coin.highest['m']}")
-            logger.send("debug", f"{symbol} : highest['h']:{coin.highest['h']}")
-            logger.send("debug", f"{symbol} : highest['d']:{coin.highest['d']}")
+            logging.debug(f"{symbol} : price:{coin.price}")
+            logging.debug(f"{symbol} : min:{coin.min}")
+            logging.debug(f"{symbol} : max:{coin.max}")
+            logging.debug(f"{symbol} : lowest['m']:{coin.lowest['m']}")
+            logging.debug(f"{symbol} : lowest['h']:{coin.lowest['h']}")
+            logging.debug(f"{symbol} : lowest['d']:{coin.lowest['d']}")
+            logging.debug(f"{symbol} : averages['m']:{coin.averages['m']}")
+            logging.debug(f"{symbol} : averages['h']:{coin.averages['h']}")
+            logging.debug(f"{symbol} : averages['d']:{coin.averages['d']}")
+            logging.debug(f"{symbol} : highest['m']:{coin.highest['m']}")
+            logging.debug(f"{symbol} : highest['h']:{coin.highest['h']}")
+            logging.debug(f"{symbol} : highest['d']:{coin.highest['d']}")
 
     def print_final_balance_report(self):
         """ calculates and outputs final balance """
@@ -1312,17 +1309,17 @@ class Bot:
             age = holding.holding_time
             current_exposure = current_exposure + self.coins[item].profit
 
-            logger.send("info", f"WALLET: {item} age:{age} cost:{cost} value:{value}")
+            logging.info(f"WALLET: {item} age:{age} cost:{cost} value:{value}")
 
-        logger.send("info", f"bot profit: {self.profit}")
-        logger.send("info", f"current exposure: {current_exposure:.3f}")
-        logger.send("info", f"total fees: {self.fees:.3f}")
-        logger.send("info", f"final balance: {self.profit + current_exposure:.3f}")
-        logger.send("info",
+        logging.info(f"bot profit: {self.profit}")
+        logging.info(f"current exposure: {current_exposure:.3f}")
+        logging.info(f"total fees: {self.fees:.3f}")
+        logging.info(f"final balance: {self.profit + current_exposure:.3f}")
+        logging.info(
             f"investment: start: {int(self.initial_investment)} "
             + f"end: {int(self.investment)}"
         )
-        logger.send("info",
+        logging.info(
             f"wins:{self.wins} losses:{self.losses} "
             + f"stales:{self.stales} holds:{len(self.wallet)}"
         )
@@ -1358,7 +1355,7 @@ if __name__ == "__main__":
             client, args.config, cfg
         )  # type: ignore
 
-        logger.send("info",
+        logging.info(
             f"running in {bot.mode} mode with "
             + f"{json.dumps(args.config, indent=4)}"
         )
@@ -1383,9 +1380,8 @@ if __name__ == "__main__":
             bot.run()
 
         bot.print_final_balance_report()
-        logger.stop()
 
     except Exception:  # pylint: disable=broad-except
-        logger.send("error", traceback.format_exc())
+        logging.error( traceback.format_exc())
         sleep(1)
         sys.exit(1)
