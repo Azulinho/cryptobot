@@ -1382,6 +1382,4 @@ if __name__ == "__main__":
         bot.print_final_balance_report()
 
     except Exception:  # pylint: disable=broad-except
-        logging.error( traceback.format_exc())
-        sleep(1)
-        sys.exit(1)
+        logging.error(traceback.format_exc())
