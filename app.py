@@ -1105,13 +1105,24 @@ class Bot:
 
     def process_line(self, line: str) -> None:
         """processes a backlog line"""
+
+        # skip processing the line if it doesn't not match our PAIRING settings
         if self.pairing not in line:
             return
 
         parts = line.split(" ", maxsplit=4)
         symbol = parts[2]
+        # skip processing the line if we don't care about this coin
         if symbol not in self.tickers:
             return
+
+        # skip processing the line we hold max coins and this coins is not in
+        # our wallet. Only process lines containing the coin in our wallets
+        # until we sell or drop those.
+        if len(self.wallet) >= self.max_coins:
+            if symbol not in self.wallet:
+                return
+
         day = " ".join(parts[0:2])
         try:
             # datetime is very slow, discard the .microseconds and fetch a
