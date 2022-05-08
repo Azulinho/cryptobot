@@ -1268,7 +1268,11 @@ class Bot:
                         f.write(json.dumps(results))
 
             if self.debug:
-                logging.debug(f"{symbol} : last_{unit}:{results[-1:]}")
+                # ocasionally we obtain an invalid results obj here
+                if results:
+                    logging.debug(f"{symbol} : last_{unit}:{results[-1:]}")
+                else:
+                    logging.debug(f"{symbol} : last_{unit}:{results}")
 
             if timeslice != 0:
                 lowest = []
