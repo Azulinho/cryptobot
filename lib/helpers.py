@@ -4,6 +4,7 @@ import pickle
 import sys
 from datetime import datetime
 from functools import lru_cache
+from os import getpid
 from os.path import exists, getctime
 import colorlog
 import requests
@@ -11,6 +12,8 @@ import udatetime
 from binance.client import Client
 from tenacity import retry, wait_exponential
 
+
+PID = getpid()
 c_handler = colorlog.StreamHandler(sys.stdout)
 c_handler.setFormatter(
     colorlog.ColoredFormatter(
@@ -24,12 +27,12 @@ c_handler.setFormatter(
 )
 c_handler.setLevel(logging.INFO)
 
-f_handler = logging.FileHandler("log/debug.log")
+f_handler = logging.FileHandler(f"log/debug.log")
 f_handler.setLevel(logging.DEBUG)
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format="[%(levelname)s] %(lineno)d %(funcName)s %(message)s",
+    format=f"[%(levelname)s] {PID} %(lineno)d %(funcName)s %(message)s",
     handlers=[f_handler, c_handler],
 )
 
