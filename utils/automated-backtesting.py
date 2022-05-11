@@ -275,7 +275,7 @@ if __name__ == "__main__":
     if os.path.exists("cache/binance.client"):
         os.remove("cache/binance.client")
 
-    with mp.Pool(processes=os.cpu_count() * 2) as pool:
+    with mp.Pool(processes=os.cpu_count()) as pool:
         # process one strategy at a time
         for strategy in cfgs["STRATEGIES"]:
             # cleanup backtesting.log
