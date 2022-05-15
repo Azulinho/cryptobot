@@ -376,6 +376,9 @@ class Bot:
         self.enable_pump_and_dump_checks : bool = config.get(
             "ENABLE_PUMP_AND_DUMP_CHECKS", True
         )
+        self.enable_new_listing_checks : bool = config.get(
+            "ENABLE_NEW_LISTING_CHECKS", True
+        )
 
     def run_strategy(self, coin) -> None:
         """runs a specific strategy against a coin"""
@@ -391,8 +394,9 @@ class Bot:
         if len(self.wallet) == self.max_coins:
             return
 
-        if coin.new_listing(self.mode):
-            return
+        if self.enable_new_listing_checks:
+            if coin.new_listing(self.mode):
+                return
 
         if self.enable_pump_and_dump_checks:
             if coin.check_for_pump_and_dump():
