@@ -30,11 +30,12 @@ A python based trading bot for Binance, which relies heavily on backtesting.
    * [TRADING_FEE](#trading_fee)
    * [PRICE_LOGS](#price_logs)
    * [ENABLE_PUMP_AND_DUMP_CHECKS](#enable_pump_and_dump_checks)
-   * [ENABLE_NEW_LISTING_CHECKS](#enable_pump_and_dump_checks)
-   * STOP_BOT_ON_LOSS
+   * [ENABLE_NEW_LISTING_CHECKS](#enable_new_listing_checks)
+   * [STOP_BOT_ON_LOSS](#stop_bot_on_loss)
 5. [Bot command center](#bot-command-center)
 6. [Automated Backtesting](#automated-backtesting)
 7. [Development/New features](#development/new-features)
+
 
 ## Overview
 
@@ -587,8 +588,10 @@ The list of price logs to be used for backtesting.
 
 
 ### ENABLE_PUMP_AND_DUMP_CHECKS
+
 ```
 ENABLE_PUMP_AND_DUMP_CHECKS: True
+```
 
 defaults to True
 
@@ -597,8 +600,10 @@ buying if the price 2 hours ago was lower than 1 hour ago (pump) and the current
 price is higher than 2 hours ago (dump pending).
 
 ### ENABLE_NEW_LISTING_CHECKS
+
 ```
 ENABLE_NEW_LISTING_CHECKS: True
+```
 
 defaults to True
 
@@ -606,8 +611,10 @@ Checks that we have at least 30 days of price data on a coin, if we don't we
 skip buying this coin.
 
 ### STOP_BOT_ON_LOSS
+
 ```
 STOP_BOT_ON_LOSS: True
+```
 
 defaults to False
 
@@ -682,7 +689,9 @@ make automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG=automated-back
 This will generate a config.yaml with the coins sorted by which strategy
 returned the highest number of wins for each coin.
 
+```
 make automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='wins'
+```
 
 
 ## Development/New features
