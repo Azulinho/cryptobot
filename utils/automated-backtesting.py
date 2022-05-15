@@ -153,6 +153,7 @@ def generate_coin_template_config_file(coin, strategy, cfg):
     "DEBUG": $DEBUG,
     "TRADING_FEE": $TRADING_FEE,
     "SELL_AS_SOON_IT_DROPS": $SELL_AS_SOON_IT_DROPS,
+    "STOP_BOT_ON_LOSS": $STOP_BOT_ON_LOSS,
     "TICKERS": {
       "$COIN": {
           "BUY_AT_PERCENTAGE": $BUY_AT_PERCENTAGE,
@@ -207,6 +208,7 @@ def generate_coin_template_config_file(coin, strategy, cfg):
                         "KLINES_SLICE_PERCENTAGE_CHANGE"
                     ],
                     "STRATEGY": strategy,
+                    "STOP_BOT_ON_LOSS": cfg["STOP_BOT_ON_LOSS"]
                 }
             )
         )
@@ -290,6 +292,11 @@ if __name__ == "__main__":
                         **cfgs["DEFAULTS"],
                         **cfgs["STRATEGIES"][strategy][run],
                     }
+                    # on 'wins' we don't want to keep on processing our logfiles
+                    # when we hit a STOP_LOSS
+                    if args.sortby == "wins":
+                        config["STOP_BOT_ON_LOSS"] = True
+
                     # and we generate a specific coin config file for that strategy
                     generate_coin_template_config_file(
                         symbol, strategy, config

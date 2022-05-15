@@ -31,6 +31,7 @@ A python based trading bot for Binance, which relies heavily on backtesting.
    * [PRICE_LOGS](#price_logs)
    * [ENABLE_PUMP_AND_DUMP_CHECKS](#enable_pump_and_dump_checks)
    * [ENABLE_NEW_LISTING_CHECKS](#enable_pump_and_dump_checks)
+   * STOP_BOT_ON_LOSS
 5. [Bot command center](#bot-command-center)
 6. [Automated Backtesting](#automated-backtesting)
 7. [Development/New features](#development/new-features)
@@ -603,6 +604,14 @@ defaults to True
 
 Checks that we have at least 30 days of price data on a coin, if we don't we
 skip buying this coin.
+
+### STOP_BOT_ON_LOSS
+```
+STOP_BOT_ON_LOSS: True
+
+defaults to False
+
+Stops the bot immediately after a STOP_LOSS
 
 ## Bot command center
 

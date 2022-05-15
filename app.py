@@ -379,6 +379,11 @@ class Bot:
         self.enable_new_listing_checks : bool = config.get(
             "ENABLE_NEW_LISTING_CHECKS", True
         )
+        self.stop_bot_on_loss : bool = config.get(
+            "STOP_BOT_ON_LOSS", True
+        )
+        self.stop_flag: bool = False
+        self.quit : bool = False
 
     def run_strategy(self, coin) -> None:
         """runs a specific strategy against a coin"""
@@ -754,6 +759,9 @@ class Bot:
             coin.naughty_date = coin.date  # pylint: disable=attribute-defined-outside-init
             self.clear_coin_stats(coin)
             coin.naughty = True  # pylint: disable=attribute-defined-outside-init
+            if self.stop_bot_on_loss:
+                # STOP_BOT_ON_LOSS is set, set a STOP flag to stop the bot
+                self.quit = True
             return True
         return False
 
@@ -1097,7 +1105,7 @@ class Bot:
             self.process_coins()
             self.save_coins()
             self.wait()
-            if exists(".stop"):
+            if exists(".stop") or self.quit:
                 logging.warning(".stop flag found. Stopping bot.")
                 return
 
@@ -1109,6 +1117,9 @@ class Bot:
 
     def process_line(self, line: str) -> None:
         """processes a backlog line"""
+
+        if self.quit:
+            return
 
         # skip processing the line if it doesn't not match our PAIRING settings
         if self.pairing not in line:
@@ -1178,6 +1189,9 @@ class Bot:
 
     def backtest_logfile(self, price_log: str) -> None:
         """processes one price.log file for backtesting"""
+        if self.quit:
+            return
+
         logging.info(f"backtesting: {price_log}")
         logging.info(f"wallet: {self.wallet}")
         try:
@@ -1207,6 +1221,9 @@ class Bot:
 
         for price_log in self.price_logs:
             self.backtest_logfile(price_log)
+            if exists(".stop") or self.quit:
+                logging.warning(".stop flag found. Stopping bot.")
+                break
 
         with open("log/backtesting.log", "a", encoding="utf-8") as f:
             current_exposure = float(0)
