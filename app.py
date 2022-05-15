@@ -1257,12 +1257,17 @@ class Bot:
             md5_query = md5(query.encode()).hexdigest()
             f_path = f"cache/{symbol}.{md5_query}"
 
-            if exists(f_path):
+            # wrap results in a try call, in case our cached files are corrupt
+            # and attempt to pull the required fields from our data.
+            try:
                 with open(f_path, "r") as f:
                     results = json.load(f)
-            else:
+                _, _, high, low, _, _, closetime, _, _, _, _,_ = results[0]
+            except:
                 results = requests_with_backoff(query).json()
                 # this can be fairly API intensive for a large number of tickers
+                # so we cache these calls on disk, each coin, period, start day
+                # is md5sum'd and stored on a dedicated file on /cache
                 if self.mode == "backtesting":
                     with open(f_path, "w") as f:
                         f.write(json.dumps(results))
