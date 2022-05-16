@@ -27,7 +27,7 @@ c_handler.setFormatter(
 )
 c_handler.setLevel(logging.INFO)
 
-f_handler = logging.FileHandler(f"log/debug.log")
+f_handler = logging.FileHandler("log/debug.log")
 f_handler.setLevel(logging.DEBUG)
 
 logging.basicConfig(

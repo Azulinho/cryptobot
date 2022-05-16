@@ -1284,7 +1284,7 @@ class Bot:
                 with open(f_path, "r") as f:
                     results = json.load(f)
                 _, _, high, low, _, _, closetime, _, _, _, _,_ = results[0]
-            except:
+            except Exception:  # pylint: disable=broad-except
                 results = requests_with_backoff(query).json()
                 # this can be fairly API intensive for a large number of tickers
                 # so we cache these calls on disk, each coin, period, start day
