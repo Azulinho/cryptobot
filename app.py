@@ -380,7 +380,7 @@ class Bot:
             "ENABLE_NEW_LISTING_CHECKS", True
         )
         self.stop_bot_on_loss : bool = config.get(
-            "STOP_BOT_ON_LOSS", True
+            "STOP_BOT_ON_LOSS", False
         )
         self.stop_flag: bool = False
         self.quit : bool = False
