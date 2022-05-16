@@ -232,12 +232,10 @@ def generate_config_for_tuned_strategy_run(strategy, cfg, results, logfile):
     }"""
     )
 
-    print(f"\ncreating {coin} config for {strategy}\n")
     with open(f"configs/{strategy}.yaml", "wt") as f:
         f.write(
             tmpl.substitute(
                 {
-                    "COIN": coin,
                     "PAUSE_FOR": cfg["PAUSE_FOR"],
                     "INITIAL_INVESTMENT": cfg["INITIAL_INVESTMENT"],
                     "MAX_COINS": cfg["MAX_COINS"],
@@ -259,7 +257,8 @@ def generate_config_for_tuned_strategy_run(strategy, cfg, results, logfile):
         )
 
 
-if __name__ == "__main__":
+
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-l", "--log", help="logfile")
     parser.add_argument("-c", "--cfgs", help="backtesting cfg")
@@ -345,3 +344,7 @@ if __name__ == "__main__":
         os.remove(item)
     for item in glob.glob('log/coin.*.log.gz'):
         os.remove(item)
+
+
+if __name__ == "__main__":
+    main()
