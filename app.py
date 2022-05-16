@@ -376,6 +376,14 @@ class Bot:
         self.enable_pump_and_dump_checks : bool = config.get(
             "ENABLE_PUMP_AND_DUMP_CHECKS", True
         )
+        self.enable_new_listing_checks : bool = config.get(
+            "ENABLE_NEW_LISTING_CHECKS", True
+        )
+        self.stop_bot_on_loss : bool = config.get(
+            "STOP_BOT_ON_LOSS", False
+        )
+        self.stop_flag: bool = False
+        self.quit : bool = False
 
     def run_strategy(self, coin) -> None:
         """runs a specific strategy against a coin"""
@@ -391,8 +399,9 @@ class Bot:
         if len(self.wallet) == self.max_coins:
             return
 
-        if coin.new_listing(self.mode):
-            return
+        if self.enable_new_listing_checks:
+            if coin.new_listing(self.mode):
+                return
 
         if self.enable_pump_and_dump_checks:
             if coin.check_for_pump_and_dump():
@@ -750,6 +759,9 @@ class Bot:
             coin.naughty_date = coin.date  # pylint: disable=attribute-defined-outside-init
             self.clear_coin_stats(coin)
             coin.naughty = True  # pylint: disable=attribute-defined-outside-init
+            if self.stop_bot_on_loss:
+                # STOP_BOT_ON_LOSS is set, set a STOP flag to stop the bot
+                self.quit = True
             return True
         return False
 
@@ -1093,7 +1105,7 @@ class Bot:
             self.process_coins()
             self.save_coins()
             self.wait()
-            if exists(".stop"):
+            if exists(".stop") or self.quit:
                 logging.warning(".stop flag found. Stopping bot.")
                 return
 
@@ -1105,6 +1117,9 @@ class Bot:
 
     def process_line(self, line: str) -> None:
         """processes a backlog line"""
+
+        if self.quit:
+            return
 
         # skip processing the line if it doesn't not match our PAIRING settings
         if self.pairing not in line:
@@ -1174,6 +1189,9 @@ class Bot:
 
     def backtest_logfile(self, price_log: str) -> None:
         """processes one price.log file for backtesting"""
+        if self.quit:
+            return
+
         logging.info(f"backtesting: {price_log}")
         logging.info(f"wallet: {self.wallet}")
         try:
@@ -1203,6 +1221,9 @@ class Bot:
 
         for price_log in self.price_logs:
             self.backtest_logfile(price_log)
+            if exists(".stop") or self.quit:
+                logging.warning(".stop flag found. Stopping bot.")
+                break
 
         with open("log/backtesting.log", "a", encoding="utf-8") as f:
             current_exposure = float(0)
@@ -1257,18 +1278,27 @@ class Bot:
             md5_query = md5(query.encode()).hexdigest()
             f_path = f"cache/{symbol}.{md5_query}"
 
-            if exists(f_path):
+            # wrap results in a try call, in case our cached files are corrupt
+            # and attempt to pull the required fields from our data.
+            try:
                 with open(f_path, "r") as f:
                     results = json.load(f)
-            else:
+                _, _, high, low, _, _, closetime, _, _, _, _,_ = results[0]
+            except Exception:  # pylint: disable=broad-except
                 results = requests_with_backoff(query).json()
                 # this can be fairly API intensive for a large number of tickers
+                # so we cache these calls on disk, each coin, period, start day
+                # is md5sum'd and stored on a dedicated file on /cache
                 if self.mode == "backtesting":
                     with open(f_path, "w") as f:
                         f.write(json.dumps(results))
 
             if self.debug:
-                logging.debug(f"{symbol} : last_{unit}:{results[-1:]}")
+                # ocasionally we obtain an invalid results obj here
+                if results:
+                    logging.debug(f"{symbol} : last_{unit}:{results[-1:]}")
+                else:
+                    logging.debug(f"{symbol} : last_{unit}:{results}")
 
             if timeslice != 0:
                 lowest = []

@@ -153,6 +153,7 @@ def generate_coin_template_config_file(coin, strategy, cfg):
     "DEBUG": $DEBUG,
     "TRADING_FEE": $TRADING_FEE,
     "SELL_AS_SOON_IT_DROPS": $SELL_AS_SOON_IT_DROPS,
+    "STOP_BOT_ON_LOSS": $STOP_BOT_ON_LOSS,
     "TICKERS": {
       "$COIN": {
           "BUY_AT_PERCENTAGE": $BUY_AT_PERCENTAGE,
@@ -207,6 +208,7 @@ def generate_coin_template_config_file(coin, strategy, cfg):
                         "KLINES_SLICE_PERCENTAGE_CHANGE"
                     ],
                     "STRATEGY": strategy,
+                    "STOP_BOT_ON_LOSS": cfg["STOP_BOT_ON_LOSS"]
                 }
             )
         )
@@ -230,12 +232,10 @@ def generate_config_for_tuned_strategy_run(strategy, cfg, results, logfile):
     }"""
     )
 
-    print(f"\ncreating {coin} config for {strategy}\n")
     with open(f"configs/{strategy}.yaml", "wt") as f:
         f.write(
             tmpl.substitute(
                 {
-                    "COIN": coin,
                     "PAUSE_FOR": cfg["PAUSE_FOR"],
                     "INITIAL_INVESTMENT": cfg["INITIAL_INVESTMENT"],
                     "MAX_COINS": cfg["MAX_COINS"],
@@ -257,7 +257,8 @@ def generate_config_for_tuned_strategy_run(strategy, cfg, results, logfile):
         )
 
 
-if __name__ == "__main__":
+
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-l", "--log", help="logfile")
     parser.add_argument("-c", "--cfgs", help="backtesting cfg")
@@ -275,7 +276,7 @@ if __name__ == "__main__":
     if os.path.exists("cache/binance.client"):
         os.remove("cache/binance.client")
 
-    with mp.Pool(processes=os.cpu_count() * 2) as pool:
+    with mp.Pool(processes=os.cpu_count()) as pool:
         # process one strategy at a time
         for strategy in cfgs["STRATEGIES"]:
             # cleanup backtesting.log
@@ -290,6 +291,11 @@ if __name__ == "__main__":
                         **cfgs["DEFAULTS"],
                         **cfgs["STRATEGIES"][strategy][run],
                     }
+                    # on 'wins' we don't want to keep on processing our logfiles
+                    # when we hit a STOP_LOSS
+                    if args.sortby == "wins":
+                        config["STOP_BOT_ON_LOSS"] = True
+
                     # and we generate a specific coin config file for that strategy
                     generate_coin_template_config_file(
                         symbol, strategy, config
@@ -338,3 +344,7 @@ if __name__ == "__main__":
         os.remove(item)
     for item in glob.glob('log/coin.*.log.gz'):
         os.remove(item)
+
+
+if __name__ == "__main__":
+    main()
