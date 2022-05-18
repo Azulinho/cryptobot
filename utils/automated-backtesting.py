@@ -31,14 +31,30 @@ def compress_file(filename):
     os.remove(filename)
 
 
-def split_logs_into_coins(filename):
+def split_logs_into_coins(filename, cfg):
     coinfiles = set()
     coinfh = {}
     print(f"\nprocessing file {str(filename)}\n")
+    pairing = cfg['DEFAULTS']['PAIRING']
     with xopen(f"{filename}", "rt") as logfile:
         for line in logfile:
+
+            # don't process all the lines, but only the ones related to our PAIR
+            # 2021-01-01 00:00:01.0023 BTCUSDT 36000.00
+            if not f"{pairing} " in line:
+                continue
+
             parts = line.split(" ")
             symbol = parts[2]
+
+            # don't process any BEAR/BULL/UP/DOWN lines
+            if symbol in [
+                f"DOWN{pairing}",
+                f"UP{pairing}",
+                f"BEAR{pairing}",
+                f"BULL{pairing}"
+            ]:
+                continue
 
             coinfilename = f"log/coin.{symbol}.log"
             if symbol not in coinfh:
@@ -267,10 +283,11 @@ def main():
     parser.add_argument("-s", "--sortby", help="sort by 'profit' or 'wins'")
     args = parser.parse_args()
 
-    logfile = args.log
-    coinfiles = split_logs_into_coins(logfile)
     with open(args.cfgs, "rt") as f:
         cfgs = yaml.safe_load(f.read())
+
+    logfile = args.log
+    coinfiles = split_logs_into_coins(logfile, cfgs)
 
     # clean up old binance client cache file
     if os.path.exists("cache/binance.client"):
