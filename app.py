@@ -1304,26 +1304,46 @@ class Bot:
                 lowest = []
                 averages = []
                 highest = []
-                for _, _, high, low, _, _, closetime, _, _, _, _,_ in results:
-                    date = float(
-                        datetime.fromtimestamp(closetime / 1000).timestamp()
-                    )
-                    low = float(low)
-                    high = float(high)
-                    avg = (low  + high ) / 2
+                try:
+                    for (
+                        _,
+                        _,
+                        high,
+                        low,
+                        _,
+                        _,
+                        closetime,
+                        _,
+                        _,
+                        _,
+                        _,
+                        _,
+                    ) in results:
+                        date = float(
+                            datetime.fromtimestamp(
+                                closetime / 1000
+                            ).timestamp()
+                        )
+                        low = float(low)
+                        high = float(high)
+                        avg = (low + high) / 2
 
-                    lowest.append((date, low ))
-                    averages.append((date, avg ))
-                    highest.append((date, high ))
+                        lowest.append((date, low))
+                        averages.append((date, avg))
+                        highest.append((date, high))
 
-                for d, v in lowest[-timeslice:]:
-                    coin.lowest[unit].append((d, v))
+                    for d, v in lowest[-timeslice:]:
+                        coin.lowest[unit].append((d, v))
 
-                for d, v in averages[-timeslice:]:
-                    coin.averages[unit].append((d, v))
+                    for d, v in averages[-timeslice:]:
+                        coin.averages[unit].append((d, v))
 
-                for d, v in highest[-timeslice:]:
-                    coin.highest[unit].append((d, v))
+                    for d, v in highest[-timeslice:]:
+                        coin.highest[unit].append((d, v))
+                except ValueError as e:
+                    logging.debug(e)
+                    logging.debug("caused by results variable with value:")
+                    logging.debug(results)
 
         if self.debug:
             logging.debug(f"{symbol} : price:{coin.price}")
