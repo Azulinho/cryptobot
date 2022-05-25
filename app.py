@@ -1,8 +1,8 @@
 """ CryptoBot for Binance """
 
 import argparse
-import json
 import importlib
+import json
 import math
 import pickle
 import sys
@@ -13,13 +13,13 @@ from functools import lru_cache
 from hashlib import md5
 from itertools import islice
 from os import fsync
-from os.path import exists, basename
+from os.path import basename, exists
 from time import sleep
 from typing import Any, Dict, List, Tuple
 
-import yaml
 import udatetime
 import web_pdb
+import yaml
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
 from lz4.frame import open as lz4open
@@ -27,14 +27,14 @@ from tenacity import retry, wait_exponential
 from xopen import xopen
 
 from lib.helpers import (
-    mean,
-    percent,
     add_100,
     c_date_from,
     c_from_timestamp,
-    requests_with_backoff,
     cached_binance_client,
-    logging
+    logging,
+    mean,
+    percent,
+    requests_with_backoff,
 )
 
 
@@ -46,11 +46,7 @@ def control_center() -> None:
 class Coin:  # pylint: disable=too-few-public-methods
     """Coin Class"""
 
-    offset = {
-        "s": 60,
-        "m": 3600,
-        "h": 86400
-    }
+    offset = {"s": 60, "m": 3600, "h": 86400}
 
     def __init__(
         self,
@@ -66,7 +62,7 @@ class Coin:  # pylint: disable=too-few-public-methods
         hard_limit_holding_time: int,
         naughty_timeout: int,
         klines_trend_period: str,
-        klines_slice_percentage_change: float
+        klines_slice_percentage_change: float,
     ) -> None:
         """Coin object"""
         self.symbol = symbol
@@ -149,9 +145,7 @@ class Coin:  # pylint: disable=too-few-public-methods
             self.profit = self.value - self.cost
 
         if self.status == "HOLD":
-            if market_price > percent(
-                self.sell_at_percentage, self.bought_at
-            ):
+            if market_price > percent(self.sell_at_percentage, self.bought_at):
                 self.status = "TARGET_SELL"
                 s_value = (
                     percent(
@@ -182,21 +176,18 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.consolidate_averages(date, market_price)
         self.trim_averages(date)
 
-
     def consolidate_averages(self, date, market_price: float) -> None:
         """consolidates all coin price averages over the different buckets"""
 
         # append the latest 's' value, this could done more frequently than once
         # per second.
-        self.averages["s"].append(
-            (date, market_price)
-        )
+        self.averages["s"].append((date, market_price))
 
         # append the latest values,
         # but only if the old 'm' record, is older than 1 minute
         new_minute = False
-        if not self.averages["m"] and self.averages['s']:
-            if self.averages['s'][0][0] <= date - 60:
+        if not self.averages["m"] and self.averages["s"]:
+            if self.averages["s"][0][0] <= date - 60:
                 new_minute = True
 
         if self.averages["m"] and not new_minute:
@@ -205,24 +196,23 @@ class Coin:  # pylint: disable=too-few-public-methods
                 new_minute = True
 
         if new_minute:
-            self.lowest['m'].append(
-                (date, min([v for d,v in self.averages['s']]))
+            self.lowest["m"].append(
+                (date, min([v for d, v in self.averages["s"]]))
             )
-            self.averages['m'].append(
-                (date, mean([v for d,v in self.averages['s']]))
+            self.averages["m"].append(
+                (date, mean([v for d, v in self.averages["s"]]))
             )
-            self.highest['m'].append(
-                (date, max([v for d,v in self.averages['s']]))
+            self.highest["m"].append(
+                (date, max([v for d, v in self.averages["s"]]))
             )
         else:
             return
 
-
         # append the latest values,
         # but only if the old 'h' record, is older than 1 hour
         new_hour = False
-        if not self.averages["h"] and self.averages['m']:
-            if self.averages['m'][0][0] <= date - 3600:
+        if not self.averages["h"] and self.averages["m"]:
+            if self.averages["m"][0][0] <= date - 3600:
                 new_hour = True
 
         if self.averages["h"] and not new_hour:
@@ -231,24 +221,23 @@ class Coin:  # pylint: disable=too-few-public-methods
                 new_hour = True
 
         if new_hour:
-            self.lowest['h'].append(
-                (date, min([v for d,v in self.lowest['m']]))
+            self.lowest["h"].append(
+                (date, min([v for d, v in self.lowest["m"]]))
             )
-            self.averages['h'].append(
-                (date, mean([v for d,v in self.averages['m']]))
+            self.averages["h"].append(
+                (date, mean([v for d, v in self.averages["m"]]))
             )
-            self.highest['h'].append(
-                (date, max([v for d,v in self.highest['m']]))
+            self.highest["h"].append(
+                (date, max([v for d, v in self.highest["m"]]))
             )
         else:
             return
 
-
         # append the latest values,
         # but only if the old 'd' record, is older than 1 day
         new_day = False
-        if not self.averages["d"] and self.averages['h']:
-            if self.averages['h'][0][0] <= date - 86400:
+        if not self.averages["d"] and self.averages["h"]:
+            if self.averages["h"][0][0] <= date - 86400:
                 new_day = True
 
         if self.averages["d"] and not new_day:
@@ -257,46 +246,44 @@ class Coin:  # pylint: disable=too-few-public-methods
                 new_day = True
 
         if new_day:
-            self.lowest['d'].append(
-                (date, min([v for d,v in self.lowest['h']]))
+            self.lowest["d"].append(
+                (date, min([v for d, v in self.lowest["h"]]))
             )
-            self.averages['d'].append(
-                (date, mean([v for d,v in self.averages['h']]))
+            self.averages["d"].append(
+                (date, mean([v for d, v in self.averages["h"]]))
             )
-            self.highest['d'].append(
-                (date, max([v for d,v in self.highest['h']]))
+            self.highest["d"].append(
+                (date, max([v for d, v in self.highest["h"]]))
             )
-
 
     def trim_averages(self, date: float) -> None:
-        """trims all coin price older than ... """
+        """trims all coin price older than ..."""
 
         # clean up any old values older than 60s, 60m, 24h
-        d,_ = self.averages['s'][0]
+        d, _ = self.averages["s"][0]
         if d < date - 60:
-            del self.averages['s'][0]
+            del self.averages["s"][0]
 
-            if self.averages['m']:
-                d,_ = self.averages['m'][0]
+            if self.averages["m"]:
+                d, _ = self.averages["m"][0]
                 if d < date - 3600:
-                    del self.lowest['m'][0]
-                    del self.averages['m'][0]
-                    del self.highest['m'][0]
+                    del self.lowest["m"][0]
+                    del self.averages["m"][0]
+                    del self.highest["m"][0]
 
-                    if self.averages['h']:
-                        d,_ = self.averages['h'][0]
+                    if self.averages["h"]:
+                        d, _ = self.averages["h"][0]
                         if d < date - 86400:
-                            del self.lowest['h'][0]
-                            del self.averages['h'][0]
-                            del self.highest['h'][0]
-
+                            del self.lowest["h"][0]
+                            del self.averages["h"][0]
+                            del self.highest["h"][0]
 
     def check_for_pump_and_dump(self):
-        """ calculates current price vs 1 hour ago for pump/dump events """
+        """calculates current price vs 1 hour ago for pump/dump events"""
 
         # if the strategy doesn't consume averages, we force an average setting
         # in here of 2hours so that we can use an anti-pump protection
-        timeslice = int(''.join(self.klines_trend_period[:-1]))
+        timeslice = int("".join(self.klines_trend_period[:-1]))
         if timeslice == 0:
             self.klines_trend_period = "2h"
             self.klines_slice_percentage_change = float(1)
@@ -315,27 +302,26 @@ class Coin:  # pylint: disable=too-few-public-methods
         one_hour_ago = last2hours[1][1]
 
         if (
-            two_hours_ago < one_hour_ago
-        ) and (
-            one_hour_ago > float(self.price)
-        ) and (
-            self.price > two_hours_ago
+            (two_hours_ago < one_hour_ago)
+            and (one_hour_ago > float(self.price))
+            and (self.price > two_hours_ago)
         ):
             return True
 
         return False
 
     def new_listing(self, mode):
-        """ checks if coin is a new listing """
+        """checks if coin is a new listing"""
         # wait a few days before going to buy a new coin
         # since we list what coins we buy in TICKERS the bot would never
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
         # we want to avoid buy these new listings as they will very volatile
-        if mode == "backtesting" and len(self.averages['d']) < 31:
+        if mode == "backtesting" and len(self.averages["d"]) < 31:
             return True
         return False
+
 
 class Bot:
     """Bot Class"""
@@ -373,17 +359,15 @@ class Bot:
         self.config_file: str = config_file
         self.oldprice: Dict[str, float] = {}
         self.cfg = config
-        self.enable_pump_and_dump_checks : bool = config.get(
+        self.enable_pump_and_dump_checks: bool = config.get(
             "ENABLE_PUMP_AND_DUMP_CHECKS", True
         )
-        self.enable_new_listing_checks : bool = config.get(
+        self.enable_new_listing_checks: bool = config.get(
             "ENABLE_NEW_LISTING_CHECKS", True
         )
-        self.stop_bot_on_loss : bool = config.get(
-            "STOP_BOT_ON_LOSS", False
-        )
+        self.stop_bot_on_loss: bool = config.get("STOP_BOT_ON_LOSS", False)
         self.stop_flag: bool = False
-        self.quit : bool = False
+        self.quit: bool = False
 
     def run_strategy(self, coin) -> None:
         """runs a specific strategy against a coin"""
@@ -408,7 +392,6 @@ class Bot:
                 return
 
         self.buy_strategy(coin)
-
 
     def update_investment(self) -> None:
         """updates our investment or balance with our profits"""
@@ -565,7 +548,7 @@ class Bot:
                 f"SP:{coin.bought_at * coin.sell_at_percentage /100}",
                 f"TP:{100 - (coin.bought_at / coin.price * 100):.2f}%",
                 f"SL:{coin.bought_at * coin.stop_loss_at_percentage/100}",
-                f"S:+{percent(coin.trail_target_sell_percentage,coin.sell_at_percentage) - 100:.3f}%", # pylint: disable=line-too-long
+                f"S:+{percent(coin.trail_target_sell_percentage,coin.sell_at_percentage) - 100:.3f}%",  # pylint: disable=line-too-long
                 f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}%",
                 f"LP:{coin.min:.3f}",
                 f"({len(self.wallet)}/{self.max_coins}) ",
@@ -611,7 +594,6 @@ class Bot:
             "avgPrice": float(avg),
             "volume": float(volume),
         }
-
 
     @lru_cache()
     @retry(wait=wait_exponential(multiplier=1, max=10))
@@ -712,8 +694,7 @@ class Bot:
             self.load_klines_for_coin(self.coins[symbol])
         else:
             self.coins[symbol].update(
-                udatetime.now().timestamp(),
-                market_price
+                udatetime.now().timestamp(), market_price
             )
 
     def process_coins(self) -> None:
@@ -750,15 +731,20 @@ class Bot:
         """checks for possible loss on a coin"""
         # oh we already own this one, lets check prices
         # deal with STOP_LOSS
-        if coin.price < percent(
-            coin.stop_loss_at_percentage, coin.bought_at
-        ) and coin.status != "STOP_LOSS":
+        if (
+            coin.price < percent(coin.stop_loss_at_percentage, coin.bought_at)
+            and coin.status != "STOP_LOSS"
+        ):
             coin.status = "STOP_LOSS"
             self.sell_coin(coin)
             self.losses = self.losses + 1
-            coin.naughty_date = coin.date  # pylint: disable=attribute-defined-outside-init
+            coin.naughty_date = (
+                coin.date
+            )  # pylint: disable=attribute-defined-outside-init
             self.clear_coin_stats(coin)
-            coin.naughty = True  # pylint: disable=attribute-defined-outside-init
+            coin.naughty = (
+                True  # pylint: disable=attribute-defined-outside-init
+            )
             if self.stop_bot_on_loss:
                 # STOP_BOT_ON_LOSS is set, set a STOP flag to stop the bot
                 self.quit = True
@@ -772,8 +758,8 @@ class Bot:
         ):
             coin.status = "GONE_UP_AND_DROPPED"
             logging.info(
-                f"{c_from_timestamp(coin.date)} {coin.symbol} " +
-                "[TARGET_SELL] -> [GONE_UP_AND_DROPPED]"
+                f"{c_from_timestamp(coin.date)} {coin.symbol} "
+                + "[TARGET_SELL] -> [GONE_UP_AND_DROPPED]"
             )
             self.sell_coin(coin)
             self.wins = self.wins + 1
@@ -983,40 +969,43 @@ class Bot:
             # deal with missing coin properties, types after a bot upgrade
             if isinstance(self.coins[symbol].date, str):
                 self.coins[symbol].date = float(
-                    datetime.fromisoformat(str(self.coins[symbol].date)
+                    datetime.fromisoformat(
+                        str(self.coins[symbol].date)
                     ).timestamp()
                 )
             if "naughty" not in dir(self.coins[symbol]):
                 if self.coins[symbol].naughty_timeout != 0:
                     self.coins[symbol].naughty = True
-                    self.coins[symbol].naughty_date = self.coins[
-                        symbol
-                    ].naughty_date - self.coins[symbol].naughty_timeout
+                    self.coins[symbol].naughty_date = (
+                        self.coins[symbol].naughty_date
+                        - self.coins[symbol].naughty_timeout
+                    )
                 else:
                     self.coins[symbol].naughty = False
                     self.coins[symbol].naughty_date = None  # type: ignore
 
             if "bought_date" not in dir(self.coins[symbol]):
                 if symbol in self.wallet:
-                    self.coins[symbol].bought_date = self.coins[
-                        symbol
-                    ].date - self.coins[symbol].holding_time
+                    self.coins[symbol].bought_date = (
+                        self.coins[symbol].date
+                        - self.coins[symbol].holding_time
+                    )
                 else:
                     self.coins[symbol].bought_date = None  # type: ignore
 
             if "lowest" not in dir(self.coins[symbol]):
-                self.coins[symbol].lowest = {'m': [], 'h': [], 'd': []}
+                self.coins[symbol].lowest = {"m": [], "h": [], "d": []}
 
             if "averages" not in dir(self.coins[symbol]):
                 self.coins[symbol].averages = {
-                    's': [],
-                    'm': [],
-                    'h': [],
-                    'd': []
+                    "s": [],
+                    "m": [],
+                    "h": [],
+                    "d": [],
                 }
 
             if "highest" not in dir(self.coins[symbol]):
-                self.coins[symbol].highest = {'m': [], 'h': [], 'd': []}
+                self.coins[symbol].highest = {"m": [], "h": [], "d": []}
 
             self.coins[symbol].naughty_timeout = int(
                 self.tickers[symbol]["NAUGHTY_TIMEOUT"]
@@ -1142,7 +1131,7 @@ class Bot:
         try:
             # datetime is very slow, discard the .microseconds and fetch a
             # cached pre-calculated unix epoch timestamp
-            day = day.split('.', maxsplit=1)[0]
+            day = day.split(".", maxsplit=1)[0]
             date = c_date_from(day)
         except ValueError:
             date = c_date_from(day)
@@ -1205,7 +1194,7 @@ class Bot:
                     break
 
                 for line in next_n_lines:
-                    self.process_line(line)
+                    self.process_line(str(line))
             f.close()
         except Exception as error_msg:  # pylint: disable=broad-except
             logging.error("Exception:")
@@ -1247,7 +1236,9 @@ class Bot:
         """fetches from binance or a local cache klines for a coin"""
 
         symbol = coin.symbol
-        logging.info(f"{c_from_timestamp(coin.date)}: loading klines for: {symbol}")
+        logging.info(
+            f"{c_from_timestamp(coin.date)}: loading klines for: {symbol}"
+        )
 
         api_url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&"
 
@@ -1269,9 +1260,7 @@ class Bot:
 
             backtest_end_time = coin.date
             end_unix_time = int(
-                (
-                    backtest_end_time - (60  * minutes_before_now)
-                ) * 1000
+                (backtest_end_time - (60 * minutes_before_now)) * 1000
             )
 
             query = f"{api_url}endTime={end_unix_time}&interval=1{unit}"
@@ -1283,7 +1272,7 @@ class Bot:
             try:
                 with open(f_path, "r") as f:
                     results = json.load(f)
-                _, _, high, low, _, _, closetime, _, _, _, _,_ = results[0]
+                _, _, high, low, _, _, closetime, _, _, _, _, _ = results[0]
             except Exception:  # pylint: disable=broad-except
                 results = requests_with_backoff(query).json()
                 # this can be fairly API intensive for a large number of tickers
@@ -1360,7 +1349,7 @@ class Bot:
             logging.debug(f"{symbol} : highest['d']:{coin.highest['d']}")
 
     def print_final_balance_report(self):
-        """ calculates and outputs final balance """
+        """calculates and outputs final balance"""
 
         current_exposure = float(0)
         for item in self.wallet:
@@ -1385,6 +1374,7 @@ class Bot:
             + f"stales:{self.stales} holds:{len(self.wallet)}"
         )
 
+
 if __name__ == "__main__":
     try:
         parser = argparse.ArgumentParser()
@@ -1394,7 +1384,6 @@ if __name__ == "__main__":
             "-m", "--mode", help='bot mode ["live", "backtesting", "testnet"]'
         )
         args = parser.parse_args()
-
 
         with open(args.config, encoding="utf-8") as _f:
             cfg = yaml.safe_load(_f.read())
@@ -1410,11 +1399,9 @@ if __name__ == "__main__":
             client = Client(secrets["ACCESS_KEY"], secrets["SECRET_KEY"])
 
         module = importlib.import_module(f"strategies.{cfg['STRATEGY']}")
-        Strategy = getattr(module, 'Strategy')
+        Strategy = getattr(module, "Strategy")
 
-        bot = Strategy(
-            client, args.config, cfg
-        )  # type: ignore
+        bot = Strategy(client, args.config, cfg)  # type: ignore
 
         logging.info(
             f"running in {bot.mode} mode with "
