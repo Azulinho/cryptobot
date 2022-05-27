@@ -33,6 +33,10 @@ automated-backtesting:
 build:
 	U="$$(id -u)" G="$$(id -g)" docker-compose build
 
+download-price-logs:
+	U="$$(id -u)" G="$$(id -g)" docker-compose run --name cryptobot.download-price-logs.$(WHOAMI) --rm --entrypoint="/cryptobot/.venv/bin/python /cryptobot/utils/pull_klines.py -s $(FROM) -e $(TO)" cryptobot
+
+
 help:
 	@echo "USAGE:"
 	@echo "make logmode CONFIG=< config.yaml >"
@@ -44,6 +48,7 @@ help:
 	@echo "make compress-logs"
 	@echo "make lastfewdays DAYS=3 PAIR=USDT"
 	@echo "make automated-backtesting LOGFILE=lastfewdays.log.gz CONFIG=backtesting.yaml MIN=10 FILTER='' SORTBY='profit|wins'"
+	@echo "make download-price-logs FROM=20210101 TO=20211231"
 
 
 support:

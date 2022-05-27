@@ -34,8 +34,8 @@ A python based trading bot for Binance, which relies heavily on backtesting.
    * [STOP_BOT_ON_LOSS](#stop_bot_on_loss)
 5. [Bot command center](#bot-command-center)
 6. [Automated Backtesting](#automated-backtesting)
-7. [Development/New features](#development/new-features)
-
+7. [Obtaining old price.log files](#obtaining-old-price.log-files)
+8. [Development/New features](#development/new-features)
 
 ## Overview
 
@@ -692,6 +692,22 @@ returned the highest number of wins for each coin.
 ```
 make automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='wins'
 ```
+
+## Obtaining old price.log files
+
+In the utils/ directory there's a python script that pulls klines from binance
+in the format used by this bot.
+
+Use it as:
+
+```
+make download-price-logs FROM=20210101 TO=20211231
+```
+
+And wait, as this will take a while to run.
+If it fails, you can restart it from the day that failed.
+
+All logs will be downloaded to the logs/ directory.
 
 
 ## Development/New features
