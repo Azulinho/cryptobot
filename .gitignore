@@ -18,3 +18,5 @@ results/*
 __pycache__
 .venv
 strategies/Local*
+*.~
+*~

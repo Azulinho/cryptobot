@@ -77,4 +77,5 @@ ADD lib/ lib/
 ADD strategies/ strategies/
 ADD utils/automated-backtesting.py utils/automated-backtesting.py
 ADD utils/automated-backtesting.sh utils/automated-backtesting.sh
+ADD utils/pull_klines.py utils/pull_klines.py
 ENTRYPOINT ["/cryptobot/.venv/bin/python", "-u",  "app.py"]
