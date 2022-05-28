@@ -16,7 +16,7 @@ def get_all_tickers():
     _tickers = []
     for item in client.get_all_tickers():
         _tickers.append(item["symbol"])
-    return _tickers
+    return sorted(_tickers)
 
 
 def pull_klines(k_symbol, k_start, k_end, limit=720):
@@ -42,8 +42,10 @@ def pull_klines(k_symbol, k_start, k_end, limit=720):
 
 def daterange(date1, date2):
     """returns a list of dates between 2 dates"""
+    dates = []
     for item in range(int((date2 - date1).days) + 1):
-        yield date1 + timedelta(item)
+        dates.append(date1 + timedelta(item))
+    return dates
 
 
 if __name__ == "__main__":
@@ -66,10 +68,13 @@ if __name__ == "__main__":
 
     print("getting list of all binance tickers")
     tickers = get_all_tickers()
+    ignore_list = []
 
     # iterate over the date range, so that we generate one price.log.gz file
     # per day.
-    for dt in daterange(start_dt, end_dt):
+    # we run the dates in reverse, as we want to discard tickers as soon we
+    # reach a date where they have no klines data available.
+    for dt in reversed(daterange(start_dt, end_dt)):
         day = dt.strftime("%Y%m%d")
         print(f"processing day {day}")
 
@@ -89,10 +94,19 @@ if __name__ == "__main__":
         # tickers on binance, and retrieve the klines for each one for this
         # particular day.
         for ticker in tickers:
+            if ticker in ignore_list:
+                continue
             print(f"getting klines for {ticker} on {day}")
             results = []
             for line in pull_klines(ticker, start, end):
                 results.append(line)
+            if not results:
+                # this ticker doesn't exist at this date and dates before this
+                # let's add it to the ignore list
+                print(f"no data found for {ticker}, ignoring coin from now on")
+                ignore_list.append(ticker)
+                continue
+
             # build our price.log file based on the klines info
             for (
                 _,
