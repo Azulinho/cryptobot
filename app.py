@@ -66,33 +66,55 @@ class Coin:  # pylint: disable=too-few-public-methods
     ) -> None:
         """Coin object"""
         self.symbol = symbol
+        # number of units of a coin held
         self.volume: float = float(0)
+        # what price we bought the coin
         self.bought_at: float = float(0)
+        # minimum coin price recorded since reset
         self.min = float(market_price)
+        # maximum coin price recorded since reset
         self.max = float(market_price)
+        #  date of latest price info available for this coin
         self.date = date
+        # current price for the coin
         self.price = float(market_price)
+        # how long in secs we have been holding this coin
         self.holding_time = int(0)
+        # current value, as number of units vs current price
         self.value = float(0)
-        self.lot_size = float(0)
+        # total cost for all units at time ot buy
         self.cost = float(0)
+        # coin price recorded in the previous iteration
         self.last = market_price
+        # percentage to mark coin as TARGET_DIP
         self.buy_at_percentage: float = add_100(buy_at)
+        # percentage to mark coin as TARGET_SELL
         self.sell_at_percentage: float = add_100(sell_at)
+        # percentage to trigger a stop loss
         self.stop_loss_at_percentage: float = add_100(stop_loss)
+        # current status of coins ['', 'HOLD', 'TARGET_DIP', ...]
         self.status = ""
+        # percentage to recover after a drop that triggers a buy
         self.trail_recovery_percentage: float = add_100(
             trail_recovery_percentage
         )
+        # trailling stop loss
         self.trail_target_sell_percentage: float = add_100(
             trail_target_sell_percentage
         )
+        # lowest price while the coin is in TARGET_DIP
         self.dip = market_price
+        # highest price while the coin in TARGET_SELL
         self.tip = market_price
+        # total profit for this coin
         self.profit = float(0)
+        # how to long to keep a coin before shrinking SELL_AT_PERCENTAGE
         self.soft_limit_holding_time: int = int(soft_limit_holding_time)
+        # How long to hold a coin before forcing a sale
         self.hard_limit_holding_time: int = int(hard_limit_holding_time)
+        # how long to block the bot from buying a coin after a STOP_LOSS
         self.naughty_timeout: int = int(naughty_timeout)
+        # dicts storing price data, on different buckets
         self.lowest: dict = {
             "m": [],
             "h": [],
@@ -109,13 +131,19 @@ class Coin:  # pylint: disable=too-few-public-methods
             "h": [],
             "d": [],
         }
+        # How long to look for trend changes in a coin price
         self.klines_trend_period: str = str(klines_trend_period)
+        # percentage of coin price change in a trend_period slice
         self.klines_slice_percentage_change: float = float(
             klines_slice_percentage_change
         )
+        # what date we bought the coin
         self.bought_date: float = None  # type: ignore
+        # what date we had the last STOP_LOSS
         self.naughty_date: float = None  # type: ignore
+        # if we're currently not buying this coin
         self.naughty: bool = False
+        # used in backtesting, the last read date, as the date in the price.log
         self.last_read_date: float = date
 
     def update(self, date: float, market_price: float) -> None:
@@ -124,9 +152,12 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.last = self.price
         self.price = market_price
 
+        # update any coin we HOLD with the number seconds since we bought it
         if self.status in ["TARGET_SELL", "HOLD"]:
             self.holding_time = int(self.date - self.bought_date)
 
+        # if we had a STOP_LOSS event, and we've expired the NAUGHTY_TIMEOUT
+        # then set the coin free again, and allow the bot to buy it.
         if self.naughty:
             if int(self.date - self.naughty_date) > self.naughty_timeout:
                 self.naughty = False
@@ -139,11 +170,14 @@ class Coin:  # pylint: disable=too-few-public-methods
         if market_price > self.max:
             self.max = market_price
 
+        # self.volume is only set when we hold this coin in our wallet
         if self.volume:
             self.value = self.volume * self.price
             self.cost = self.bought_at * self.volume
             self.profit = self.value - self.cost
 
+        # Check for a coin we HOLD if we reached the SELL_AT_PERCENTAGE
+        # and mark that coin as TARGET_SELL if we have.
         if self.status == "HOLD":
             if market_price > percent(self.sell_at_percentage, self.bought_at):
                 self.status = "TARGET_SELL"
@@ -165,14 +199,20 @@ class Coin:  # pylint: disable=too-few-public-methods
                     + f"LP:{self.min:.3f} "
                 )
 
+        # monitors for the highest price recorded for a coin we are looking
+        # to sell soon.
         if self.status == "TARGET_SELL":
             if market_price > self.tip:
                 self.tip = market_price
 
+        # monitors for the lowest price recorded for a coin we are looking
+        # to buy soon.
         if self.status == "TARGET_DIP":
             if market_price < self.dip:
                 self.dip = market_price
 
+        # updates the different price buckets data for this coint and
+        # removes any old data from those buckets.
         self.consolidate_averages(date, market_price)
         self.trim_averages(date)
 
@@ -186,80 +226,106 @@ class Coin:  # pylint: disable=too-few-public-methods
         # append the latest values,
         # but only if the old 'm' record, is older than 1 minute
         new_minute = False
+        # deals with the scenario, where we don't yet have 'minutes' data
+        #  available
         if not self.averages["m"] and self.averages["s"]:
+            # if our oldest 'seconds' data is older than one minute
+            # then we've entered a new minute window
             if self.averages["s"][0][0] <= date - 60:
                 new_minute = True
 
+        # looks up if the latest 'minute' record of data is older than 1minute
         if self.averages["m"] and not new_minute:
             record_date, _ = self.averages["m"][-1]
             if record_date <= date - 60:
                 new_minute = True
 
+        # on a new minute window, we need to find the lowest, average, and max
+        # prices across all the last 60 seconds of data we have available in
+        # our 'seconds' buckets.
+        # note that for seconds, we only store 'averages' as it doesn't make
+        # sense, to record lows/highs within a second window
         if new_minute:
             self.lowest["m"].append(
-                (date, min([v for d, v in self.averages["s"]]))
+                (date, min([v for _, v in self.averages["s"]]))
             )
             self.averages["m"].append(
-                (date, mean([v for d, v in self.averages["s"]]))
+                (date, mean([v for _, v in self.averages["s"]]))
             )
             self.highest["m"].append(
-                (date, max([v for d, v in self.averages["s"]]))
+                (date, max([v for _, v in self.averages["s"]]))
             )
         else:
+            # finally if we're not reached a new minute, then jump out early
+            # as we won't have any additional data to process in the following
+            # buckets of hours, or days
             return
 
-        # append the latest values,
-        # but only if the old 'h' record, is older than 1 hour
+        # deals with the scenario where we have minutes data but no hourly
+        # data in our buckets yet.
+        # if we find the oldest record in our 'minutes' bucket is older than
+        # 1 hour, then we have entered a new hour window.
         new_hour = False
         if not self.averages["h"] and self.averages["m"]:
             if self.averages["m"][0][0] <= date - 3600:
                 new_hour = True
 
+        # checks if our latest hour record is older than 1 hour
         if self.averages["h"] and not new_hour:
             record_date, _ = self.averages["h"][-1]
             if record_date <= date - 3600:
                 new_hour = True
 
+        # on a new hour, we need to record the min, average, max prices for
+        # this coin, based on the data we have from the last 60 minutes.
         if new_hour:
             self.lowest["h"].append(
-                (date, min([v for d, v in self.lowest["m"]]))
+                (date, min([v for _, v in self.lowest["m"]]))
             )
             self.averages["h"].append(
-                (date, mean([v for d, v in self.averages["m"]]))
+                (date, mean([v for _, v in self.averages["m"]]))
             )
             self.highest["h"].append(
-                (date, max([v for d, v in self.highest["m"]]))
+                (date, max([v for _, v in self.highest["m"]]))
             )
         else:
+            # if we're not in a new hour, then skip further processing as
+            # there won't be any new day changes to be managed.
             return
 
-        # append the latest values,
-        # but only if the old 'd' record, is older than 1 day
+        # deal with the scenario where we have hourly data but no daily data yet
+        # if the older record for hourly data is older than 1 day, then we've
+        # entered a new day window
         new_day = False
         if not self.averages["d"] and self.averages["h"]:
             if self.averages["h"][0][0] <= date - 86400:
                 new_day = True
 
+        # checks if most recent day record is older than 1 day
         if self.averages["d"] and not new_day:
             record_date, _ = self.averages["d"][-1]
             if record_date <= date - 86400:
                 new_day = True
 
+        # on a new day window, we need to update the min, averages, max prices
+        # recorded for this coin, based on the history available from the last
+        # 24 hours as recorded in our hourly buckets.
         if new_day:
             self.lowest["d"].append(
-                (date, min([v for d, v in self.lowest["h"]]))
+                (date, min([v for _, v in self.lowest["h"]]))
             )
             self.averages["d"].append(
-                (date, mean([v for d, v in self.averages["h"]]))
+                (date, mean([v for _, v in self.averages["h"]]))
             )
             self.highest["d"].append(
-                (date, max([v for d, v in self.highest["h"]]))
+                (date, max([v for _, v in self.highest["h"]]))
             )
 
     def trim_averages(self, date: float) -> None:
         """trims all coin price older than ..."""
 
-        # clean up any old values older than 60s, 60m, 24h
+        # checks the older record for each bucket and cleans up any data
+        # older than 60secs, 60min, 24hours
         d, _ = self.averages["s"][0]
         if d < date - 60:
             del self.averages["s"][0]
@@ -280,6 +346,9 @@ class Coin:  # pylint: disable=too-few-public-methods
 
     def check_for_pump_and_dump(self):
         """calculates current price vs 1 hour ago for pump/dump events"""
+
+        # disclaimer: this might need some work, as it only avoids very sharp
+        # pump and dump short peaks.
 
         # if the strategy doesn't consume averages, we force an average setting
         # in here of 2hours so that we can use an anti-pump protection
@@ -317,7 +386,9 @@ class Coin:  # pylint: disable=too-few-public-methods
         # buy a coin as soon it is listed.
         # However in backtesting, the bot will buy that coin as its listed in
         # the TICKERS list and the price lines show up in the price logs.
-        # we want to avoid buy these new listings as they will very volatile
+        # we want to avoid buy these new listings as they are very volatile
+        # and the bot won't have enough history to properly backtest a coin
+        # looking for a profit pattern to use.
         if mode == "backtesting" and len(self.averages["d"]) < 31:
             return True
         return False
@@ -328,69 +399,126 @@ class Bot:
 
     def __init__(self, conn, config_file, config) -> None:
         """Bot object"""
+
+        # Binance API handler
         self.client = conn
+        # amount available to the bot to invest as set in the config file
         self.initial_investment: float = float(config["INITIAL_INVESTMENT"])
+        # current investment amount
         self.investment: float = float(config["INITIAL_INVESTMENT"])
+        # number of seconds to pause between price checks
         self.pause: float = float(config["PAUSE_FOR"])
+        # list of price.logs to use during backtesting
         self.price_logs: List = config["PRICE_LOGS"]
+        # dictionary for all coin data
         self.coins: Dict[str, Coin] = {}
+        # number of wins record by this bot run
         self.wins: int = 0
+        # number of losses record by this bot run
         self.losses: int = 0
+        # number of stale coins (which didn't sell before their
+        # HARD_LIMIT_HOLDING_TIME) record by this bot run
         self.stales: int = 0
+        # total profit for this bot run
         self.profit: float = 0
-        self.wallet: List = []  # store the coin we own
+        # a wallet is for the coins we hold
+        self.wallet: List = []
+        # the list of tickers and the config for each one, in terms of
+        # BUY_AT_PERCENTAGE, SELL_AT_PERCENTAGE, etc...
         self.tickers: dict = dict(config["TICKERS"])
+        # running mode for the bot [BACKTESTING, LIVE, TESTNET]
         self.mode: str = config["MODE"]
+        # Binance trading fee for each buy/sell trade, in percentage points
         self.trading_fee: float = float(config["TRADING_FEE"])
+        # Enable/Disable debug, debug information gets logged in debug.log
         self.debug: bool = bool(config["DEBUG"])
+        # maximum number of coins that the bot will hold in its wallet.
         self.max_coins: int = int(config["MAX_COINS"])
+        # which pair to use [USDT|BUSD|BNB|BTC|ETH...]
         self.pairing: str = config["PAIRING"]
+        # total amount of fees paid during this bot run
         self.fees: float = 0
+        # wether to clean coin stats at boot, if our tickers config doesn't
+        # chane for example a reload, we might want to keep the history we have
+        # related to the max, min prices recorded for our coins as those will
+        # influence our next buy.
         self.clear_coin_stats_at_boot: bool = bool(
             config["CLEAR_COIN_STATS_AT_BOOT"]
         )
+        # as above but after each buy
         self.clean_coin_stats_at_sale: bool = bool(
             config["CLEAR_COIN_STATS_AT_SALE"]
         )
+        # which bot strategy to use as set in the config file
         self.strategy: str = config["STRATEGY"]
+        # if a coin drops in price shortly after reaching its target sale
+        # percentage, we force a quick sale and ignore the
+        # TRAIL_TARGET_SELL_PERCENTAGE values
         self.sell_as_soon_it_drops: bool = bool(
             config["SELL_AS_SOON_IT_DROPS"]
         )
+        # the config filename
         self.config_file: str = config_file
+        # a dictionary to old the previous prices available from binance for
+        # our coins. Used in logmode to prevent the bot from writing a new
+        # price.log line if the price hasn't changed. Common with low volume
+        # coins. This reduces our logfiles size and our backtesting times.
         self.oldprice: Dict[str, float] = {}
+        # the full config as a dict
         self.cfg = config
+        # whether to enable pump and dump checks while the bot is evaluating
+        # buy conditions for a coin
         self.enable_pump_and_dump_checks: bool = config.get(
             "ENABLE_PUMP_AND_DUMP_CHECKS", True
         )
+        # disable buying a new coin if this coin is newer than 31 days
         self.enable_new_listing_checks: bool = config.get(
             "ENABLE_NEW_LISTING_CHECKS", True
         )
+        # stops the bot as soon we hit a STOP_LOSS. If we are still holding coins,
+        # those remain in our wallet. Typically used when MAX_COINS = 1
         self.stop_bot_on_loss: bool = config.get("STOP_BOT_ON_LOSS", False)
+        # indicates where we found a .stop flag file
         self.stop_flag: bool = False
+        # set by the bot so to quit safely as soon as possible.
+        # used by STOP_BOT_ON_LOSS checks
         self.quit: bool = False
 
     def run_strategy(self, coin) -> None:
         """runs a specific strategy against a coin"""
+
+        # runs our choosen strategy, here we aim to quit as soon as possible
+        # reducing processing time. So we stop validating conditions as soon
+        # they are not possible to occur in the chain that follows.
+
+        # the bot won't act on coins not listed on its config.
         if coin.symbol not in self.tickers:
             return
 
+        # skip any coins that were involved in a recent STOP_LOSS.
         if self.coins[coin.symbol].naughty:
             return
 
+        # first attempt to sell the coin, in order to free the wallet for the
+        # next coin run_strategy run.
         if self.wallet:
             self.check_for_sale_conditions(coin)
 
+        # our wallet is already full
         if len(self.wallet) == self.max_coins:
             return
 
+        # is this a new coin?
         if self.enable_new_listing_checks:
             if coin.new_listing(self.mode):
                 return
 
+        # has the current price been influenced by a pump and dump?
         if self.enable_pump_and_dump_checks:
             if coin.check_for_pump_and_dump():
                 return
 
+        # all our pre-conditions played out, now run the buy_strategy
         self.buy_strategy(coin)
 
     def update_investment(self) -> None:
@@ -410,17 +538,24 @@ class Bot:
 
     def buy_coin(self, coin) -> None:
         """calls Binance to buy a coin"""
+
+        # quit early if we already hold this coin in our wallet
         if coin.symbol in self.wallet:
             return
 
+        # quit early if our wallet is full
         if len(self.wallet) == self.max_coins:
             return
 
+        # quit early if this coin was involved in a recent STOP_LOSS
         if coin.naughty:
             return
 
+        # calculate how many units of this coin we can afford based on our
+        # investment share.
         volume = float(self.calculate_volume_size(coin))
 
+        # we never place binance orders in backtesting mode.
         if self.mode in ["testnet", "live"]:
             try:
                 order_details = self.client.create_order(
@@ -436,7 +571,15 @@ class Bot:
                 logging.error(f"tried to buy: {volume} of {coin.symbol}")
                 return
 
+            # retrieve our order, the bot assumes that we only have 1 order open
+            # this means that if we run multiple bots, there could be a race
+            # condition where both boths have issued a buy order FOR THE SAME COIN
+            # and this bot could end up retrieving the wrong order.
+            # if possible, dedicate one binance account to one bot.
             orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
+            # when selling on the spot market and using a spot price, the market
+            # might be slow in fullfilling our order. Keep checking until we
+            # suceed.
             while orders == []:
                 logging.warning(
                     "Binance is being slow in returning the order, "
@@ -448,27 +591,40 @@ class Bot:
                 )
                 sleep(1)
 
+            # our order will have been fullfilled by different traders,
+            # find out the average price we paid accross all these sales.
             coin.bought_at = self.extract_order_data(order_details, coin)[
                 "avgPrice"
             ]
+            # retrieve the total number of units for this coin
             coin.volume = self.extract_order_data(order_details, coin)[
                 "volume"
             ]
+            # calculate the current value
             coin.value = float(coin.bought_at) * float(coin.volume)
-            coin.cost = float(coin.bought_at) * float(coin.volume)
+            # and the total cost which will match the value at this moment
+            coin.cost = coin.value
 
+        # in backtesting we tipically assume the price paid is the price listed
+        # in our price.log file.
         if self.mode in ["backtesting"]:
             coin.bought_at = float(coin.price)
             coin.volume = volume
             coin.value = float(coin.bought_at) * float(coin.volume)
             coin.cost = float(coin.bought_at) * float(coin.volume)
 
+        # initialize the 'age' counter for the coin
         coin.holding_time = 1
+        # and append this coin to our wallet
         self.wallet.append(coin.symbol)
+        # mark it as HOLD, so that the bot know we own it
         coin.status = "HOLD"
+        # and record the highest price recorded since buying this coin
         coin.tip = coin.price
+        # as well as when we bought it
         coin.bought_date = coin.date
 
+        # TODO: our logging message could use some love below
         s_value = (
             percent(coin.trail_target_sell_percentage, coin.sell_at_percentage)
             - 100
@@ -484,6 +640,8 @@ class Bot:
             + f"LP:{coin.min:.3f} "
             + f"({len(self.wallet)}/{self.max_coins}) "
         )
+
+        # this gets noisy quickly
         if self.debug:
             logging.debug(f"lowest[m]: {coin.lowest['m']}")
             logging.debug(f"averages[m]: {coin.averages['m']}")
@@ -497,9 +655,12 @@ class Bot:
 
     def sell_coin(self, coin) -> None:
         """calls Binance to sell a coin"""
+
+        # if we don't own this coin, then there's nothing more to do here
         if coin.symbol not in self.wallet:
             return
 
+        # in backtesting mode, we never place sell orders on binance
         if self.mode in ["testnet", "live"]:
             try:
                 order_details = self.client.create_order(
@@ -515,22 +676,31 @@ class Bot:
                 return
 
             orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
+            # we we are selling on the spot market and using a market price,
+            # the market traders will take a bit to fullfill our order.
+            # we wait until that happens
             while orders == []:
                 logging.warning(
                     "Binance is being slow in returning the order, "
                     + "calling the API again..."
                 )
-
+                # as when buying, there is a risk here, that if we are running
+                # multiple bots, another both could be placing a sales order
+                # FOR THE SAME COIN and this bot retrieve that order instead
+                # of ours
                 orders = self.client.get_all_orders(
                     symbol=coin.symbol, limit=1
                 )
                 sleep(1)
 
+            # calculate how much we got based on the total lines in our order
             coin.price = self.extract_order_data(order_details, coin)[
                 "avgPrice"
             ]
+            # and give this coin a new fresh date based on our recent actions
             coin.date = float(udatetime.now().timestamp())
 
+        # finally calculate the value at sale and the total profit
         coin.value = float(float(coin.volume) * float(coin.price))
         coin.profit = float(float(coin.value) - float(coin.cost))
 
@@ -555,15 +725,29 @@ class Bot:
             ]
         )
 
+        # raise an warning if we happen to have made a LOSS on our trade
         if coin.profit < 0 or coin.holding_time > coin.hard_limit_holding_time:
             logging.warning(message)
         else:
             logging.info(message)
 
+        # drop the coin from our wallet, we've sold it
         self.wallet.remove(coin.symbol)
+        # update the total profit for this bot run
         self.update_bot_profit(coin)
+        # and the total amount we now have available to invest.
+        # this could have gone up, or down, depending on wether we made a profit
+        # or a loss.
         self.update_investment()
+        # and clear the status for this coin
         coin.status = ""
+        # as well the data for this and all coins, if applicable.
+        # this forces the bot to reset when checking for buy conditions from now
+        # on, preventing it from acting on coins that have been marked as
+        # TARGET_DIP while we holding this coin, and could now be automatically
+        # triggered to buy in the next buy check run.
+        # we may not want to do this, as the price might have moved further than
+        # we wanted and no longer be a suitable buy.
         self.clear_coin_stats(coin)
         self.clear_all_coins_stats()
 
@@ -574,7 +758,10 @@ class Bot:
 
     def extract_order_data(self, order_details, coin) -> Dict[str, Any]:
         """calculate average price and volume for a buy order"""
-        # TODO: review this whole mess
+
+        # Each order will be fullfilled by different traders, and made of
+        # different amounts and prices. Here we calculate the average over all
+        # those different lines in our order.
 
         total: float = 0
         qty: float = 0
@@ -598,7 +785,17 @@ class Bot:
     @lru_cache()
     @retry(wait=wait_exponential(multiplier=1, max=10))
     def get_symbol_precision(self, symbol: str) -> int:
-        """retrives and caches the decimal precision for a coin in binance"""
+        """retrieves and caches the decimal precision for a coin in binance"""
+
+        # each coin in binance uses a number of decimal points, these can vary
+        # greatly between them. We need this information when placing and order
+        # on a coin. However this requires us to query binance to retrieve this
+        # information. This is fine while in LIVE or TESTNET mode as the bot
+        # doesn't perform that many buys. But in backtesting mode we can issue
+        # a very large number of API calls and be quickly blacklisted.
+        # We avoid having to poke the binance api twice for the same information
+        # by saving it locally on disk. This way it will became available for
+        # future backtestin runs.
         f_path = f"cache/{symbol}.precision"
         if self.mode == "backtesting" and exists(f_path):
             with open(f_path, "r") as f:
@@ -621,6 +818,9 @@ class Bot:
 
     def calculate_volume_size(self, coin) -> float:
         """calculates the amount of coin we are to buy"""
+
+        # calculates the number of units we are about to buy based on the number
+        # of decimal points used, the share of the investment and the price
         precision = self.get_symbol_precision(coin.symbol)
 
         volume = float(
@@ -641,7 +841,12 @@ class Bot:
 
     def write_log(self, symbol: str, price: str) -> None:
         """updates the price.log file with latest prices"""
-        # only write logs if price changed
+
+        # only write logs if price changed, for coins which price doesn't
+        # change often such as low volume coins, we keep track of the old price
+        # and check it against the latest value. If the price hasn't changed, we
+        # don't record it in the price.log file. This greatly reduces the size
+        # of the log, and the backtesting time to process these.
         if not symbol in self.oldprice:
             self.oldprice[symbol] = float(0)
 
@@ -662,10 +867,14 @@ class Bot:
         symbol = binance_data["symbol"]
 
         market_price = float(binance_data["price"])
+        # add every single coin to our coins dict, even if they're coins not
+        # listed in our tickers file as the bot will use this info to record
+        # the price.logs as well as cache/ data.
+        #
+        # init this coin if we are coming across it for the first time
         if symbol not in self.coins:
             self.coins[symbol] = Coin(
                 symbol,
-                # TODO: update this to consume binance_data[]
                 udatetime.now().timestamp(),
                 market_price,
                 buy_at=self.tickers[symbol]["BUY_AT_PERCENTAGE"],
@@ -691,8 +900,11 @@ class Bot:
                     self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"]
                 ),
             )
+            # fetch all the available klines for this coin, for the last
+            # 60min, 24h, and 1000 days
             self.load_klines_for_coin(self.coins[symbol])
         else:
+            # or simply update the coin with the latest price data
             self.coins[symbol].update(
                 udatetime.now().timestamp(), market_price
             )
@@ -704,15 +916,23 @@ class Bot:
             coin_symbol = binance_data["symbol"]
             price = binance_data["price"]
 
+            # we write the price.logs in TESTNET mode as we want to be able
+            # to debug for issues while developing the bot.
             if self.mode in ["logmode", "testnet"]:
                 self.write_log(coin_symbol, price)
 
             if self.mode not in ["live", "backtesting", "testnet"]:
                 continue
 
+            # TODO: revisit this, as this function is only called in
+            # live, testnet and logmode. And the within this function, we
+            # expect to process all the coins.
+            # don't process any coins which we don't have in our config
             if coin_symbol not in self.tickers:
                 continue
 
+            # TODO: revisit this as the function below expects to process all
+            # the coins
             self.init_or_update_coin(binance_data)
 
             # if a coin has been blocked due to a stop_loss, we want to make
@@ -723,7 +943,9 @@ class Bot:
             if self.coins[coin_symbol].naughty:
                 self.clear_coin_stats(self.coins[coin_symbol])
 
+            # and run the strategy
             self.run_strategy(self.coins[coin_symbol])
+
             if coin_symbol in self.wallet:
                 self.log_debug_coin(self.coins[coin_symbol])
 
@@ -738,10 +960,14 @@ class Bot:
             coin.status = "STOP_LOSS"
             self.sell_coin(coin)
             self.losses = self.losses + 1
+            # places the coin in the naughty corner by setting the naughty_date
+            # NAUGHTY_TIMEOUT will kick in from now on
             coin.naughty_date = (
                 coin.date
             )  # pylint: disable=attribute-defined-outside-init
             self.clear_coin_stats(coin)
+
+            # and marks it as NAUGHTY
             coin.naughty = (
                 True  # pylint: disable=attribute-defined-outside-init
             )
@@ -753,6 +979,9 @@ class Bot:
 
     def coin_gone_up_and_dropped(self, coin) -> bool:
         """checks for a possible drop in price in a coin we hold"""
+        # when we have reached the TARGET_SELL and a coin drops in price
+        # below the SELL_AT_PERCENTAGE price we sell the coin immediately
+        # if SELL_AS_SOON_IT_DROPS is set
         if coin.status == "TARGET_SELL" and coin.price < percent(
             coin.sell_at_percentage, coin.bought_at
         ):
@@ -768,37 +997,53 @@ class Bot:
 
     def possible_sale(self, coin: Coin) -> bool:
         """checks for a possible sale of a coin we hold"""
-        if coin.status == "TARGET_SELL":
-            # do some gimmicks, and don't sell the coin straight away
-            # but only sell it when the price is now higher than the last
-            # price recorded
-            # TODO: incorrect date
 
-            if coin.price != coin.last:
-                self.log_debug_coin(coin)
-            # has price has gone down ?
-            if coin.price < coin.last:
+        # we let a coin enter the TARGET_SELL status, and then we monitor
+        # its price recording the maximum value as the 'tip'.
+        # when we go below that 'tip' value by our TRAIL_TARGET_SELL_PERCENTAGE
+        # we sell our coin.
 
-                # and below our target sell percentage over the tip ?
-                if coin.price < percent(
-                    coin.trail_target_sell_percentage, coin.tip
-                ):
-                    # let's sell it then
-                    self.sell_coin(coin)
-                    self.wins = self.wins + 1
-                    return True
+        # bail out early if we shouldn't be here
+        if coin.status != "TARGET_SELL":
+            return False
+
+        # while in debug mode, it is useful to read the latest price on a coin
+        # that we're looking to sell
+        if coin.price != coin.last:
+            self.log_debug_coin(coin)
+
+        # has price has gone down since last time we checked?
+        if coin.price < coin.last:
+
+            # and has it gone the below the 'tip' more than our
+            # TRAIL_TARGET_SELL_PERCENTAGE ?
+            if coin.price < percent(
+                coin.trail_target_sell_percentage, coin.tip
+            ):
+                # let's sell it then
+                self.sell_coin(coin)
+                self.wins = self.wins + 1
+                return True
         return False
 
     def past_hard_limit(self, coin: Coin) -> bool:
         """checks for a possible stale coin we hold"""
+        # for every coin we hold, we give it a lifespan, this is set as the
+        # HARD_LIMIT_HOLDING_TIME in seconds. if we have been holding a coin
+        # for longer than that amount of time, we force a sale, regardless of
+        # its current value.
+
         if coin.holding_time > coin.hard_limit_holding_time:
             coin.status = "STALE"
             self.sell_coin(coin)
             self.stales = self.stales + 1
 
-            # and block this coin for today:
+            # any coins that enter a STOP_LOSS or a STALE get added to the
+            # naughty list, so that we prevent the bot from buying this coin
+            # again for a specified period of time. AKA NAUGHTY_TIMEOUT
             coin.naughty = True
             coin.naughty_date = coin.date
+            # and set the chill-out period as we've defined in our config.
             coin.naughty_timeout = int(
                 self.tickers[coin.symbol]["NAUGHTY_TIMEOUT"]
             )
@@ -807,8 +1052,25 @@ class Bot:
 
     def past_soft_limit(self, coin: Coin) -> bool:
         """checks for if we should lower our sale percentages based on age"""
+
+        # For any coins the bot holds, we start by looking to sell them past
+        # the SELL_AT_PERCENTAGE profit, but to avoid being stuck forever with
+        # a coin that doesn't move in price, we have a hard limit in time
+        # defined in HARD_LIMIT_HOLDING_TIME where we force the sale of the coin
+        # Between the the time we buy and our hard limit, we have another
+        # parameter that we can use called SOFT_LIMIT_HOLDING_TIME.
+        # This sets the number in seconds since we bought our coin, for when
+        # the bot start reducing the value in SELL_AT_PERCENTAGE every second
+        # until it reaches the HARD_LIMIT_HOLDING_TIME.
+        # This improves ours chances of selling a coin for which our
+        # SELL_AT_PERCENTAGE was just a bit too high, and the bot downgrades
+        # its expectactions by meeting half-way.
+
         # This coin is past our soft limit
         # we apply a sliding window to the buy profit
+        # we essentially calculate the the time left until we get to the
+        # HARD_LIMIT_HOLDING_TIME as a percentage and use it that value as
+        # a percentage of the total SELL_AT_PERCENTAGE value.
         if coin.holding_time > coin.soft_limit_holding_time:
             ttl = 100 * (
                 1
@@ -819,15 +1081,21 @@ class Bot:
                         - coin.soft_limit_holding_time
                     )
                 )
-            )  #
+            )
 
             coin.sell_at_percentage = add_100(
                 percent(ttl, self.tickers[coin.symbol]["SELL_AT_PERCENTAGE"])
             )
 
+            # make sure we never set the SELL_AT_PERCENTAGE below what we've
+            # had to pay in fees. It's quite likely however that if we didn't
+            # sell our coin by now, we are likely to hit HARD_LIMIT_HOLDING_TIME
             if coin.sell_at_percentage < add_100(2 * self.trading_fee):
                 coin.sell_at_percentage = add_100(2 * self.trading_fee)
 
+            # and also reduce the TRAIL_TARGET_SELL_PERCENTAGE in the same
+            # way we reduced our SELL_AT_PERCENTAGE.
+            # We're fine with this one going close to 0.
             coin.trail_target_sell_percentage = (
                 add_100(
                     percent(
@@ -860,6 +1128,18 @@ class Bot:
 
     def clear_all_coins_stats(self) -> None:
         """clear important coin stats such as max, min price on all coins"""
+
+        # after each SALE we reset all the stats we have on the data the
+        # bot holds for prices, such as the max, min values for each coin.
+        # This essentially forces the bot to monitor for changes in price since
+        # the last sale, instead of for example an all time high value.
+        # if for example, we were to say buy BTC at -10% and sell at +2%
+        # and we last sold BTC at 20K.
+        # when CLEAR_COIN_STATS_AT_SALE is set, the bot will look to only buy
+        # BTC when the price is below 18K.
+        # if this flag is not set, and the all time high while the bot was running
+        # was considerably higher like 40K, the bot would keep on buying BTC
+        # for as long BTC was below 36K.
         if self.clean_coin_stats_at_sale:
             for coin in self.coins:
                 if coin not in self.wallet:
@@ -867,6 +1147,16 @@ class Bot:
 
     def clear_coin_stats(self, coin: Coin) -> None:
         """clear important coin stats such as max, min price for a coin"""
+
+        # This where we reset all coin prices when CLEAR_COIN_STATS_AT_SALE
+        # is set.
+        # We reset the values for :
+        # BUY, SELL, STOP_LOSS, TRAIL_TARGET_SELL_PERCENTAGE, TRAIL_RECOVERY_PERCENTAGE
+        # as well as the dip, tip and min, max prices.
+        # The bot manipulates some of these values when the coin has gone
+        # past the SOFT_LIMIT_HOLDING_TIME. So we reset them back to the config
+        # values here.
+
         coin.holding_time = 1
         coin.buy_at_percentage = add_100(
             self.tickers[coin.symbol]["BUY_AT_PERCENTAGE"]
@@ -887,6 +1177,9 @@ class Bot:
         coin.dip = float(0)
         coin.tip = float(0)
         coin.status = ""
+
+        # reset the min, max prices so that the bot won't look at all time high
+        # and instead use the values since the last sale.
         if self.clean_coin_stats_at_sale:
             coin.min = coin.price
             coin.max = coin.price
@@ -894,9 +1187,18 @@ class Bot:
     def save_coins(self) -> None:
         """saves coins and wallet to a local pickle file"""
 
+        # in LIVE and TESTNET mode we save our local self.coins and self.wallet
+        # objects to a local file on disk, so that we can pick from where we
+        # left next time we start the bot.
+
         for statefile in ["state/coins.pickle", "state/wallet.pickle"]:
             if exists(statefile):
                 with open(statefile, "rb") as f:
+                    # as these files are important to the bot, we keep a
+                    # backup file in case there is a failure that could
+                    # corrupt the live .pickle files.
+                    # in case or corruption, simply copy the .backup files over
+                    # the .pickle files.
                     with open(f"{statefile}.backup", "wb") as b:
                         b.write(f.read())
                         b.flush()
@@ -913,6 +1215,15 @@ class Bot:
 
     def load_coins(self) -> None:
         """loads coins and wallet from a local pickle file"""
+
+        # in save_coins() we save the current state of our wallet and coins
+        # to pickle file on disk. Here we soak up those files after a boot
+        # and update our bot dictionaries with the data on them.
+        # Overriding and deleting any data we might not want to keep.
+
+        # TODO: look into a fallback mechanism to the .backup files if
+        # the .pickle are corrupted.
+
         if exists("state/coins.pickle"):
             logging.warning("found coins.pickle, loading coins")
             with open("state/coins.pickle", "rb") as f:
@@ -926,6 +1237,9 @@ class Bot:
         # sync our coins state with the list of coins we want to use.
         # but keep using coins we currently have on our wallet
         coins_to_remove = []
+        # TODO: do we want to remove these coins, or should we just let the bot
+        # keep on updating their stats, even if we don't buy them ?
+        # there are places in the codebase where this is expected.
         for coin in self.coins:
             if coin not in self.tickers and coin not in self.wallet:
                 coins_to_remove.append(coin)
@@ -934,7 +1248,6 @@ class Bot:
             self.coins.pop(coin)
 
         # finally apply the current settings in the config file
-
         symbols = " ".join(self.coins.keys())
         logging.warning(f"overriding values from config for: {symbols}")
         for symbol in self.coins:
@@ -967,6 +1280,14 @@ class Bot:
             )
 
             # deal with missing coin properties, types after a bot upgrade
+            # the earlier versions of this bot didn't contain or used all the
+            # existing properties used today, the bot would fail as attempting
+            # to consume them. Here we make sure we can safely upgrade from
+            # a version missing those properties by initializing them if they
+            # don't exist.
+            #
+            # TODO: consider deprecating this as for this to happen today,
+            # someone would be jumping bot versions considerably
             if isinstance(self.coins[symbol].date, str):
                 self.coins[symbol].date = float(
                     datetime.fromisoformat(
@@ -1011,6 +1332,7 @@ class Bot:
                 self.tickers[symbol]["NAUGHTY_TIMEOUT"]
             )
 
+        # log some info on the coins in our wallet at boot
         if self.wallet:
             logging.info("Wallet contains:")
             for symbol in self.wallet:
@@ -1043,9 +1365,10 @@ class Bot:
 
     def check_for_sale_conditions(self, coin: Coin) -> Tuple[bool, str]:
         """checks for multiple sale conditions for a coin"""
+
         # return early if no work left to do
         if coin.symbol not in self.wallet:
-            return (False, "EMPTY_WALLET")
+            return (False, "NOT_IN_WALLET")
 
         # oh we already own this one, lets check prices
         # deal with STOP_LOSS first
@@ -1083,15 +1406,23 @@ class Bot:
 
     def run(self) -> None:
         """the bot LIVE main loop"""
+
+        # when running in LIVE or TESTNET mode we end up here.
+        #
+        # first load all our state from disk
         self.load_coins()
+        # reset all coin price stats if CLEAR_COIN_STATS_AT_BOOT is set.
+        # this forces the bot to treat boot as a new time window to monitor
+        # for prices.
         if self.clear_coin_stats_at_boot:
             logging.warning("About the clear all coin stats...")
-            logging.warning("CTRL-C to cancel in the next 10 seconds")
-            sleep(10)
+            logging.warning("CTRL-C to cancel in the next 30 seconds")
+            sleep(30)
             self.clear_all_coins_stats()
 
         while True:
             self.process_coins()
+            # saves all coin and wallet data to disk
             self.save_coins()
             self.wait()
             if exists(".stop") or self.quit:
@@ -1101,12 +1432,14 @@ class Bot:
     def logmode(self) -> None:
         """the bot LogMode main loop"""
         while True:
+            # TODO: should we extract write_log from process_coins()?
             self.process_coins()
             self.wait()
 
     def process_line(self, line: str) -> None:
         """processes a backlog line"""
 
+        # when just told to quit, just quit nicely
         if self.quit:
             return
 
@@ -1137,7 +1470,7 @@ class Bot:
             date = c_date_from(day)
 
         try:
-            # ocasionally binance returns incorrect prices
+            # ocasionally binance returns rubbish
             # we just skip it
             market_price = float(parts[3])
         except ValueError:
@@ -1168,37 +1501,50 @@ class Bot:
             # we essentially skip a number of iterations between
             # reads, causing a similar effect if we were only
             # probing prices every PAUSE_FOR seconds
+            # last_read_date contains the timestamp of the last time we read
+            # a price record for this particular coin.
             if self.coins[symbol].last_read_date + self.pause > date:
                 return
             self.coins[symbol].last_read_date = date
 
             self.coins[symbol].update(date, market_price)
 
+        # and finally run through the strategy for our coin.
         self.run_strategy(self.coins[symbol])
 
     def backtest_logfile(self, price_log: str) -> None:
         """processes one price.log file for backtesting"""
+
+        # when told to quit, do it nicely
         if self.quit:
             return
 
         logging.info(f"backtesting: {price_log}")
         logging.info(f"wallet: {self.wallet}")
         try:
+            # we support .lz4 and .gz for our price.log files.
+            # gzip -3 files provide the fastest decompression times we were able
+            # to measure.
             if price_log.endswith(".lz4"):
                 f = lz4open(price_log, mode="rt")
             else:
                 f = xopen(price_log, "rt")
             while True:
+                # reading a chunk of lines like this speeds up backtesting
+                # by a large amount.
                 next_n_lines = list(islice(f, 4 * 1024 * 1024))
                 if not next_n_lines:
                     break
 
+                # now process each of the lines from our chunk
                 for line in next_n_lines:
                     self.process_line(str(line))
             f.close()
         except Exception as error_msg:  # pylint: disable=broad-except
             logging.error("Exception:")
             logging.error(traceback.format_exc())
+            # look into better ways to trapping a KeyboardInterrupt
+            # and then maybe setting self.quit = True
             if error_msg == "KeyboardInterrupt":
                 sys.exit(1)
 
@@ -1208,12 +1554,14 @@ class Bot:
 
         self.clear_all_coins_stats()
 
+        # main backtesting block
         for price_log in self.price_logs:
             self.backtest_logfile(price_log)
             if exists(".stop") or self.quit:
                 logging.warning(".stop flag found. Stopping bot.")
                 break
 
+        # now that we are done, lets record our results
         with open("log/backtesting.log", "a", encoding="utf-8") as f:
             current_exposure = float(0)
             for symbol in self.wallet:
@@ -1235,12 +1583,21 @@ class Bot:
     def load_klines_for_coin(self, coin) -> None:
         """fetches from binance or a local cache klines for a coin"""
 
+        # when we initialise a coin, we pull a bunch of klines from binance
+        # for that coin and save it to disk, so that if we need to fetch the
+        # exact same data, we can pull it from disk instead.
+        # we pull klines for the last 60min, the last 24h, and the last 1000days
+
         symbol = coin.symbol
         logging.info(
             f"{c_from_timestamp(coin.date)}: loading klines for: {symbol}"
         )
 
         api_url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&"
+
+        # this is only to keep the python LSP happy
+        timeslice: int = 0
+        minutes_before_now: int = 0
 
         for unit in ["m", "h", "d"]:
 
@@ -1284,16 +1641,24 @@ class Bot:
 
             if self.debug:
                 # ocasionally we obtain an invalid results obj here
+                # this might need additional debugging (pun intended)
                 if results:
                     logging.debug(f"{symbol} : last_{unit}:{results[-1:]}")
                 else:
                     logging.debug(f"{symbol} : last_{unit}:{results}")
 
+            # TODO: review this, in what condition would timeslice be 0?
+            # could it be from when we were not pulling all the data by default
+            # from binance? and only the klines_trend_period ?
             if timeslice != 0:
                 lowest = []
                 averages = []
                 highest = []
                 try:
+                    # retrieve and calculate the lowest, highest, averages
+                    # from the klines data.
+                    # we need to transform the dates into consumable timestamps
+                    # that work for our bot.
                     for (
                         _,
                         _,
@@ -1321,6 +1686,11 @@ class Bot:
                         averages.append((date, avg))
                         highest.append((date, high))
 
+                    # finally, populate all the data coin buckets
+                    # we gather all the data we collected and only populate
+                    # the required number of records we require.
+                    # this could possibly be optimized, but at the same time
+                    # this only runs the once when we initialise a coin
                     for d, v in lowest[-timeslice:]:
                         coin.lowest[unit].append((d, v))
 

@@ -580,7 +580,7 @@ class TestBotCheckForSaleConditions:
     def test_returns_early_on_empty_wallet(self, bot, coin):
         bot.wallet = []
         result = bot.check_for_sale_conditions(coin)
-        assert result == (False, 'EMPTY_WALLET')
+        assert result == (False, "NOT_IN_WALLET")
 
     def test_returns_early_on_stop_loss(self, bot, coin):
         bot.wallet = ["BTCUSDT"]
