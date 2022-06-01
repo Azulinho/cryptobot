@@ -3,19 +3,23 @@ default: help ;
 
 WHOAMI := $$(whoami)
 
-latest:
+checks:
+	@if [ "`docker --version | cut -d " " -f3 | cut -c1`" -lt 2 ]; then echo "docker version is too old"; exit 1; fi
+	@if [ "`docker-compose --version | cut -d " " -f4 | cut -c1`" -lt 2 ]; then echo "docker-compose version is too old"; exit 1; fi
+
+latest: checks
 	docker pull ghcr.io/azulinho/cryptobot:latest
 
-logmode: latest
+logmode: checks latest
 	U="$$(id -u)" G="$$(id -g)" docker-compose run --name cryptobot.logmode.$(WHOAMI).$(CONFIG) --rm --service-ports cryptobot -s secrets/binance.prod.yaml -c configs/$(CONFIG)  -m  logmode > log/logmode.$(CONFIG).txt 2>&1
 
-testnet: latest
+testnet: checks latest
 	U="$$(id -u)" G="$$(id -g)" docker-compose run --rm --name cryptobot.testnet.$(WHOAMI).$(CONFIG) --service-ports cryptobot -s secrets/binance.testnet.yaml -c configs/$(CONFIG)  -m  testnet  > log/testnet.$(CONFIG).txt 2>&1
 
-live: latest
+live: checks latest
 	U="$$(id -u)" G="$$(id -g)" docker-compose run --rm --name cryptobot.live.$(WHOAMI).$(CONFIG) --service-ports cryptobot -s secrets/binance.prod.yaml -c configs/$(CONFIG)  -m  live  >> log/live.$(CONFIG).txt 2>&1
 
-backtesting:
+backtesting: checks
 	U="$$(id -u)" G="$$(id -g)" docker-compose run --name cryptobot.backtesting.$(WHOAMI).$(CONFIG) --rm --service-ports cryptobot -s secrets/binance.prod.yaml -c configs/$(CONFIG)  -m  backtesting  > results/$(CONFIG).txt 2>&1
 
 slice-of-log:
@@ -27,13 +31,13 @@ compress-logs:
 lastfewdays:
 	rm -f lastfewdays.log.gz; for ta in `find log/ -name '202*.gz' |sort -n | tail -$(DAYS)` ; do zcat $$ta | grep -a "$(PAIR)" | grep -vEa 'DOWN$(PAIR)|UP$(PAIR)|BULL$(PAIR)|BEAR$(PAIR)' | gzip -3 >> lastfewdays.log.gz; done
 
-automated-backtesting:
+automated-backtesting: checks
 	U="$$(id -u)" G="$$(id -g)" docker-compose run --name cryptobot.automated-backtesting.$(WHOAMI) --rm --entrypoint="/cryptobot/utils/automated-backtesting.sh" -e LOGFILE=/cryptobot/log/$(LOGFILE) -e CONFIG=configs/$(CONFIG) -e MIN=$(MIN) -e FILTER='$(FILTER)' -e SORTBY=$(SORTBY) cryptobot
 
-build:
+build: checks
 	U="$$(id -u)" G="$$(id -g)" docker-compose build
 
-download-price-logs:
+download-price-logs: checks
 	U="$$(id -u)" G="$$(id -g)" docker-compose run --name cryptobot.download-price-logs.$(WHOAMI) --rm --entrypoint="/cryptobot/.venv/bin/python /cryptobot/utils/pull_klines.py -s $(FROM) -e $(TO)" cryptobot
 
 
