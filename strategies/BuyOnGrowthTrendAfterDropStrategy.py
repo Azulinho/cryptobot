@@ -1,28 +1,30 @@
 """ bot buy strategy file """
 from app import Bot, Coin
-from lib.helpers import percent, c_from_timestamp, logging
+from lib.helpers import c_from_timestamp, logging, percent
 
 
 class Strategy(Bot):
-    """Buy Strategy
-
-    Wait for a coin to drop below BUY_AT_PERCENTAGE and then
-    monitor its growth trend over a certain period, where each slice of
-    that period must grow by at least n% over the previous slice.
-    As soon that happens buy this coin.
-    """
+    """BuyOnGrowthTrendAfterDropStrategy"""
 
     def buy_strategy(self, coin: Coin) -> bool:
-        """bot buy strategy"""
+        """BuyOnGrowthTrendAfterDropStrategy buy_strategy
+        Wait for a coin to drop below BUY_AT_PERCENTAGE and then
+        monitor its growth trend over a certain period, where each slice of
+        that period must grow by at least n% over the previous slice.
+        As soon that happens buy this coin.
+        """
 
         unit = str(coin.klines_trend_period[-1:]).lower()
-        klines_trend_period = int(''.join(coin.klines_trend_period[:-1]))
+        klines_trend_period = int("".join(coin.klines_trend_period[:-1]))
         last_period = list(coin.averages[unit])[-klines_trend_period:]
 
+        # we need at least a full period of klines before we can
+        # make a buy decision
         if len(last_period) < klines_trend_period:
             return False
 
-        # has the price gone down by x% on a coin we don't own?
+        # check if the maximum price recorded is now lower than the
+        # BUY_AT_PERCENTAGE
         if (
             coin.price < percent(coin.buy_at_percentage, coin.max)
             and coin.status == ""
@@ -39,6 +41,9 @@ class Strategy(Bot):
             return False
 
         # if the price keeps going down, skip it
+        # we want to make sure the price has increased over n slices of the
+        # klines_trend_period (m, h, d) by klines_slice_percentage_change
+        # each time.
         last_period_slice = last_period[0][1]
         for _, n in last_period[1:]:
             if (

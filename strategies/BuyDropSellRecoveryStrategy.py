@@ -1,16 +1,25 @@
 """ bot buy strategy file """
 from app import Bot, Coin
-from lib.helpers import percent, c_from_timestamp, logging
+from lib.helpers import c_from_timestamp, logging, percent
 
 
 class Strategy(Bot):
-    """Base Strategy Class"""
+    """BuyDropSellRecoveryStrategy"""
 
     def buy_strategy(self, coin: Coin) -> bool:
-        """bot buy strategy"""
+        """BuyDropSellRecoveryStrategy buy_strategy
 
-        # has the price gone down by x% on a coin we don't own?
+        this strategy, looks for the recovery point in price for a coin after
+        a drop in price.
+        when a coin drops by BUY_AT_PERCENTAGE the bot marks that coin
+        as TARGET_DIP, and then monitors its price recording the lowest
+        price it sees(the dip).
+        As soon the coin goes above the dip by TRAIL_RECOVERY_PERCENTAGE
+        the bot buys the coin."""
+
         if (
+            # as soon the price goes below BUY_AT_PERCENTAGE, mark coin as
+            # TARGET_DIP
             coin.price < percent(coin.buy_at_percentage, coin.max)
             and coin.status == ""
             and not coin.naughty
@@ -25,14 +34,11 @@ class Strategy(Bot):
         if coin.status != "TARGET_DIP":
             return False
 
-        # do some gimmicks, and don't buy the coin straight away
-        # but only buy it when the price is now higher than the last
-        # price recorded. This way we ensure that we got the dip
+        # record the dip, and wait until the price recovers all the way
+        # to the TRAIL_RECOVERY_PERCENTAGE, then buy.
         self.log_debug_coin(coin)
         if coin.price > coin.last:
-            if coin.price > percent(
-                coin.trail_recovery_percentage, coin.dip
-            ):
+            if coin.price > percent(coin.trail_recovery_percentage, coin.dip):
                 self.buy_coin(coin)
                 return True
         return False

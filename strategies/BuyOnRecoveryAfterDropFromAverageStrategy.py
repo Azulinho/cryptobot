@@ -1,24 +1,33 @@
 """ bot buy strategy file """
 from app import Bot, Coin
-from lib.helpers import percent, mean, c_from_timestamp, logging
+from lib.helpers import c_from_timestamp, logging, mean, percent
 
 
 class Strategy(Bot):
-    """Base Strategy Class"""
+    """BuyOnRecoveryAfterDropFromAverageStrategy"""
 
     def buy_strategy(self, coin: Coin) -> bool:
-        """bot buy strategy"""
+        """BuyOnRecoveryAfterDropFromAverageStrategy buy_strategy
+
+        This strategy looks for coins that are below the average price over
+        the last KLINES_TREND_PERIOD by at least the BUY_AT_PERCENTAGE.
+        if it is, then mark the coin as TARGET_DIP
+        and buy it as soon we're over the dip by TRAIL_RECOVERY_PERCENTAGE.
+        """
 
         unit = str(coin.klines_trend_period[-1:]).lower()
-        klines_trend_period = int(''.join(coin.klines_trend_period[:-1]))
+        klines_trend_period = int("".join(coin.klines_trend_period[:-1]))
 
         last_period = list(coin.averages[unit])[-klines_trend_period:]
 
+        # we need at least a full period of klines before we can
+        # make a buy decision
         if len(last_period) < klines_trend_period:
             return False
 
-        average = mean([v for d,v in last_period])
-        # has the price gone down by x% on a coin we don't own?
+        average = mean([v for _, v in last_period])
+        # check if the average price recorded over the last_period is now
+        # lower than the BUY_AT_PERCENTAGE
         if (
             (coin.price < percent(coin.buy_at_percentage, average))
             and coin.status == ""
@@ -39,9 +48,7 @@ class Strategy(Bot):
         # price recorded. This way we ensure that we got the dip
         self.log_debug_coin(coin)
         if coin.price > coin.last:
-            if coin.price > percent(
-                coin.trail_recovery_percentage, coin.dip
-            ):
+            if coin.price > percent(coin.trail_recovery_percentage, coin.dip):
                 self.buy_coin(coin)
                 return True
         return False

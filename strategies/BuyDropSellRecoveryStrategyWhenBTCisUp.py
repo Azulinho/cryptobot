@@ -1,29 +1,38 @@
 """ bot buy strategy file """
 from app import Bot, Coin
-from lib.helpers import percent, c_from_timestamp, logging
+from lib.helpers import c_from_timestamp, logging, percent
 
 
 class Strategy(Bot):
-    """Base Strategy Class"""
+    """BuySellRecoveryStrategyWhenBTCisUp"""
 
     def buy_strategy(self, coin: Coin) -> bool:
-        """bot buy strategy"""
+        """BuySellRecoveryStrategyWhenBTCisUp buy_strategy
 
+        this strategy only buys coins when the price of bitcoin is heading up.
+        it waits until BTC has gone up by KLINES_SLICE_PERCENTAGE_CHANGE in
+        the KLINES_TREND_PERIOD before looking at coin prices.
+        Then as the price of a coin has gone down by the BUY_AT_PERCENTAGE
+        it marks the coin as TARGET_DIP.
+        wait for the coin to go up in price by TRAIL_RECOVERY_PERCENTAGE
+        before buying the coin
+
+        """
+
+        BTC = f"BTC{self.pairing}"
         # with this strategy we never buy BTC
-        if coin.symbol == "BTCUSDT":
+        if coin.symbol == BTC:
             return False
 
-        if 'BTCUSDT' not in self.coins:
+        if BTC not in self.coins:
             return False
 
-        unit = str(self.coins['BTCUSDT'].klines_trend_period[-1:]).lower()
-        klines_trend_period = int(
-            ''.join(self.coins['BTCUSDT'].klines_trend_period[:-1])
-        )
+        unit = str(self.coins[BTC].klines_trend_period[-1:]).lower()
+        klines_trend_period = int(self.coins[BTC].klines_trend_period[:-1])
 
-        last_period = list(
-            self.coins['BTCUSDT'].averages[unit]
-        )[-klines_trend_period:]
+        last_period = list(self.coins[BTC].averages[unit])[
+            -klines_trend_period:
+        ]
 
         if len(last_period) < klines_trend_period:
             return False
@@ -32,9 +41,8 @@ class Strategy(Bot):
         for _, n in last_period[1:]:
             if (
                 percent(
-                    100 + float(
-                        self.coins['BTCUSDT'].klines_slice_percentage_change
-                    ),
+                    100
+                    + float(self.coins[BTC].klines_slice_percentage_change),
                     last_period_slice,
                 )
                 > n
@@ -63,9 +71,7 @@ class Strategy(Bot):
         # price recorded. This way we ensure that we got the dip
         self.log_debug_coin(coin)
         if coin.price < coin.last:
-            if coin.price > percent(
-                coin.trail_recovery_percentage, coin.dip
-            ):
+            if coin.price > percent(coin.trail_recovery_percentage, coin.dip):
                 self.buy_coin(coin)
                 return True
         return False
