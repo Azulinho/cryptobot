@@ -39,18 +39,52 @@ A python based trading bot for Binance, which relies heavily on backtesting.
 
 ## Overview
 
-The bot while running saves the current market price for all coins available in
-binance into *price.log* logfiles. These logfiles are used to simulate different
-backtesting scenarios and manipulate how the bot buys/sells crypto.
+This bot looks to buy coins that at have gone down in price recently and are
+now recovering from that downtrend. It relies on us specifying different 
+buy and sell points for each coin individually. For example, we can tell the 
+bot to buy BTCUSDT when the price drops by at least 6% and recovers by 1%. And
+then set it to sell when the price increases by another 2%.
+While we may choose to do something different with another more volatile coin
+where we buy the coin when the price drops by 25%, wait for it to recover by 2%
+and then sell it at 5% profit.
 
+In order to understand what are the best percentages on when to buy and sell for
+each one of the coins available in binance, we use backtesting strategies 
+on a number of recorded price.logs.
+These price.logs can be obtained while the bot is running in a special mode
+called 'logmode' where it records prices for all the available binance coins
+every 1 second or other chosen interval. Or we can obtain 1min interval klines
+from binance using a tool available in this repository.
+
+Then we would run the bot in backtesting mode which would run our buy strategy
+against those price.log files and simulate what sort of returns we would get
+from a specify strategy and a time frame of the market.
+In order to help us identify the best buy/sell percentages for each coin, there
+is a helper tool in this repo which runs a kind of 
+[automated-backtesting](#automated-backtesting) against
+all the coins in binance and a number of buy/sell percentages and strategies
+and returns the best config for each one of those coins. Use it as a starting
+point for your own strategy.
+
+The way the bot chooses when to buy is based on a set of strategies which are
+defined in the [strategies/](./strategies/) folder in this repo.
+You can choose to build your own strategy and place it on the 
+[strategies/](./strategies) folder,
+then either rebuild the bot docker image or just map the file as a volume mount
+in the [docker-compose file](./docker-compose.yaml).
 
 This bot currently provides different strategies:
 
-- *BuyDropSellRecoveryStrategy*
-- *BuyMoonSellRecoveryStrategy*
-- *BuyOnGrowthTrendAfterDropStrategy*
+- [*BuyDropSellRecoveryStrategy*](./strategies/BuyDropSellRecoveryStrategy.py)
+- [*BuyDropSellRecoveryStrategyWhenBTCisDown*](./strategies/BuyDropSellRecoveryStrategyWhenBTCisDown.py)
+- [*BuyDropSellRecoveryStrategyWhenBTCisUp*](./strategies/BuyDropSellRecoveryStrategyWhenBTCisUp.py)
+- [*BuyMoonSellRecoveryStrategy*](./strategies/BuyMoonSellRecoveryStrategy.py)
+- [*BuyOnGrowthTrendAfterDropStrategy*](./strategies/BuyOnGrowthTrendAfterDropStrategy.py)
+- [*BuyOnRecoveryAfterDropDuringGrowthTrendStrategy*](./strategies/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.py)
+- [*BuyOnRecoveryAfterDropFromAverageStrategy*](./strategies/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.py)
 
-The way these strategies work is described later in this README.
+The way some of these strategies work is described later in this README. The 
+others can be found in the strategy files themselves.
 
 While the price for every available coin is recorded in the *price.log*
 logfiles, the bot will only act to buy or sell coins for coins listed
@@ -58,7 +92,7 @@ specifically on its configuration.
 
 Each coin is defined in the configuration with a set of values for when to
 buy and sell. This allows us to tell the Bot how it handles different coins in
-regards to their current state. For example, a high volatily coin that drops 10%
+regards to their current state. For example, a high volatile coin that drops 10%
 in price is likely to continue dropping further, versus a coin like BTCUSDT that
 is relatively stable in price.
 
@@ -93,7 +127,7 @@ Some coins might be slow recovering from the price we paid, and take some time
 for their price to raise all the way to the 6% profit we aim for.
 
 To avoid having a bot coin slot locked forever, we set set a kind of TimeToLive
-on the coins the bot buys. we call this limit *HARD_LIMIT_HOLDING_TIME*.
+on the coins the bot buys. Let's call this limit *HARD_LIMIT_HOLDING_TIME*.
 The bot will forcefully sell the coin regardless of its price when this period expires.
 
 To improve the chances of selling a coin during a slow recovery, we decrease
