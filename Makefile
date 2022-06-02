@@ -57,7 +57,11 @@ help:
 
 support:
 	echo > support.txt
-	echo "docker images:" >> support.txt
+	echo "kernel:" >> support.txt
+	uname -a >> support.txt
+	echo "os-release:" >> support.txt
+	cat /etc/os-release >> support.txt
+	echo "docker cryptobot images:" >> support.txt
 	docker images | grep cryptobot >> support.txt
 	echo "git tag:" >> support.txt
 	git tag --sort=v:refname | tail -1 >> support.txt
