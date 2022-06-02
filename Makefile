@@ -4,8 +4,8 @@ default: help ;
 WHOAMI := $$(whoami)
 
 checks:
-	@if [ "`docker --version | cut -d " " -f3 | cut -c1`" -lt 2 ]; then echo "docker version is too old"; exit 1; fi
-	@if [ "`docker-compose --version | cut -d " " -f4 | cut -c1`" -lt 2 ]; then echo "docker-compose version is too old"; exit 1; fi
+	@if [ "`docker --version | cut -d " " -f3 | tr -d 'v'| cut -c1`" -lt 2 ]; then echo "docker version is too old"; exit 1; fi
+	@if [ "`docker-compose --version | cut -d " " -f4 | tr -d 'v'| cut -c1`" -lt 2 ]; then echo "docker-compose version is too old"; exit 1; fi
 
 latest: checks
 	docker pull ghcr.io/azulinho/cryptobot:latest
