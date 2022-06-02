@@ -4,10 +4,10 @@ from lib.helpers import c_from_timestamp, logging, percent
 
 
 class Strategy(Bot):
-    """BuySellRecoveryStrategyWhenBTCisDown"""
+    """BuyDropSellRecoveryStrategyWhenBTCisDown"""
 
     def buy_strategy(self, coin: Coin) -> bool:
-        """BuySellRecoveryStrategyWhenBTCisDown buy_strategy
+        """BuyDropSellRecoveryStrategyWhenBTCisDown buy_strategy
 
         this strategy only buys coins when the price of bitcoin is heading down.
         it waits until BTC has gone down by KLINES_SLICE_PERCENTAGE_CHANGE in
