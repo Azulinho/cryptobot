@@ -5,8 +5,9 @@ A python based trading bot for Binance, which relies heavily on backtesting.
 
 1. [Overview](#overview)
 2. [Discord](#discord)
-3. [Usage](#usage)
-4. [Config settings](#config-settings)
+3. [Getting started](#getting-started)
+4. [Usage](#usage)
+5. [Config settings](#config-settings)
    * [PAIRING](#pairing)
    * [INITIAL_INVESTMENT](#initial_investment)
    * [PAUSE_FOR](#pause_for)
@@ -32,16 +33,17 @@ A python based trading bot for Binance, which relies heavily on backtesting.
    * [ENABLE_PUMP_AND_DUMP_CHECKS](#enable_pump_and_dump_checks)
    * [ENABLE_NEW_LISTING_CHECKS](#enable_new_listing_checks)
    * [STOP_BOT_ON_LOSS](#stop_bot_on_loss)
-5. [Bot command center](#bot-command-center)
-6. [Automated Backtesting](#automated-backtesting)
-7. [Obtaining old price.log files](#obtaining-old-price.log-files)
-8. [Development/New features](#development/new-features)
+6. [Bot command center](#bot-command-center)
+7. [Automated Backtesting](#automated-backtesting)
+8. [Obtaining old price.log files](#obtaining-old-price.log-files)
+9. [Development/New features](#development/new-features)
+
 
 ## Overview
 
 This bot looks to buy coins that at have gone down in price recently and are
-now recovering from that downtrend. It relies on us specifying different 
-buy and sell points for each coin individually. For example, we can tell the 
+now recovering from that downtrend. It relies on us specifying different
+buy and sell points for each coin individually. For example, we can tell the
 bot to buy BTCUSDT when the price drops by at least 6% and recovers by 1%. And
 then set it to sell when the price increases by another 2%.
 While we may choose to do something different with another more volatile coin
@@ -49,7 +51,7 @@ where we buy the coin when the price drops by 25%, wait for it to recover by 2%
 and then sell it at 5% profit.
 
 In order to understand what are the best percentages on when to buy and sell for
-each one of the coins available in binance, we use backtesting strategies 
+each one of the coins available in binance, we use backtesting strategies
 on a number of recorded price.logs.
 These price.logs can be obtained while the bot is running in a special mode
 called 'logmode' where it records prices for all the available binance coins
@@ -60,7 +62,7 @@ Then we would run the bot in backtesting mode which would run our buy strategy
 against those price.log files and simulate what sort of returns we would get
 from a specify strategy and a time frame of the market.
 In order to help us identify the best buy/sell percentages for each coin, there
-is a helper tool in this repo which runs a kind of 
+is a helper tool in this repo which runs a kind of
 [automated-backtesting](#automated-backtesting) against
 all the coins in binance and a number of buy/sell percentages and strategies
 and returns the best config for each one of those coins. Use it as a starting
@@ -68,7 +70,7 @@ point for your own strategy.
 
 The way the bot chooses when to buy is based on a set of strategies which are
 defined in the [strategies/](./strategies/) folder in this repo.
-You can choose to build your own strategy and place it on the 
+You can choose to build your own strategy and place it on the
 [strategies/](./strategies) folder,
 then either rebuild the bot docker image or just map the file as a volume mount
 in the [docker-compose file](./docker-compose.yaml).
@@ -83,7 +85,7 @@ This bot currently provides different strategies:
 - [*BuyOnRecoveryAfterDropDuringGrowthTrendStrategy*](./strategies/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.py)
 - [*BuyOnRecoveryAfterDropFromAverageStrategy*](./strategies/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.py)
 
-The way some of these strategies work is described later in this README. The 
+The way some of these strategies work is described later in this README. The
 others can be found in the strategy files themselves.
 
 While the price for every available coin is recorded in the *price.log*
@@ -213,6 +215,17 @@ Join on: https://discord.gg/MaMP3gVBdk
 DO NOT USE github issues to ask for help. I have no time for you. You'll be told off.
 
 Also: *NO TORIES, NO BREXITERS, NO WINDOWS USERS, NO TWATS*, this is not negotiable.
+
+## Getting started
+
+If you don't know Python you might be better using an
+[Online Crypto Trading Bot](https://duckduckgo.com/?q=online+crypto+trading+bot&ia=web) instead.
+
+1. Learn Python https://www.learnpython.org/
+
+2. Learn Docker https://learndocker.online/
+
+3. Learn Git https://www.w3schools.com/git/default.asp
 
 
 ## Usage
