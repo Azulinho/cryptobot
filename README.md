@@ -734,7 +734,8 @@ make automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG=automated-back
 ```
 
 This will generate a config.yaml with the coins sorted by which strategy
-returned the highest number of wins for each coin.
+returned the highest number of clean wins for each coin. We call clean wins as
+bot runs that don't contain any losses or stales, only wins.
 
 ```
 make automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='wins'

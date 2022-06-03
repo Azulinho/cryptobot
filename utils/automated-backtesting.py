@@ -102,8 +102,9 @@ def gather_best_results_from_backtesting_log(log, minimum, kind, word, sortby):
                 w, l, s, h = [int(x[1:]) for x in wls.split(",")]
 
                 # drop any results containing losses, stales, or holds
-                if l != 0 or s != 0 or h != 0 or w == 0:
-                    continue
+                if sortby == "wins":
+                    if l != 0 or s != 0 or h != 0 or w == 0:
+                        continue
 
                 coincfg = eval(_cfg)["TICKERS"][coin]
                 if coin not in coins:
