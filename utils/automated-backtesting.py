@@ -1,29 +1,24 @@
+"""automated-backtesting.py"""
 import argparse
-import logging
-import os
-import re
-import sys
-import traceback
 import glob
+import multiprocessing as mp
+import os
 import shutil
 import subprocess
-import yaml
-import json
-import multiprocessing as mp
-
-from concurrent.futures import ThreadPoolExecutor
 from collections import OrderedDict
-from functools import partial
 from string import Template
-from pathlib import Path
+
+import yaml
 from xopen import xopen
 
 
 def backup_backtesting_log():
+    """makes a backup of backtesting.log"""
     shutil.copyfile("log/backtesting.log", "log/backtesting.log.backup")
 
 
 def compress_file(filename):
+    """compresses coin price.log file"""
     with open(filename) as uncompressed:
         print(f"\ncompressing file {filename}\n")
         with xopen(f"{filename}.gz", mode="wt") as compressed:
@@ -32,10 +27,11 @@ def compress_file(filename):
 
 
 def split_logs_into_coins(filename, cfg):
+    """splits one price.log into individual coin price.log files"""
     coinfiles = set()
     coinfh = {}
     print(f"\nprocessing file {str(filename)}\n")
-    pairing = cfg['DEFAULTS']['PAIRING']
+    pairing = cfg["DEFAULTS"]["PAIRING"]
     with xopen(f"{filename}", "rt") as logfile:
         for line in logfile:
 
@@ -52,7 +48,7 @@ def split_logs_into_coins(filename, cfg):
                 f"DOWN{pairing}",
                 f"UP{pairing}",
                 f"BEAR{pairing}",
-                f"BULL{pairing}"
+                f"BULL{pairing}",
             ]:
                 continue
 
@@ -67,9 +63,9 @@ def split_logs_into_coins(filename, cfg):
         coinfh[symbol].close()
 
     tasks = []
-    with mp.Pool(processes=os.cpu_count()) as pool:
-        for filename in coinfiles:
-            job = pool.apply_async(compress_file, (filename,))
+    with mp.Pool(processes=N_TASKS) as pool:
+        for coin_filename in coinfiles:
+            job = pool.apply_async(compress_file, (coin_filename,))
             tasks.append(job)
         for t in tasks:
             t.get()
@@ -77,32 +73,33 @@ def split_logs_into_coins(filename, cfg):
 
 
 def wrap_subprocessing(config):
+    """wraps subprocess call"""
     subprocess.run(
-        f"python app.py -m backtesting -s tests/fake.yaml -c configs/{config} >results/{config}.txt 2>&1",
+        "python app.py -m backtesting -s tests/fake.yaml "
+        + f"-c configs/{config} >results/{config}.txt 2>&1",
         shell=True,
     )
 
 
-def gather_best_results_from_backtesting_log(log, min, kind, word, strategy, sortby):
+def gather_best_results_from_backtesting_log(log, minimum, kind, word, sortby):
+    """parses backtesting.log for the best result for a coin"""
     coins = {}
-    results = dict()
+    results = {}
     if os.path.exists(log):
         with open(log, encoding="utf-8") as lines:
             for line in lines:
-                _profit, investment, days, wls, cfgname, _cfg = line[7:].split(
-                    "|"
-                )
+                _profit, _, _, wls, cfgname, _cfg = line[7:].split("|")
                 if not word in cfgname:
                     continue
                 profit = float(_profit)
                 if profit < 0:
                     continue
 
-                if profit < float(min):
+                if profit < float(minimum):
                     continue
 
                 coin = cfgname[9:].split(".")[0]
-                w, l, s, h = [ int(x[1:]) for x in wls.split(",")]
+                w, l, s, h = [int(x[1:]) for x in wls.split(",")]
 
                 # drop any results containing losses, stales, or holds
                 if l != 0 or s != 0 or h != 0 or w == 0:
@@ -156,6 +153,7 @@ def gather_best_results_from_backtesting_log(log, min, kind, word, strategy, sor
 
 
 def generate_coin_template_config_file(coin, strategy, cfg):
+    """generates a config.yaml for a coin"""
 
     tmpl = Template(
         """{
@@ -224,13 +222,14 @@ def generate_coin_template_config_file(coin, strategy, cfg):
                         "KLINES_SLICE_PERCENTAGE_CHANGE"
                     ],
                     "STRATEGY": strategy,
-                    "STOP_BOT_ON_LOSS": cfg["STOP_BOT_ON_LOSS"]
+                    "STOP_BOT_ON_LOSS": cfg["STOP_BOT_ON_LOSS"],
                 }
             )
         )
 
 
 def generate_config_for_tuned_strategy_run(strategy, cfg, results, logfile):
+    """generates a config.yaml for a final strategy run"""
     tmpl = Template(
         """{
     "STRATEGY": "$STRATEGY",
@@ -273,8 +272,8 @@ def generate_config_for_tuned_strategy_run(strategy, cfg, results, logfile):
         )
 
 
-
 def main():
+    """main"""
     parser = argparse.ArgumentParser()
     parser.add_argument("-l", "--log", help="logfile")
     parser.add_argument("-c", "--cfgs", help="backtesting cfg")
@@ -293,7 +292,7 @@ def main():
     if os.path.exists("cache/binance.client"):
         os.remove("cache/binance.client")
 
-    with mp.Pool(processes=os.cpu_count()) as pool:
+    with mp.Pool(processes=N_TASKS) as pool:
         # process one strategy at a time
         for strategy in cfgs["STRATEGIES"]:
             # cleanup backtesting.log
@@ -321,7 +320,10 @@ def main():
                 tasks = []
                 for coin in coinfiles:
                     symbol = coin.split(".")[1]
-                    print(f"\nbacktesting {symbol} for {run} on {strategy} for {args.min} on {args.sortby}\n")
+                    print(
+                        f"\nbacktesting {symbol} for {run} on {strategy} for"
+                        + f"{args.min} on {args.sortby}\n"
+                    )
                     # then we backtesting this strategy run against each coin
                     job = pool.apply_async(
                         wrap_subprocessing, (f"coin.{symbol}.yaml",)
@@ -338,8 +340,7 @@ def main():
                 args.min,
                 "coincfg",
                 args.filter,
-                strategy,
-                args.sortby
+                args.sortby,
             )
             generate_config_for_tuned_strategy_run(
                 strategy, cfgs["DEFAULTS"], results, logfile
@@ -348,20 +349,23 @@ def main():
         if os.path.exists("log/backtesting.log"):
             os.remove("log/backtesting.log")
 
-    with mp.Pool(processes=os.cpu_count()) as pool:
+    with mp.Pool(processes=N_TASKS) as pool:
+        tasks = []
         for strategy in cfgs["STRATEGIES"]:
-            tasks = []
             job = pool.apply_async(wrap_subprocessing, (f"{strategy}.yaml",))
             tasks.append(job)
         for t in tasks:
             t.get()
-    for item in glob.glob('configs/coin.*.yaml'):
+    for item in glob.glob("configs/coin.*.yaml"):
         os.remove(item)
-    for item in glob.glob('results/coin.*.txt'):
+    for item in glob.glob("results/coin.*.txt"):
         os.remove(item)
-    for item in glob.glob('log/coin.*.log.gz'):
+    for item in glob.glob("log/coin.*.log.gz"):
         os.remove(item)
 
 
 if __name__ == "__main__":
+    # max number of parallel tasks we will run
+    N_TASKS = int(os.cpu_count() * float(os.getenv("SMP_MULTIPLIER", "1")))
+
     main()

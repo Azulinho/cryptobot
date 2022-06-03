@@ -7,6 +7,8 @@ services:
     user: "${U}:${G}"
     build: ./
     privileged: true
+    environment:
+      SMP_MULTIPLIER: "${SMP_MULTIPLIER:-1}"
 
     ports:
       - "5555"
