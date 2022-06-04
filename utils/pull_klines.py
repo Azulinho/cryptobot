@@ -76,8 +76,11 @@ if __name__ == "__main__":
     # reach a date where they have no klines data available.
     for dt in reversed(daterange(start_dt, end_dt)):
         day = dt.strftime("%Y%m%d")
-        print(f"processing day {day}")
+        if os.path.exists(f"log/{day}.log.gz"):
+            print(f"log/{day}.log.gz already exists, skipping day")
+            continue
 
+        print(f"processing day {day}")
         # pull klines from 00:00:00 to 23:59:59 on each day, every 1 min
         start = float(
             datetime.strptime(f"{day} 00:00:00", "%Y%m%d %H:%M:%S").timestamp()
