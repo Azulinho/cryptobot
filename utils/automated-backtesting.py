@@ -1,7 +1,7 @@
 """automated-backtesting.py"""
 import argparse
+import concurrent.futures
 import glob
-import multiprocessing as mp
 import os
 import shutil
 import subprocess
@@ -63,12 +63,12 @@ def split_logs_into_coins(filename, cfg):
         coinfh[symbol].close()
 
     tasks = []
-    with mp.Pool(processes=N_TASKS) as pool:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=N_TASKS) as pool:
         for coin_filename in coinfiles:
-            job = pool.apply_async(compress_file, (coin_filename,))
+            job = pool.submit(compress_file, coin_filename)
             tasks.append(job)
         for t in tasks:
-            t.get()
+            t.result()
     return coinfiles
 
 
@@ -293,7 +293,7 @@ def main():
     if os.path.exists("cache/binance.client"):
         os.remove("cache/binance.client")
 
-    with mp.Pool(processes=N_TASKS) as pool:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=N_TASKS) as pool:
         # process one strategy at a time
         for strategy in cfgs["STRATEGIES"]:
             # cleanup backtesting.log
@@ -326,13 +326,13 @@ def main():
                         + f"{args.min} on {args.sortby}\n"
                     )
                     # then we backtesting this strategy run against each coin
-                    job = pool.apply_async(
-                        wrap_subprocessing, (f"coin.{symbol}.yaml",)
+                    job = pool.submit(
+                        wrap_subprocessing, f"coin.{symbol}.yaml"
                     )
                     tasks.append(job)
 
                 for t in tasks:
-                    t.get()
+                    t.result()
 
             # finally we soak up the backtesting.log and generate the best
             # config from all the runs in this strategy
@@ -350,13 +350,13 @@ def main():
         if os.path.exists("log/backtesting.log"):
             os.remove("log/backtesting.log")
 
-    with mp.Pool(processes=N_TASKS) as pool:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=N_TASKS) as pool:
         tasks = []
         for strategy in cfgs["STRATEGIES"]:
-            job = pool.apply_async(wrap_subprocessing, (f"{strategy}.yaml",))
+            job = pool.submit(wrap_subprocessing, f"{strategy}.yaml")
             tasks.append(job)
         for t in tasks:
-            t.get()
+            t.result()
     for item in glob.glob("configs/coin.*.yaml"):
         os.remove(item)
     for item in glob.glob("results/coin.*.txt"):
