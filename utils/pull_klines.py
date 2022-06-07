@@ -36,7 +36,7 @@ def pull_klines(k_symbol, k_start, k_end, limit=720):
             k_results.append(tuple(entry))
         k_start = k_start + (limit * 60000)
     # klines is an expensive API call, so only pull one klines set per second
-    time.sleep(0.1)
+    time.sleep(0.3)
     return k_results
 
 
