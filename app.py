@@ -3,6 +3,7 @@
 import argparse
 import importlib
 import json
+import logging
 import math
 import pickle
 import sys
@@ -12,11 +13,12 @@ from datetime import datetime
 from functools import lru_cache
 from hashlib import md5
 from itertools import islice
-from os import fsync
+from os import fsync, getpid
 from os.path import basename, exists
 from time import sleep
 from typing import Any, Dict, List, Tuple
 
+import colorlog
 import udatetime
 import web_pdb
 import yaml
@@ -31,7 +33,6 @@ from lib.helpers import (
     c_date_from,
     c_from_timestamp,
     cached_binance_client,
-    logging,
     mean,
     percent,
     requests_with_backoff,
@@ -1770,6 +1771,36 @@ if __name__ == "__main__":
         with open(args.secrets, encoding="utf-8") as _f:
             secrets = yaml.safe_load(_f.read())
         cfg["MODE"] = args.mode
+
+        PID = getpid()
+        c_handler = colorlog.StreamHandler(sys.stdout)
+        c_handler.setFormatter(
+            colorlog.ColoredFormatter(
+                "%(log_color)s[%(levelname)s] %(message)s",
+                log_colors={
+                    "WARNING": "yellow",
+                    "ERROR": "red",
+                    "CRITICAL": "red,bg_white",
+                },
+            )
+        )
+        c_handler.setLevel(logging.INFO)
+
+        if cfg["DEBUG"]:
+            f_handler = logging.FileHandler("log/debug.log")
+            f_handler.setLevel(logging.DEBUG)
+
+            logging.basicConfig(
+                level=logging.DEBUG,
+                format=f"(%(asctime)s) ({PID}) (%(lineno)d) (%(funcName)s) [%(levelname)s] %(message)s",
+                handlers=[f_handler, c_handler],
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
+        else:
+            logging.basicConfig(
+                level=logging.INFO,
+                handlers=[c_handler],
+            )
 
         if args.mode == "backtesting":
             client = cached_binance_client(
