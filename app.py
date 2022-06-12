@@ -379,7 +379,7 @@ class Coin:  # pylint: disable=too-few-public-methods
 
         return False
 
-    def new_listing(self, mode):
+    def new_listing(self, mode, days):
         """checks if coin is a new listing"""
         # wait a few days before going to buy a new coin
         # since we list what coins we buy in TICKERS the bot would never
@@ -389,7 +389,7 @@ class Coin:  # pylint: disable=too-few-public-methods
         # we want to avoid buy these new listings as they are very volatile
         # and the bot won't have enough history to properly backtest a coin
         # looking for a profit pattern to use.
-        if mode == "backtesting" and len(self.averages["d"]) < 31:
+        if mode == "backtesting" and len(self.averages["d"]) < days:
             return True
         return False
 
@@ -471,9 +471,13 @@ class Bot:
         self.enable_pump_and_dump_checks: bool = config.get(
             "ENABLE_PUMP_AND_DUMP_CHECKS", True
         )
-        # disable buying a new coin if this coin is newer than 31 days
+        # check if we are looking at a new coin
         self.enable_new_listing_checks: bool = config.get(
             "ENABLE_NEW_LISTING_CHECKS", True
+        )
+        # disable buying a new coin if this coin is newer than 31 days
+        self.enable_new_listing_checks_age_in_days: int = config.get(
+            "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS", 31
         )
         # stops the bot as soon we hit a STOP_LOSS. If we are still holding coins,
         # those remain in our wallet. Typically used when MAX_COINS = 1
@@ -510,7 +514,9 @@ class Bot:
 
         # is this a new coin?
         if self.enable_new_listing_checks:
-            if coin.new_listing(self.mode):
+            if coin.new_listing(
+                self.mode, self.enable_new_listing_checks_age_in_days
+            ):
                 return
 
         # has the current price been influenced by a pump and dump?

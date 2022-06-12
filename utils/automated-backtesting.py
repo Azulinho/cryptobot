@@ -169,6 +169,7 @@ def generate_coin_template_config_file(coin, strategy, cfg):
     "TRADING_FEE": $TRADING_FEE,
     "SELL_AS_SOON_IT_DROPS": $SELL_AS_SOON_IT_DROPS,
     "STOP_BOT_ON_LOSS": $STOP_BOT_ON_LOSS,
+    "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS": $ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS,
     "TICKERS": {
       "$COIN": {
           "BUY_AT_PERCENTAGE": $BUY_AT_PERCENTAGE,
@@ -223,7 +224,10 @@ def generate_coin_template_config_file(coin, strategy, cfg):
                         "KLINES_SLICE_PERCENTAGE_CHANGE"
                     ],
                     "STRATEGY": strategy,
-                    "STOP_BOT_ON_LOSS": cfg["STOP_BOT_ON_LOSS"],
+                    "STOP_BOT_ON_LOSS": cfg.get("STOP_BOT_ON_LOSS", False),
+                    "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS": cfg.get(
+                        "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS", 31
+                    ),
                 }
             )
         )

@@ -32,6 +32,7 @@ A python based trading bot for Binance, which relies heavily on backtesting.
    * [PRICE_LOGS](#price_logs)
    * [ENABLE_PUMP_AND_DUMP_CHECKS](#enable_pump_and_dump_checks)
    * [ENABLE_NEW_LISTING_CHECKS](#enable_new_listing_checks)
+   * [ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS](#enable_new_listing_checks_in_days)
    * [STOP_BOT_ON_LOSS](#stop_bot_on_loss)
 6. [Bot command center](#bot-command-center)
 7. [Automated Backtesting](#automated-backtesting)
@@ -654,8 +655,19 @@ ENABLE_NEW_LISTING_CHECKS: True
 
 defaults to True
 
-Checks that we have at least 30 days of price data on a coin, if we don't we
+Enable checks for new coin listings.
+
+### ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS
+
+```
+ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS: 31
+```
+
+defaults to 31
+
+Checks that we have at least 31 days of price data on a coin, if we don't we
 skip buying this coin.
+
 
 ### STOP_BOT_ON_LOSS
 
