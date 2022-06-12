@@ -260,6 +260,7 @@ def generate_config_for_tuned_strategy_run(strategy, cfg, results, logfile):
                     "INITIAL_INVESTMENT": cfg["INITIAL_INVESTMENT"],
                     "MAX_COINS": cfg["MAX_COINS"],
                     "PAIRING": cfg["PAIRING"],
+                    "DEBUG": cfg["DEBUG"],
                     "CLEAR_COIN_STATS_AT_BOOT": cfg[
                         "CLEAR_COIN_STATS_AT_BOOT"
                     ],
