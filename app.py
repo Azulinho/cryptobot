@@ -1633,10 +1633,14 @@ class Bot:
             # wrap results in a try call, in case our cached files are corrupt
             # and attempt to pull the required fields from our data.
             try:
+                logging.debug(f"(trying to read klines from {f_path}")
                 with open(f_path, "r") as f:
                     results = json.load(f)
                 _, _, high, low, _, _, closetime, _, _, _, _, _ = results[0]
             except Exception:  # pylint: disable=broad-except
+                logging.debug(
+                    f"calling binance after failed read from {f_path}"
+                )
                 results = requests_with_backoff(query).json()
                 # this can be fairly API intensive for a large number of tickers
                 # so we cache these calls on disk, each coin, period, start day
