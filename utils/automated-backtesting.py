@@ -169,7 +169,7 @@ def generate_coin_template_config_file(coin, strategy, cfg):
     "TRADING_FEE": $TRADING_FEE,
     "SELL_AS_SOON_IT_DROPS": $SELL_AS_SOON_IT_DROPS,
     "STOP_BOT_ON_LOSS": $STOP_BOT_ON_LOSS,
-    "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS": $ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS,
+    "ENABLE_NEW_LISTING_CHECKS": False,
     "TICKERS": {
       "$COIN": {
           "BUY_AT_PERCENTAGE": $BUY_AT_PERCENTAGE,
@@ -225,9 +225,6 @@ def generate_coin_template_config_file(coin, strategy, cfg):
                     ],
                     "STRATEGY": strategy,
                     "STOP_BOT_ON_LOSS": cfg.get("STOP_BOT_ON_LOSS", False),
-                    "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS": cfg.get(
-                        "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS", 31
-                    ),
                 }
             )
         )
@@ -247,6 +244,7 @@ def generate_config_for_tuned_strategy_run(strategy, cfg, results, logfile):
     "DEBUG": $DEBUG,
     "TRADING_FEE": $TRADING_FEE,
     "SELL_AS_SOON_IT_DROPS": $SELL_AS_SOON_IT_DROPS,
+    "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS": $ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS,
     "TICKERS": $RESULTS,
     "PRICE_LOGS": $LOGFILE
     }"""
@@ -260,7 +258,6 @@ def generate_config_for_tuned_strategy_run(strategy, cfg, results, logfile):
                     "INITIAL_INVESTMENT": cfg["INITIAL_INVESTMENT"],
                     "MAX_COINS": cfg["MAX_COINS"],
                     "PAIRING": cfg["PAIRING"],
-                    "DEBUG": cfg["DEBUG"],
                     "CLEAR_COIN_STATS_AT_BOOT": cfg[
                         "CLEAR_COIN_STATS_AT_BOOT"
                     ],
@@ -273,6 +270,9 @@ def generate_config_for_tuned_strategy_run(strategy, cfg, results, logfile):
                     "STRATEGY": strategy,
                     "RESULTS": results,
                     "LOGFILE": [logfile],
+                    "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS": cfg.get(
+                        "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS", 31
+                    ),
                 }
             )
         )
