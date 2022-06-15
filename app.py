@@ -1792,7 +1792,16 @@ if __name__ == "__main__":
 
             logging.basicConfig(
                 level=logging.DEBUG,
-                format=f"(%(asctime)s) ({PID}) (%(lineno)d) (%(funcName)s) [%(levelname)s] %(message)s",
+                format=" ".join(
+                    [
+                        "(%(asctime)s)",
+                        f"({PID})",
+                        "(%(lineno)d)",
+                        "(%(funcName)s)",
+                        "[%(levelname)s]",
+                        "%(message)s",
+                    ]
+                ),
                 handlers=[f_handler, c_handler],
                 datefmt="%Y-%m-%d %H:%M:%S",
             )
