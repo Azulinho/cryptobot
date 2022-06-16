@@ -3,6 +3,7 @@
 import argparse
 import importlib
 import json
+import logging
 import math
 import pickle
 import sys
@@ -12,11 +13,12 @@ from datetime import datetime
 from functools import lru_cache
 from hashlib import md5
 from itertools import islice
-from os import fsync
+from os import fsync, getpid
 from os.path import basename, exists
 from time import sleep
 from typing import Any, Dict, List, Tuple
 
+import colorlog
 import udatetime
 import web_pdb
 import yaml
@@ -31,7 +33,6 @@ from lib.helpers import (
     c_date_from,
     c_from_timestamp,
     cached_binance_client,
-    logging,
     mean,
     percent,
     requests_with_backoff,
@@ -379,7 +380,7 @@ class Coin:  # pylint: disable=too-few-public-methods
 
         return False
 
-    def new_listing(self, mode):
+    def new_listing(self, mode, days):
         """checks if coin is a new listing"""
         # wait a few days before going to buy a new coin
         # since we list what coins we buy in TICKERS the bot would never
@@ -389,7 +390,7 @@ class Coin:  # pylint: disable=too-few-public-methods
         # we want to avoid buy these new listings as they are very volatile
         # and the bot won't have enough history to properly backtest a coin
         # looking for a profit pattern to use.
-        if mode == "backtesting" and len(self.averages["d"]) < 31:
+        if mode == "backtesting" and len(self.averages["d"]) < days:
             return True
         return False
 
@@ -471,9 +472,13 @@ class Bot:
         self.enable_pump_and_dump_checks: bool = config.get(
             "ENABLE_PUMP_AND_DUMP_CHECKS", True
         )
-        # disable buying a new coin if this coin is newer than 31 days
+        # check if we are looking at a new coin
         self.enable_new_listing_checks: bool = config.get(
             "ENABLE_NEW_LISTING_CHECKS", True
+        )
+        # disable buying a new coin if this coin is newer than 31 days
+        self.enable_new_listing_checks_age_in_days: int = config.get(
+            "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS", 31
         )
         # stops the bot as soon we hit a STOP_LOSS. If we are still holding coins,
         # those remain in our wallet. Typically used when MAX_COINS = 1
@@ -510,7 +515,9 @@ class Bot:
 
         # is this a new coin?
         if self.enable_new_listing_checks:
-            if coin.new_listing(self.mode):
+            if coin.new_listing(
+                self.mode, self.enable_new_listing_checks_age_in_days
+            ):
                 return
 
         # has the current price been influenced by a pump and dump?
@@ -1627,10 +1634,14 @@ class Bot:
             # wrap results in a try call, in case our cached files are corrupt
             # and attempt to pull the required fields from our data.
             try:
+                logging.debug(f"(trying to read klines from {f_path}")
                 with open(f_path, "r") as f:
                     results = json.load(f)
                 _, _, high, low, _, _, closetime, _, _, _, _, _ = results[0]
             except Exception:  # pylint: disable=broad-except
+                logging.debug(
+                    f"calling binance after failed read from {f_path}"
+                )
                 results = requests_with_backoff(query).json()
                 # this can be fairly API intensive for a large number of tickers
                 # so we cache these calls on disk, each coin, period, start day
@@ -1760,6 +1771,45 @@ if __name__ == "__main__":
         with open(args.secrets, encoding="utf-8") as _f:
             secrets = yaml.safe_load(_f.read())
         cfg["MODE"] = args.mode
+
+        PID = getpid()
+        c_handler = colorlog.StreamHandler(sys.stdout)
+        c_handler.setFormatter(
+            colorlog.ColoredFormatter(
+                "%(log_color)s[%(levelname)s] %(message)s",
+                log_colors={
+                    "WARNING": "yellow",
+                    "ERROR": "red",
+                    "CRITICAL": "red,bg_white",
+                },
+            )
+        )
+        c_handler.setLevel(logging.INFO)
+
+        if cfg["DEBUG"]:
+            f_handler = logging.FileHandler("log/debug.log")
+            f_handler.setLevel(logging.DEBUG)
+
+            logging.basicConfig(
+                level=logging.DEBUG,
+                format=" ".join(
+                    [
+                        "(%(asctime)s)",
+                        f"({PID})",
+                        "(%(lineno)d)",
+                        "(%(funcName)s)",
+                        "[%(levelname)s]",
+                        "%(message)s",
+                    ]
+                ),
+                handlers=[f_handler, c_handler],
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
+        else:
+            logging.basicConfig(
+                level=logging.INFO,
+                handlers=[c_handler],
+            )
 
         if args.mode == "backtesting":
             client = cached_binance_client(

@@ -32,10 +32,11 @@ A python based trading bot for Binance, which relies heavily on backtesting.
    * [PRICE_LOGS](#price_logs)
    * [ENABLE_PUMP_AND_DUMP_CHECKS](#enable_pump_and_dump_checks)
    * [ENABLE_NEW_LISTING_CHECKS](#enable_new_listing_checks)
+   * [ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS](#enable_new_listing_checks_in_days)
    * [STOP_BOT_ON_LOSS](#stop_bot_on_loss)
 6. [Bot command center](#bot-command-center)
 7. [Automated Backtesting](#automated-backtesting)
-8. [Obtaining old price.log files](#obtaining-old-price.log-files)
+8. [Obtaining old price log files](#obtaining-old-price-log-files)
 9. [Development/New features](#development/new-features)
 
 
@@ -46,7 +47,7 @@ now recovering from that downtrend. It relies on us specifying different
 buy and sell points for each coin individually. For example, we can tell the
 bot to buy BTCUSDT when the price drops by at least 6% and recovers by 1%. And
 then set it to sell when the price increases by another 2%.
-While we may choose to do something different with another more volatile coin
+Or we may choose trade differently with another more volatile coin
 where we buy the coin when the price drops by 25%, wait for it to recover by 2%
 and then sell it at 5% profit.
 
@@ -54,13 +55,14 @@ In order to understand what are the best percentages on when to buy and sell for
 each one of the coins available in binance, we use backtesting strategies
 on a number of recorded price.logs.
 These price.logs can be obtained while the bot is running in a special mode
-called 'logmode' where it records prices for all the available binance coins
+called *logmode* where it records prices for all the available binance coins
 every 1 second or other chosen interval. Or we can obtain 1min interval klines
-from binance using a tool available in this repository.
+from binance using a [tool available in this
+repository](#obtaining-old-price-log-files).
 
-Then we would run the bot in backtesting mode which would run our buy strategy
-against those price.log files and simulate what sort of returns we would get
-from a specify strategy and a time frame of the market.
+Then using these price.log files we would run the bot in *backtesting* mode
+which would run our buy strategy against those price.log files and simulate
+what sort of returns we would get from a specify strategy and a time frame of the market.
 In order to help us identify the best buy/sell percentages for each coin, there
 is a helper tool in this repo which runs a kind of
 [automated-backtesting](#automated-backtesting) against
@@ -172,7 +174,7 @@ These logs can then be consumed in *backtesting* mode.
 
 The bot doesn't retrieve historic klines from binance, which are limited to a
 minimum of 1min granularity. If you want to pull historic klines from binance,
-you'll have to do it yourself and convert them to the format used by this bot.
+use the [tool available in this repo](#obtaining-old-price-log-files)
 
 Just to get started, here is a
 [logfile](https://www.dropbox.com/s/dqpma82vc4ug7l9/MYCOINS.log.gz?dl=0)
@@ -181,7 +183,7 @@ for testing containing a small set of coins
 Don't bother decompressing these files, as the bot consumes them compressed
 in the .gz format.
 
-Processing each daily logfile takes around 30 seconds, so for a large number of
+Processing each daily logfile on a 1sec interval, takes around 30 seconds, so for a large number of
 price log files this can take a long time to run backtesting simulations.
 A workaround is to test out each coin individually by generating a price.log
 file containing just the coins we care about.
@@ -215,6 +217,7 @@ Join on: https://discord.gg/MaMP3gVBdk
 DO NOT USE github issues to ask for help. I have no time for you. You'll be told off.
 
 Also: *NO TORIES, NO BREXITERS, NO WINDOWS USERS, NO TWATS*, this is not negotiable.
+
 
 ## Getting started
 
@@ -270,13 +273,16 @@ running. But not buy or sell anything.
 make logmode CONFIG=config.yaml
 ```
 
+You can also look into the [obtaining old price.log files
+tool](#obtaining-old-price-log-files)
+
 When there is enough data for backtesting in our price.log files, we can now
 run a new instance of the bot in *backtesting* mode.
 
 5. Compress all the logs, except for the current live logfile in *gz* format.
 
 ```
-ls *.log| xargs -i gzip {}"
+ls *.log| xargs -i gzip -3 {}"
 ```
 
 6. Update the config.yaml file and include the list of logfiles we are using for
@@ -654,8 +660,19 @@ ENABLE_NEW_LISTING_CHECKS: True
 
 defaults to True
 
-Checks that we have at least 30 days of price data on a coin, if we don't we
+Enable checks for new coin listings.
+
+### ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS
+
+```
+ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS: 31
+```
+
+defaults to 31
+
+Checks that we have at least 31 days of price data on a coin, if we don't we
 skip buying this coin.
+
 
 ### STOP_BOT_ON_LOSS
 
@@ -741,7 +758,7 @@ bot runs that don't contain any losses or stales, only wins.
 make automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='wins'
 ```
 
-## Obtaining old price.log files
+## Obtaining old price log files
 
 In the utils/ directory there's a python script that pulls klines from binance
 in the format used by this bot.

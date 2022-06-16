@@ -1,41 +1,15 @@
 """ helpers module """
 import logging
 import pickle
-import sys
 from datetime import datetime
 from functools import lru_cache
-from os import getpid
 from os.path import exists, getctime
 from time import sleep
 
-import colorlog
 import requests
 import udatetime
 from binance.client import Client
 from tenacity import retry, wait_exponential
-
-PID = getpid()
-c_handler = colorlog.StreamHandler(sys.stdout)
-c_handler.setFormatter(
-    colorlog.ColoredFormatter(
-        "%(log_color)s[%(levelname)s] %(message)s",
-        log_colors={
-            "WARNING": "yellow",
-            "ERROR": "red",
-            "CRITICAL": "red,bg_white",
-        },
-    )
-)
-c_handler.setLevel(logging.INFO)
-
-f_handler = logging.FileHandler("log/debug.log")
-f_handler.setLevel(logging.DEBUG)
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format=f"[%(levelname)s] {PID} %(lineno)d %(funcName)s %(message)s",
-    handlers=[f_handler, c_handler],
-)
 
 
 def mean(values: list) -> float:
@@ -100,10 +74,12 @@ def cached_binance_client(access_key: str, secret_key: str) -> Client:
     if exists(cachefile) and (
         udatetime.now().timestamp() - getctime(cachefile) < (30 * 60)
     ):
+        logging.debug("re-using local cached binance.client file")
         with open(cachefile, "rb") as f:
             _client = pickle.load(f)
     else:
         try:
+            logging.debug("refreshing cached binance.client")
             _client = Client(access_key, secret_key)
         except Exception as err:
             logging.warning(f"API client exception: {err}")
