@@ -4,7 +4,7 @@ async-timeout==4.0.0
 asyncore-wsgi==0.0.10
 attrs==21.2.0
 backports.zoneinfo==0.2.1
-bottle==0.12.19
+bottle==0.12.20
 certifi==2021.10.8
 charset-normalizer==2.0.7
 colorama==0.4.4
