@@ -43,7 +43,7 @@ def c_from_timestamp(date: float) -> datetime:
 
 
 @lru_cache(512)
-@retry(wait=wait_exponential(multiplier=1, max=10))
+@retry(wait=wait_exponential(multiplier=1, max=3))
 def requests_with_backoff(query: str):
     """retry wrapper for requests calls"""
     response = requests.get(query)
