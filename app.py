@@ -1652,7 +1652,7 @@ class Bot:
                 response = requests_with_backoff(query)
                 # binance will return a 400 for when a coin doesn't exist
                 if response.status_code == 400:
-                    logging.warning(f"got a 400 from binance for {coin}")
+                    logging.warning(f"got a 400 from binance for {symbol}")
                     return False
 
                 results = response.json()
