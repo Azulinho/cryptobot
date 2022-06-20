@@ -57,7 +57,6 @@ def requests_with_backoff(query: str):
         logging.warning(f"HTTP {status} from binance, sleeping for {backoff}s")
         sleep(backoff)
         response.raise_for_status()
-    response.raise_for_status()
     return response
 
 
