@@ -72,12 +72,13 @@ def split_logs_into_coins(filename, cfg):
     return coinfiles
 
 
-def wrap_subprocessing(config):
+def wrap_subprocessing(config, timeout=None):
     """wraps subprocess call"""
     subprocess.run(
         "python app.py -m backtesting -s tests/fake.yaml "
         + f"-c configs/{config} >results/{config}.txt 2>&1",
         shell=True,
+        timeout=timeout,
     )
 
 
@@ -331,8 +332,10 @@ def main():
                         + f"{args.min} on {args.sortby}\n"
                     )
                     # then we backtesting this strategy run against each coin
+                    # ocasionally we get stuck runs, so we timeout a coin run
+                    # to a maximum of 15 minutes
                     job = pool.submit(
-                        wrap_subprocessing, f"coin.{symbol}.yaml"
+                        wrap_subprocessing, f"coin.{symbol}.yaml", 900
                     )
                     tasks.append(job)
 
