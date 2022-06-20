@@ -1642,7 +1642,13 @@ class Bot:
                 logging.debug(
                     f"calling binance after failed read from {f_path}"
                 )
-                results = requests_with_backoff(query).json()
+                response = requests_with_backoff(query)
+                # binance will return a 400 for when a coin doesn't exist
+                if response.status_code == 400:
+                    logging.debug(f"got a 400 from binance for {coin}")
+                    return
+
+                results = response.json()
                 # this can be fairly API intensive for a large number of tickers
                 # so we cache these calls on disk, each coin, period, start day
                 # is md5sum'd and stored on a dedicated file on /cache
