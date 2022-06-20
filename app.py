@@ -1501,7 +1501,14 @@ class Bot:
                 self.tickers[symbol]["KLINES_TREND_PERIOD"],
                 self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"],
             )
-            self.load_klines_for_coin(self.coins[symbol])
+            if not self.load_klines_for_coin(self.coins[symbol]):
+                # got no klines data on this coin, probably delisted
+                # will remove this coin from our ticker list
+                if symbol not in self.wallet:
+                    logging.warning(f"removing {symbol} from tickers")
+                    del self.coins[symbol]
+                    del self.tickers[symbol]
+                    return
         else:
             # implements a PAUSE_FOR pause while reading from
             # our price logs.
@@ -1587,7 +1594,7 @@ class Bot:
 
             f.write(f"{log_entry}\n")
 
-    def load_klines_for_coin(self, coin) -> None:
+    def load_klines_for_coin(self, coin) -> bool:
         """fetches from binance or a local cache klines for a coin"""
 
         # when we initialise a coin, we pull a bunch of klines from binance
@@ -1645,8 +1652,8 @@ class Bot:
                 response = requests_with_backoff(query)
                 # binance will return a 400 for when a coin doesn't exist
                 if response.status_code == 400:
-                    logging.debug(f"got a 400 from binance for {coin}")
-                    return
+                    logging.warning(f"got a 400 from binance for {coin}")
+                    return False
 
                 results = response.json()
                 # this can be fairly API intensive for a large number of tickers
@@ -1734,6 +1741,8 @@ class Bot:
             logging.debug(f"{symbol} : highest['m']:{coin.highest['m']}")
             logging.debug(f"{symbol} : highest['h']:{coin.highest['h']}")
             logging.debug(f"{symbol} : highest['d']:{coin.highest['d']}")
+
+        return True
 
     def print_final_balance_report(self):
         """calculates and outputs final balance"""
