@@ -340,7 +340,11 @@ def main():
                     tasks.append(job)
 
                 for t in tasks:
-                    t.result()
+                    try:
+                        t.result()
+                    except subprocess.TimeoutExpired as excp:
+                        print(f"timeout while running: {excp}")
+
 
             # finally we soak up the backtesting.log and generate the best
             # config from all the runs in this strategy
