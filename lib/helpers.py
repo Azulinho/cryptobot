@@ -9,6 +9,7 @@ from time import sleep
 import requests
 import udatetime
 from binance.client import Client
+from filelock import FileLock
 from tenacity import retry, wait_exponential
 
 
@@ -64,26 +65,28 @@ def requests_with_backoff(query: str):
 def cached_binance_client(access_key: str, secret_key: str) -> Client:
     """retry wrapper for binance client first call"""
 
+    lock = FileLock("state/binance.client.lockfile", timeout=10)
     # when running automated-testing with multiple threads, we will hit
     # api requests limits, this happens during the client initialization
     # which mostly issues a ping. To avoid this when running multiple processes
     # we cache the client in a pickled state on disk and load it if it already
     # exists.
     cachefile = "cache/binance.client"
-    if exists(cachefile) and (
-        udatetime.now().timestamp() - getctime(cachefile) < (30 * 60)
-    ):
-        logging.debug("re-using local cached binance.client file")
-        with open(cachefile, "rb") as f:
-            _client = pickle.load(f)
-    else:
-        try:
-            logging.debug("refreshing cached binance.client")
-            _client = Client(access_key, secret_key)
-        except Exception as err:
-            logging.warning(f"API client exception: {err}")
-            raise Exception from err
-        with open(cachefile, "wb") as f:
-            pickle.dump(_client, f)
+    with lock:
+        if exists(cachefile) and (
+            udatetime.now().timestamp() - getctime(cachefile) < (30 * 60)
+        ):
+            logging.debug("re-using local cached binance.client file")
+            with open(cachefile, "rb") as f:
+                _client = pickle.load(f)
+        else:
+            try:
+                logging.debug("refreshing cached binance.client")
+                _client = Client(access_key, secret_key)
+            except Exception as err:
+                logging.warning(f"API client exception: {err}")
+                raise Exception from err
+            with open(cachefile, "wb") as f:
+                pickle.dump(_client, f)
 
-    return _client
+        return _client
