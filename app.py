@@ -1644,6 +1644,11 @@ class Bot:
                 logging.debug(f"(trying to read klines from {f_path}")
                 with open(f_path, "r") as f:
                     results = json.load(f)
+                # new listed coins will return an empty array
+                # so we bail out early here
+                if not results:
+                    return True
+
                 _, _, high, low, _, _, closetime, _, _, _, _, _ = results[0]
             except Exception:  # pylint: disable=broad-except
                 logging.debug(
