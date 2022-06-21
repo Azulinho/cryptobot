@@ -1664,6 +1664,9 @@ class Bot:
                 # this can be fairly API intensive for a large number of tickers
                 # so we cache these calls on disk, each coin, period, start day
                 # is md5sum'd and stored on a dedicated file on /cache
+                logging.debug(
+                    f"writing klines data from binance into {f_path}"
+                )
                 if self.mode == "backtesting":
                     with open(f_path, "w") as f:
                         f.write(json.dumps(results))
