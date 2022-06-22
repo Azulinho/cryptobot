@@ -543,20 +543,20 @@ class Bot:
         self.profit = float(self.profit) + float(coin.profit) - float(fees)
         self.fees = self.fees + fees
 
-    def buy_coin(self, coin) -> None:
+    def buy_coin(self, coin) -> bool:
         """calls Binance to buy a coin"""
 
         # quit early if we already hold this coin in our wallet
         if coin.symbol in self.wallet:
-            return
+            return False
 
         # quit early if our wallet is full
         if len(self.wallet) == self.max_coins:
-            return
+            return False
 
         # quit early if this coin was involved in a recent STOP_LOSS
         if coin.naughty:
-            return
+            return False
 
         # calculate how many units of this coin we can afford based on our
         # investment share.
@@ -565,48 +565,53 @@ class Bot:
         # we never place binance orders in backtesting mode.
         if self.mode in ["testnet", "live"]:
             try:
+                now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+                logging.info(
+                    f"{now}: {coin.symbol} [BUYING] {volume} of {coin.symbol} at {coin.price}"
+                )
                 order_details = self.client.create_order(
                     symbol=coin.symbol,
                     side="BUY",
-                    type="MARKET",
+                    type="LIMIT",
                     quantity=volume,
+                    timeInForce="FOK",
+                    price=str(coin.price),
                 )
 
             # error handling here in case position cannot be placed
             except BinanceAPIException as error_msg:
                 logging.error(f"buy() exception: {error_msg}")
                 logging.error(f"tried to buy: {volume} of {coin.symbol}")
-                return
+                return False
+            logging.debug(order_details)
 
-            # retrieve our order, the bot assumes that we only have 1 order open
-            # this means that if we run multiple bots, there could be a race
-            # condition where both boths have issued a buy order FOR THE SAME COIN
-            # and this bot could end up retrieving the wrong order.
-            # if possible, dedicate one binance account to one bot.
-            orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
-            # when selling on the spot market and using a spot price, the market
-            # might be slow in fullfilling our order. Keep checking until we
-            # suceed.
-            while orders == []:
-                logging.warning(
-                    "Binance is being slow in returning the order, "
-                    + "calling the API again..."
-                )
+            while True:
+                try:
+                    order_status = self.client.get_order(
+                        symbol=coin.symbol, orderId=order_details["orderId"]
+                    )
+                    logging.debug(order_status)
+                    if order_status["status"] == "FILLED":
+                        break
 
-                orders = self.client.get_all_orders(
-                    symbol=coin.symbol, limit=1
-                )
-                sleep(1)
+                    now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+
+                    if order_status["status"] == "EXPIRED":
+                        logging.info(
+                            f"{now}: {coin.symbol} [EXPIRED_LIMIT_BUY] order for {volume} of {coin.symbol} at {coin.price}"
+                        )
+                        return False
+                    sleep(0.1)
+
+                except Exception as error_msg:
+                    logging.warning(error_msg)
+            logging.debug(order_status)
 
             # our order will have been fullfilled by different traders,
             # find out the average price we paid accross all these sales.
-            coin.bought_at = self.extract_order_data(order_details, coin)[
-                "avgPrice"
-            ]
+            coin.bought_at = float(order_status["price"])
             # retrieve the total number of units for this coin
-            coin.volume = self.extract_order_data(order_details, coin)[
-                "volume"
-            ]
+            coin.volume = float(order_status["executedQty"])
             # calculate the current value
             coin.value = float(coin.bought_at) * float(coin.volume)
             # and the total cost which will match the value at this moment
@@ -659,51 +664,61 @@ class Bot:
             logging.debug(f"lowest[d]: {coin.lowest['d']}")
             logging.debug(f"averages[d]: {coin.averages['d']}")
             logging.debug(f"highest[d]: {coin.highest['d']}")
+        return True
 
-    def sell_coin(self, coin) -> None:
+    def sell_coin(self, coin) -> bool:
         """calls Binance to sell a coin"""
 
         # if we don't own this coin, then there's nothing more to do here
         if coin.symbol not in self.wallet:
-            return
+            return False
 
         # in backtesting mode, we never place sell orders on binance
         if self.mode in ["testnet", "live"]:
             try:
+                now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+                logging.info(
+                    f"{now}: {coin.symbol} [SELLING] {coin.volume} of {coin.symbol} at {coin.price}"
+                )
                 order_details = self.client.create_order(
                     symbol=coin.symbol,
                     side="SELL",
-                    type="MARKET",
+                    type="LIMIT",
                     quantity=coin.volume,
+                    timeInForce="FOK",
+                    price=str(coin.price),
                 )
             # error handling here in case position cannot be placed
             except BinanceAPIException as error_msg:
                 logging.error(f"sell() exception: {error_msg}")
                 logging.error(f"tried to sell: {coin.volume} of {coin.symbol}")
-                return
+                return False
 
-            orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
-            # we we are selling on the spot market and using a market price,
-            # the market traders will take a bit to fullfill our order.
-            # we wait until that happens
-            while orders == []:
-                logging.warning(
-                    "Binance is being slow in returning the order, "
-                    + "calling the API again..."
-                )
-                # as when buying, there is a risk here, that if we are running
-                # multiple bots, another both could be placing a sales order
-                # FOR THE SAME COIN and this bot retrieve that order instead
-                # of ours
-                orders = self.client.get_all_orders(
-                    symbol=coin.symbol, limit=1
-                )
-                sleep(1)
+            while True:
+                try:
+                    order_status = self.client.get_order(
+                        symbol=coin.symbol, orderId=order_details["orderId"]
+                    )
+                    logging.debug(order_status)
+                    if order_status["status"] == "FILLED":
+                        break
+
+                    if order_status["status"] == "EXPIRED":
+                        now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+                        logging.info(
+                            f"{now}: {coin.symbol} [EXPIRED_LIMIT_SELL]"
+                            + "order for {coin.volume} of {coin.symbol}"
+                            + "at {coin.price}"
+                        )
+                        return False
+                    sleep(0.1)
+                except Exception as error_msg:
+                    logging.warning(error_msg)
+
+            logging.debug(order_status)
 
             # calculate how much we got based on the total lines in our order
-            coin.price = self.extract_order_data(order_details, coin)[
-                "avgPrice"
-            ]
+            coin.price = float(order_status["price"])
             # and give this coin a new fresh date based on our recent actions
             coin.date = float(udatetime.now().timestamp())
 
@@ -762,32 +777,7 @@ class Bot:
             f"{c_from_timestamp(coin.date)}: INVESTMENT: {self.investment} "
             + f"PROFIT: {self.profit} WALLET: {self.wallet}"
         )
-
-    def extract_order_data(self, order_details, coin) -> Dict[str, Any]:
-        """calculate average price and volume for a buy order"""
-
-        # Each order will be fullfilled by different traders, and made of
-        # different amounts and prices. Here we calculate the average over all
-        # those different lines in our order.
-
-        total: float = 0
-        qty: float = 0
-
-        for k in order_details["fills"]:
-            item_price = float(k["price"])
-            item_qty = float(k["qty"])
-
-            total += item_price * item_qty
-            qty += item_qty
-
-        avg = total / qty
-
-        volume = float(self.calculate_volume_size(coin))
-
-        return {
-            "avgPrice": float(avg),
-            "volume": float(volume),
-        }
+        return True
 
     @lru_cache()
     @retry(wait=wait_exponential(multiplier=1, max=10))
@@ -965,7 +955,10 @@ class Bot:
             and coin.status != "STOP_LOSS"
         ):
             coin.status = "STOP_LOSS"
-            self.sell_coin(coin)
+            if not self.sell_coin(coin):
+                coin.status = "HOLD"
+                return False
+
             self.losses = self.losses + 1
             # places the coin in the naughty corner by setting the naughty_date
             # NAUGHTY_TIMEOUT will kick in from now on
@@ -997,7 +990,9 @@ class Bot:
                 f"{c_from_timestamp(coin.date)} {coin.symbol} "
                 + "[TARGET_SELL] -> [GONE_UP_AND_DROPPED]"
             )
-            self.sell_coin(coin)
+            if not self.sell_coin(coin):
+                coin.status = "TARGET_SELL"
+                return False
             self.wins = self.wins + 1
             return True
         return False
@@ -1028,7 +1023,9 @@ class Bot:
                 coin.trail_target_sell_percentage, coin.tip
             ):
                 # let's sell it then
-                self.sell_coin(coin)
+                if not self.sell_coin(coin):
+                    coin.status = "TARGET_SELL"
+                    return False
                 self.wins = self.wins + 1
                 return True
         return False
@@ -1042,7 +1039,9 @@ class Bot:
 
         if coin.holding_time > coin.hard_limit_holding_time:
             coin.status = "STALE"
-            self.sell_coin(coin)
+            if not self.sell_coin(coin):
+                coin.status = "HOLD"
+                return False
             self.stales = self.stales + 1
 
             # any coins that enter a STOP_LOSS or a STALE get added to the
