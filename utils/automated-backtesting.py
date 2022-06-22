@@ -72,12 +72,13 @@ def split_logs_into_coins(filename, cfg):
     return coinfiles
 
 
-def wrap_subprocessing(config):
+def wrap_subprocessing(config, timeout=None):
     """wraps subprocess call"""
     subprocess.run(
         "python app.py -m backtesting -s tests/fake.yaml "
         + f"-c configs/{config} >results/{config}.txt 2>&1",
         shell=True,
+        timeout=timeout,
     )
 
 
@@ -133,7 +134,11 @@ def gather_best_results_from_backtesting_log(log, minimum, kind, word, sortby):
                                 "coincfg": coincfg,
                             }
                     else:
-                        if w > coins[coin]["w"]:
+                        if w >= coins[coin]["w"]:
+                            # if this run has the same amount of wins but lower
+                            # profit, then keep the old one
+                            if w == coins[coin]["w"] and profit < coins[coin]["profit"]:
+                                continue
                             coins[coin] = {
                                 "profit": profit,
                                 "wls": wls,
@@ -331,13 +336,19 @@ def main():
                         + f"{args.min} on {args.sortby}\n"
                     )
                     # then we backtesting this strategy run against each coin
+                    # ocasionally we get stuck runs, so we timeout a coin run
+                    # to a maximum of 15 minutes
                     job = pool.submit(
-                        wrap_subprocessing, f"coin.{symbol}.yaml"
+                        wrap_subprocessing, f"coin.{symbol}.yaml", 900
                     )
                     tasks.append(job)
 
                 for t in tasks:
-                    t.result()
+                    try:
+                        t.result()
+                    except subprocess.TimeoutExpired as excp:
+                        print(f"timeout while running: {excp}")
+
 
             # finally we soak up the backtesting.log and generate the best
             # config from all the runs in this strategy

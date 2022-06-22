@@ -41,10 +41,10 @@ RUN useradd -d /cryptobot -u 1001 -ms /bin/bash cryptobot
 USER cryptobot
 ENV HOME /cryptobot
 WORKDIR /cryptobot
+ADD .python-version .
 RUN curl https://pyenv.run | bash
 ENV PYENV_ROOT="$HOME/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims/:$PATH"
-ADD .python-version .
 RUN CONFIGURE_OPTS="--enable-shared --fno-semantic-interposition --enable-optimizations --with-lto --with-pgo" pyenv install
 RUN python -m venv /cryptobot/.venv
 ADD requirements.txt .
