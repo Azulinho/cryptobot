@@ -6,7 +6,7 @@ services:
     image: ${IMAGE:-ghcr.io/azulinho/cryptobot}:${TAG:-latest}
     user: "${U}:${G}"
     build: ./
-    privileged: true
+    privileged: false
     environment:
       SMP_MULTIPLIER: "${SMP_MULTIPLIER:-1}"
 
