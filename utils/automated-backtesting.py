@@ -137,7 +137,10 @@ def gather_best_results_from_backtesting_log(log, minimum, kind, word, sortby):
                         if w >= coins[coin]["w"]:
                             # if this run has the same amount of wins but lower
                             # profit, then keep the old one
-                            if w == coins[coin]["w"] and profit < coins[coin]["profit"]:
+                            if (
+                                w == coins[coin]["w"]
+                                and profit < coins[coin]["profit"]
+                            ):
                                 continue
                             coins[coin] = {
                                 "profit": profit,
@@ -348,7 +351,6 @@ def main():
                         t.result()
                     except subprocess.TimeoutExpired as excp:
                         print(f"timeout while running: {excp}")
-
 
             # finally we soak up the backtesting.log and generate the best
             # config from all the runs in this strategy
