@@ -24,6 +24,7 @@ import web_pdb
 import yaml
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
+from filelock import FileLock
 from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 from xopen import xopen
@@ -1599,6 +1600,7 @@ class Bot:
         # exact same data, we can pull it from disk instead.
         # we pull klines for the last 60min, the last 24h, and the last 1000days
 
+        lock = FileLock("state/load_klines.lockfile", timeout=10)
         symbol = coin.symbol
         logging.info(
             f"{c_from_timestamp(coin.date)}: loading klines for: {symbol}"
@@ -1651,7 +1653,8 @@ class Bot:
                 logging.debug(
                     f"calling binance after failed read from {f_path}"
                 )
-                response = requests_with_backoff(query)
+                with lock:
+                    response = requests_with_backoff(query)
                 # binance will return a 400 for when a coin doesn't exist
                 if response.status_code == 400:
                     logging.warning(f"got a 400 from binance for {symbol}")
