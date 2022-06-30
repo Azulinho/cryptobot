@@ -287,8 +287,9 @@ class TestCoin:
 
 
 class TestBot:
-    def test_sell_coin_in_testnet(self, bot, coin):
+    def test_sell_coin_using_market_order_in_testnet(self, bot, coin):
         bot.mode = "testnet"
+        bot.order_type = "MARKET"
         coin.price = 100
         bot.wallet = ["BTCUSDT"]
         bot.coins["BTCUSDT"] = coin
@@ -303,21 +304,75 @@ class TestBot:
                 "fills": [
                     {
                         "price": "100",
-                        "qty": "1",
+                        "qty": "0.5",
                         "commission": "1",
                     }
                 ],
             },
-        ) as m1:
+        ) as _:
             with mock.patch.object(
                 bot.client,
-                "get_all_orders",
-                return_value=[{"symbol": "BTCUSDT", "orderId": 1}],
-            ) as m2:
+                "get_order",
+                return_value={
+                    "symbol": "BTCUSDT",
+                    "orderId": 1,
+                    "price": 100,
+                    "status": "FILLED",
+                },
+            ) as _:
+                with mock.patch.object(
+                    bot.client,
+                    "get_all_orders",
+                    return_value=[
+                        {
+                            "symbol": "BTCUSDT",
+                            "orderId": 1,
+                            "price": 100,
+                            "status": "FILLED",
+                        }
+                    ],
+                ) as _:
+                    with mock.patch.object(
+                        bot, "get_symbol_precision", return_value=1
+                    ) as _:
+                        assert bot.sell_coin(coin) is True
+                        assert bot.wallet == []
+                        # assert float(coin.price) == float(100)
+                        # assert float(coin.bought_at) == float(0)
+                        print(coin.value)
+                        assert float(coin.value) == float(0.0)
+
+    def test_sell_coin_using_limit_order_in_testnet(self, bot, coin):
+        bot.mode = "testnet"
+        bot.order_type = "LIMIT"
+        coin.price = 100
+        bot.wallet = ["BTCUSDT"]
+        bot.coins["BTCUSDT"] = coin
+
+        with mock.patch.object(
+            bot.client,
+            "create_order",
+            return_value={
+                "symbol": "BTCUSDT",
+                "orderId": "1",
+                "transactTime": 1507725176595,
+            },
+        ) as _:
+            with mock.patch.object(
+                bot.client,
+                "get_order",
+                return_value={
+                    "symbol": "BTCUSDT",
+                    "orderId": 1,
+                    "price": 100,
+                    "status": "FILLED",
+                    "executedQty": 0.5,
+                },
+            ) as _:
                 with mock.patch.object(
                     bot, "get_symbol_precision", return_value=1
-                ) as m3:
-                    bot.sell_coin(coin)
+                ) as _:
+                    assert bot.sell_coin(coin) is True
                     assert bot.wallet == []
                     assert float(coin.price) == float(100)
                     assert float(coin.bought_at) == float(0)
@@ -840,7 +895,7 @@ class TestBuyCoin:
         assert coin.bought_at == 100
         assert coin.volume == 0.5
 
-    def test_buy_coin_in_testnet(self, bot, coin):
+    def test_buy_coin_using_market_order_in_testnet(self, bot, coin):
         bot.mode = "testnet"
         coin.price = 100
 
@@ -854,22 +909,78 @@ class TestBuyCoin:
                 "fills": [
                     {
                         "price": "100",
-                        "qty": "1",
-                        "commission": "1",
+                        "qty": "0.5",
+                        "commission": "0.00000000",
+                        "commissionAsset": "BNB",
+                        "tradeId": 3616061,
                     }
                 ],
             },
-        ) as m1:
+        ) as _:
             with mock.patch.object(
                 bot.client,
-                "get_all_orders",
-                return_value=[{"symbol": "BTCUSDT", "orderId": 1}],
-            ) as m2:
+                "get_order",
+                return_value={
+                    "symbol": "BTCUSDT",
+                    "orderId": 1,
+                    "price": 100,
+                    "status": "FILLED",
+                    "executedQty": 0.5,
+                },
+            ) as _:
+                with mock.patch.object(
+                    bot.client,
+                    "get_all_orders",
+                    return_value=[
+                        {
+                            "symbol": "BTCUSDT",
+                            "orderId": 1,
+                            "status": "FILLED",
+                            "price": 100,
+                            "executedQty": 0.5,
+                        }
+                    ],
+                ) as _:
+                    with mock.patch.object(
+                        bot, "get_symbol_precision", return_value=1
+                    ) as _:
+
+                        assert bot.buy_coin(coin) is True
+                        assert bot.wallet == ["BTCUSDT"]
+                        assert coin.bought_at == 100
+                        assert coin.volume == 0.5
+                        # TODO: assert that clear_all_coins_stats
+
+    def test_buy_coin_using_limit_order_in_testnet(self, bot, coin):
+        bot.mode = "testnet"
+        bot.order_type = "LIMIT"
+        coin.price = 100
+
+        with mock.patch.object(
+            bot.client,
+            "create_order",
+            return_value={
+                "symbol": "BTCUSDT",
+                "orderId": "1",
+                "transactTime": 1507725176595,
+            },
+        ) as _:
+            with mock.patch.object(
+                bot.client,
+                "get_order",
+                return_value={
+                    "symbol": "BTCUSDT",
+                    "orderId": 1,
+                    "status": "FILLED",
+                    "price": 100,
+                    "executedQty": 0.5,
+                },
+            ) as _:
                 with mock.patch.object(
                     bot, "get_symbol_precision", return_value=1
-                ) as m3:
+                ) as _:
 
-                    bot.buy_coin(coin)
+                    assert bot.buy_coin(coin) is True
                     assert bot.wallet == ["BTCUSDT"]
                     assert coin.bought_at == 100
                     assert coin.volume == 0.5
