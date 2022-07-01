@@ -592,6 +592,8 @@ class Bot:
         # we never place binance orders in backtesting mode.
         if self.mode in ["testnet", "live"]:
             try:
+                precision = f".{self.get_symbol_precision(coin.symbol)}f"
+
                 now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
                 logging.info(
                     f"{now}: {coin.symbol} [BUYING] {volume} of {coin.symbol} at {coin.price}"
@@ -603,7 +605,7 @@ class Bot:
                         type="LIMIT",
                         quantity=volume,
                         timeInForce="FOK",
-                        price=str(coin.price),
+                        price=format(coin.price, precision)
                     )
                 else:
                     order_details = self.client.create_order(
@@ -734,6 +736,8 @@ class Bot:
         # in backtesting mode, we never place sell orders on binance
         if self.mode in ["testnet", "live"]:
             try:
+                precision = f".{self.get_symbol_precision(coin.symbol)}f"
+
                 now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
                 logging.info(
                     f"{now}: {coin.symbol} [SELLING] {coin.volume} of {coin.symbol} at {coin.price}"
@@ -745,7 +749,7 @@ class Bot:
                         type="LIMIT",
                         quantity=coin.volume,
                         timeInForce="FOK",
-                        price=str(coin.price),
+                        price=format(coin.price, precision)
                     )
                 else:
                     order_details = self.client.create_order(
