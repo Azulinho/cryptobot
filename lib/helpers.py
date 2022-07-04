@@ -1,5 +1,6 @@
 """ helpers module """
 import logging
+import math
 import pickle
 from datetime import datetime
 from functools import lru_cache
@@ -90,3 +91,25 @@ def cached_binance_client(access_key: str, secret_key: str) -> Client:
                 pickle.dump(_client, f)
 
         return _client
+
+
+def step_size_to_precision(step_size: str) -> int:
+    """returns step size"""
+    return step_size.find("1") - 1
+
+
+def floor_value(val: float, step_size: str) -> str:
+    """floors quantity depending on precision"""
+    precision = step_size_to_precision(step_size)
+    if precision > 0:
+        return "{:0.0{}f}".format(  # pylint: disable=consider-using-f-string
+            val, precision
+        )
+    return str(math.floor(int(val)))
+
+
+def truncate_value(val: float, step_size_str: str) -> str:
+    precision = step_size_to_precision(step_size_str)
+    if precision > 0:
+        return str("{:0.0{}f}".format(val, precision))
+    return str(math.trunc(int(val)))

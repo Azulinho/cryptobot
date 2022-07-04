@@ -4,7 +4,6 @@ import argparse
 import importlib
 import json
 import logging
-import math
 import pickle
 import sys
 import threading
@@ -34,9 +33,11 @@ from lib.helpers import (
     c_date_from,
     c_from_timestamp,
     cached_binance_client,
+    floor_value,
     mean,
     percent,
     requests_with_backoff,
+    truncate_value,
 )
 
 
@@ -592,8 +593,6 @@ class Bot:
         # we never place binance orders in backtesting mode.
         if self.mode in ["testnet", "live"]:
             try:
-                precision = f".{self.get_symbol_precision(coin.symbol)}f"
-
                 now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
                 logging.info(
                     f"{now}: {coin.symbol} [BUYING] {volume} of {coin.symbol} at {coin.price}"
@@ -605,7 +604,11 @@ class Bot:
                         type="LIMIT",
                         quantity=volume,
                         timeInForce="FOK",
-                        price=format(coin.price, precision)
+                        price=float(
+                            truncate_value(
+                                coin.price, self.get_step_size(coin.symbol)
+                            )
+                        ),
                     )
                 else:
                     order_details = self.client.create_order(
@@ -736,8 +739,6 @@ class Bot:
         # in backtesting mode, we never place sell orders on binance
         if self.mode in ["testnet", "live"]:
             try:
-                precision = f".{self.get_symbol_precision(coin.symbol)}f"
-
                 now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
                 logging.info(
                     f"{now}: {coin.symbol} [SELLING] {coin.volume} of {coin.symbol} at {coin.price}"
@@ -749,7 +750,11 @@ class Bot:
                         type="LIMIT",
                         quantity=coin.volume,
                         timeInForce="FOK",
-                        price=format(coin.price, precision)
+                        price=float(
+                            truncate_value(
+                                coin.price, self.get_step_size(coin.symbol)
+                            )
+                        ),
                     )
                 else:
                     order_details = self.client.create_order(
@@ -868,8 +873,8 @@ class Bot:
 
     @lru_cache()
     @retry(wait=wait_exponential(multiplier=1, max=10))
-    def get_symbol_precision(self, symbol: str) -> int:
-        """retrieves and caches the decimal precision for a coin in binance"""
+    def get_step_size(self, symbol: str) -> str:
+        """retrieves and caches the decimal step size for a coin in binance"""
 
         # each coin in binance uses a number of decimal points, these can vary
         # greatly between them. We need this information when placing and order
@@ -889,32 +894,32 @@ class Bot:
                 info = self.client.get_symbol_info(symbol)
             except BinanceAPIException as error_msg:
                 logging.error(error_msg)
-                return -1
+                return str(-1)
 
-        step_size = float(info["filters"][2]["stepSize"])
-        precision = int(round(-math.log(step_size, 10), 0))
+        step_size = info["filters"][2]["stepSize"]
 
         if self.mode == "backtesting" and not exists(f_path):
             with open(f_path, "w") as f:
                 f.write(json.dumps(info))
 
-        return precision
+        return step_size
 
     def calculate_volume_size(self, coin) -> float:
         """calculates the amount of coin we are to buy"""
 
         # calculates the number of units we are about to buy based on the number
         # of decimal points used, the share of the investment and the price
-        precision = self.get_symbol_precision(coin.symbol)
+        step_size = self.get_step_size(coin.symbol)
 
         volume = float(
-            round((self.investment / self.max_coins) / coin.price, precision)
+            floor_value(
+                (self.investment / self.max_coins) / coin.price, step_size
+            )
         )
-
         if self.debug:
             logging.debug(
                 f"[{coin.symbol}] investment:{self.investment} "
-                + f"vol:{volume} price:{coin.price} precision:{precision}"
+                + f"vol:{volume} price:{coin.price} step_size:{step_size}"
             )
         return volume
 
@@ -1457,6 +1462,8 @@ class Bot:
                     + f"TTS:-{(100 - self.coins[symbol].trail_target_sell_percentage):.3f}% "
                     + f"LP:{self.coins[symbol].min:.3f} "
                 )
+            # make sure we unset .quit if its set from a previous run
+            self.quit = False
 
     def check_for_sale_conditions(self, coin: Coin) -> Tuple[bool, str]:
         """checks for multiple sale conditions for a coin"""

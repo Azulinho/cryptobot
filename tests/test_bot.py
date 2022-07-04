@@ -335,7 +335,7 @@ class TestBot:
                     ],
                 ) as _:
                     with mock.patch.object(
-                        bot, "get_symbol_precision", return_value=1
+                        bot, "get_step_size", return_value="0.00001000"
                     ) as _:
                         assert bot.sell_coin(coin) is True
                         assert bot.wallet == []
@@ -372,7 +372,7 @@ class TestBot:
                 },
             ) as _:
                 with mock.patch.object(
-                    bot, "get_symbol_precision", return_value=1
+                    bot, "get_step_size", return_value="0.00001000"
                 ) as _:
                     assert bot.sell_coin(coin) is True
                     assert bot.wallet == []
@@ -380,7 +380,7 @@ class TestBot:
                     assert float(coin.bought_at) == float(0)
                     assert float(coin.value) == float(0.0)
 
-    def test_get_symbol_precision(self, bot):
+    def test_get_step_size(self, bot):
         with mock.patch.object(
             bot.client,
             "get_symbol_info",
@@ -389,15 +389,15 @@ class TestBot:
                 "filters": [{}, {}, {"stepSize": "0.1"}],
             },
         ) as _:
-            result = bot.get_symbol_precision("BTCUSDT")
-            assert result == 1
+            result = bot.get_step_size("BTCUSDT")
+            assert result == "0.00001000"
 
     def test_extract_order_data(self):
         pass
 
     def test_calculate_volume_size(self, bot, coin):
         with mock.patch.object(
-            bot, "get_symbol_precision", return_value=1
+            bot, "get_step_size", return_value="0.00001000"
         ) as _:
             volume = bot.calculate_volume_size(coin)
             assert volume == 0.5
@@ -469,7 +469,7 @@ class TestBot:
                 return_value=[{"symbol": "BTCUSDT", "orderId": 1}],
             ) as _:
                 with mock.patch.object(
-                    bot, "get_symbol_precision", return_value=1
+                    bot, "get_step_size", return_value="0.00001000"
                 ) as _:
                     binance_data = [
                         {"symbol": "BTCUSDT", "price": "101.000"},
@@ -888,7 +888,7 @@ class TestBuyCoin:
         bot.buy_coin(coin)
         assert bot.wallet == []
 
-    @mock.patch("app.Bot.get_symbol_precision", return_value=1)
+    @mock.patch("app.Bot.get_step_size", return_value="0.00001000")
     def test_buy_coin_in_backtesting(self, _, bot, coin):
         bot.mode = "backtesting"
         coin.price = 100
@@ -945,7 +945,7 @@ class TestBuyCoin:
                     ],
                 ) as _:
                     with mock.patch.object(
-                        bot, "get_symbol_precision", return_value=1
+                        bot, "get_step_size", return_value="0.00001000"
                     ) as _:
 
                         assert bot.buy_coin(coin) is True
@@ -980,7 +980,7 @@ class TestBuyCoin:
                 },
             ) as _:
                 with mock.patch.object(
-                    bot, "get_symbol_precision", return_value=1
+                    bot, "get_step_size", return_value="0.00001000"
                 ) as _:
 
                     assert bot.buy_coin(coin) is True
