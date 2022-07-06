@@ -374,11 +374,16 @@ class TestBot:
                 with mock.patch.object(
                     bot, "get_step_size", return_value="0.00001000"
                 ) as _:
-                    assert bot.sell_coin(coin) is True
-                    assert bot.wallet == []
-                    assert float(coin.price) == float(100)
-                    assert float(coin.bought_at) == float(0)
-                    assert float(coin.value) == float(0.0)
+                    with mock.patch.object(
+                        bot.client,
+                        "get_order_book",
+                        return_value={"bids": [[100, 1]]},
+                    ) as _:
+                        assert bot.sell_coin(coin) is True
+                        assert bot.wallet == []
+                        assert float(coin.price) == float(100)
+                        assert float(coin.bought_at) == float(0)
+                        assert float(coin.value) == float(0.0)
 
     def test_get_step_size(self, bot):
         with mock.patch.object(
@@ -386,7 +391,7 @@ class TestBot:
             "get_symbol_info",
             return_value={
                 "symbol": "BTCUSDT",
-                "filters": [{}, {}, {"stepSize": "0.1"}],
+                "filters": [{}, {}, {"stepSize": "0.00001000"}],
             },
         ) as _:
             result = bot.get_step_size("BTCUSDT")
@@ -956,6 +961,7 @@ class TestBuyCoin:
 
     def test_buy_coin_using_limit_order_in_testnet(self, bot, coin):
         bot.mode = "testnet"
+        bot.debug = True
         bot.order_type = "LIMIT"
         coin.price = 100
 
@@ -982,12 +988,17 @@ class TestBuyCoin:
                 with mock.patch.object(
                     bot, "get_step_size", return_value="0.00001000"
                 ) as _:
+                    with mock.patch.object(
+                        bot.client,
+                        "get_order_book",
+                        return_value={"asks": [[100, 1]]},
+                    ) as _:
 
-                    assert bot.buy_coin(coin) is True
-                    assert bot.wallet == ["BTCUSDT"]
-                    assert coin.bought_at == 100
-                    assert coin.volume == 0.5
-                    # TODO: assert that clear_all_coins_stats
+                        assert bot.buy_coin(coin) is True
+                        assert bot.wallet == ["BTCUSDT"]
+                        assert coin.bought_at == 100
+                        assert coin.volume == 0.5
+                        # TODO: assert that clear_all_coins_stats
 
 
 class TestCoinStatus:

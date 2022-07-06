@@ -106,10 +106,3 @@ def floor_value(val: float, step_size: str) -> str:
             val, precision
         )
     return str(math.floor(int(val)))
-
-
-def truncate_value(val: float, step_size_str: str) -> str:
-    precision = step_size_to_precision(step_size_str)
-    if precision > 0:
-        return str("{:0.0{}f}".format(val, precision))
-    return str(math.trunc(int(val)))

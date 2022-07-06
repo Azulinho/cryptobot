@@ -37,7 +37,6 @@ from lib.helpers import (
     mean,
     percent,
     requests_with_backoff,
-    truncate_value,
 )
 
 
@@ -594,23 +593,28 @@ class Bot:
         if self.mode in ["testnet", "live"]:
             try:
                 now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-                logging.info(
-                    f"{now}: {coin.symbol} [BUYING] {volume} of {coin.symbol} at {coin.price}"
-                )
                 if self.order_type == "LIMIT":
+                    order_book = self.client.get_order_book(symbol=coin.symbol)
+                    logging.debug(f"order_book: {order_book}")
+                    ask, _ = order_book["asks"][0]
+                    logging.debug(f"ask: {ask}")
+                    logging.info(
+                        f"{now}: {coin.symbol} [BUYING] {volume} of "
+                        + f"{coin.symbol} at LIMIT {ask}"
+                    )
                     order_details = self.client.create_order(
                         symbol=coin.symbol,
                         side="BUY",
                         type="LIMIT",
                         quantity=volume,
                         timeInForce="FOK",
-                        price=float(
-                            truncate_value(
-                                coin.price, self.get_step_size(coin.symbol)
-                            )
-                        ),
+                        price=ask,
                     )
                 else:
+                    logging.info(
+                        f"{now}: {coin.symbol} [BUYING] {volume} of "
+                        + f"{coin.symbol} at MARKET {coin.price}"
+                    )
                     order_details = self.client.create_order(
                         symbol=coin.symbol,
                         side="BUY",
@@ -637,13 +641,17 @@ class Bot:
                     now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
                     if order_status["status"] == "EXPIRED":
+                        if self.order_type == "LIMIT":
+                            price = ask
+                        else:
+                            price = coin.price
                         logging.info(
                             " ".join(
                                 [
                                     f"{now}: {coin.symbol} ",
                                     f"[EXPIRED_{self.order_type}_BUY] order",
                                     f" for {volume} of {coin.symbol} ",
-                                    f"at {coin.price}",
+                                    f"at {price}",
                                 ]
                             )
                         )
@@ -740,23 +748,28 @@ class Bot:
         if self.mode in ["testnet", "live"]:
             try:
                 now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-                logging.info(
-                    f"{now}: {coin.symbol} [SELLING] {coin.volume} of {coin.symbol} at {coin.price}"
-                )
                 if self.order_type == "LIMIT":
+                    order_book = self.client.get_order_book(symbol=coin.symbol)
+                    logging.debug(f"order_book: {order_book}")
+                    bid, _ = order_book["bids"][0]
+                    logging.debug(f"bid: {bid}")
+                    logging.info(
+                        f"{now}: {coin.symbol} [SELLING] {coin.volume} of "
+                        + f"{coin.symbol} at LIMIT {bid}"
+                    )
                     order_details = self.client.create_order(
                         symbol=coin.symbol,
                         side="SELL",
                         type="LIMIT",
                         quantity=coin.volume,
                         timeInForce="FOK",
-                        price=float(
-                            truncate_value(
-                                coin.price, self.get_step_size(coin.symbol)
-                            )
-                        ),
+                        price=bid,
                     )
                 else:
+                    logging.info(
+                        f"{now}: {coin.symbol} [SELLING] {coin.volume} of "
+                        + f"{coin.symbol} at MARKET {coin.price}"
+                    )
                     order_details = self.client.create_order(
                         symbol=coin.symbol,
                         side="SELL",
@@ -784,7 +797,7 @@ class Bot:
                         logging.info(
                             f"{now}: {coin.symbol} [EXPIRED_LIMIT_SELL] "
                             + f"order for {coin.volume} of {coin.symbol} "
-                            + f"at {coin.price}"
+                            + f"at {bid}"
                         )
                         return False
                     sleep(0.1)
