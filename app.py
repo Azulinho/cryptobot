@@ -968,7 +968,19 @@ class Bot:
         """creates a new coin or updates its price with latest binance data"""
         symbol = binance_data["symbol"]
 
-        market_price = float(binance_data["price"])
+        if symbol not in self.coins:
+            market_price = float(binance_data["price"])
+        else:
+            if self.coins[symbol].status == "TARGET_DIP":
+                order_book = self.client.get_order_book(symbol=symbol)
+                market_price = float(order_book["asks"][0][0])
+                logging.debug(
+                    f"{symbol} in TARGET_DIP using order_book price:"
+                    + f" {market_price}"
+                )
+            else:
+                market_price = float(binance_data["price"])
+
         # add every single coin to our coins dict, even if they're coins not
         # listed in our tickers file as the bot will use this info to record
         # the price.logs as well as cache/ data.
