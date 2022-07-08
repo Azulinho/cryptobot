@@ -1,11 +1,12 @@
-import sys
-
-sys.path.insert(0, "")
-sys.path.insert(0, "")
-
+""" pytests tests for app.py """
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
+# pylint: disable=redefined-outer-name
+# pylint: disable=import-outside-toplevel
+# pylint: disable=no-self-use
 import json
-import socket
-from datetime import datetime, timedelta
+from datetime import datetime
 from unittest import mock
 
 import pytest
@@ -37,7 +38,7 @@ def bot(cfg):
         mock1.return_value = None
         client = Client("FAKE", "FAKE")
 
-        with mock.patch("requests.get", return_value={}) as mock2:
+        with mock.patch("requests.get", return_value={}) as _:
 
             bot = app.Bot(client, "configfilename", cfg)
             bot.client.API_URL = "https://www.google.com"
@@ -104,7 +105,7 @@ class TestCoin:
         coin.naughty = True
         coin.naughty_date = float(udatetime.now().timestamp() - 3600)
         coin.update(float(udatetime.now().timestamp()), 100.0)
-        assert coin.naughty == False
+        assert coin.naughty is False
 
     def test_update_coin_in_naughty_remains_naughty_before_timeout_(
         self, coin
@@ -113,7 +114,7 @@ class TestCoin:
         coin.naughty = True
         coin.naughty_date = float(udatetime.now().timestamp() - 3600)
         coin.update(float(udatetime.now().timestamp()), 100.0)
-        assert coin.naughty == True
+        assert coin.naughty is True
 
     def test_update_reached_new_min(self, coin):
         coin.min = 200
@@ -164,7 +165,7 @@ class TestCoin:
 
         assert len(coin.averages["m"]) == 2
 
-        for d, v in list(coin.averages["s"]):
+        for _, v in list(coin.averages["s"]):
             assert v == 100
 
         assert list(coin.averages["m"])[0][1] == 100.0
@@ -178,7 +179,7 @@ class TestCoin:
 
         assert len(coin.averages["m"]) == 60
 
-        for d, v in list(coin.averages["m"]):
+        for _, v in list(coin.averages["m"]):
             assert v == 100
 
         assert list(coin.averages["h"])[0][1] == 100.0
@@ -190,7 +191,7 @@ class TestCoin:
 
         assert len(coin.averages["h"]) == 24
 
-        for d, v in list(coin.averages["h"]):
+        for _, v in list(coin.averages["h"]):
             assert v == 100
 
         assert len(coin.averages["d"]) == 1
@@ -258,6 +259,7 @@ class TestCoin:
         assert coin.averages["h"][23] == (now - 3600, 100.0)
 
     def test_for_pump_and_dump_returns_true_on_pump(self, coin):
+        # pylint: disable=attribute-defined-outside-init
         self.enable_pump_and_dump_checks = True
         now = udatetime.now().timestamp()
 
@@ -287,8 +289,9 @@ class TestCoin:
 
 
 class TestBot:
-    def test_sell_coin_in_testnet(self, bot, coin):
+    def test_sell_coin_using_market_order_in_testnet(self, bot, coin):
         bot.mode = "testnet"
+        bot.order_type = "MARKET"
         coin.price = 100
         bot.wallet = ["BTCUSDT"]
         bot.coins["BTCUSDT"] = coin
@@ -303,58 +306,117 @@ class TestBot:
                 "fills": [
                     {
                         "price": "100",
-                        "qty": "1",
+                        "qty": "0.5",
                         "commission": "1",
                     }
                 ],
             },
-        ) as m1:
+        ) as _:
             with mock.patch.object(
                 bot.client,
-                "get_all_orders",
-                return_value=[{"symbol": "BTCUSDT", "orderId": 1}],
-            ) as m2:
+                "get_order",
+                return_value={
+                    "symbol": "BTCUSDT",
+                    "orderId": 1,
+                    "price": 100,
+                    "status": "FILLED",
+                },
+            ) as _:
                 with mock.patch.object(
-                    bot, "get_symbol_precision", return_value=1
-                ) as m3:
-                    bot.sell_coin(coin)
-                    assert bot.wallet == []
-                    assert float(coin.price) == float(100)
-                    assert float(coin.bought_at) == float(0)
-                    assert float(coin.value) == float(0.0)
+                    bot.client,
+                    "get_all_orders",
+                    return_value=[
+                        {
+                            "symbol": "BTCUSDT",
+                            "orderId": 1,
+                            "price": 100,
+                            "status": "FILLED",
+                        }
+                    ],
+                ) as _:
+                    with mock.patch.object(
+                        bot, "get_step_size", return_value="0.00001000"
+                    ) as _:
+                        assert bot.sell_coin(coin) is True
+                        assert bot.wallet == []
+                        # assert float(coin.price) == float(100)
+                        # assert float(coin.bought_at) == float(0)
+                        print(coin.value)
+                        assert float(coin.value) == float(0.0)
 
-    def test_get_symbol_precision(self, bot, coin):
+    def test_sell_coin_using_limit_order_in_testnet(self, bot, coin):
+        bot.mode = "testnet"
+        bot.order_type = "LIMIT"
+        coin.price = 100
+        bot.wallet = ["BTCUSDT"]
+        bot.coins["BTCUSDT"] = coin
+
+        with mock.patch.object(
+            bot.client,
+            "create_order",
+            return_value={
+                "symbol": "BTCUSDT",
+                "orderId": "1",
+                "transactTime": 1507725176595,
+            },
+        ) as _:
+            with mock.patch.object(
+                bot.client,
+                "get_order",
+                return_value={
+                    "symbol": "BTCUSDT",
+                    "orderId": 1,
+                    "price": 100,
+                    "status": "FILLED",
+                    "executedQty": 0.5,
+                },
+            ) as _:
+                with mock.patch.object(
+                    bot, "get_step_size", return_value="0.00001000"
+                ) as _:
+                    with mock.patch.object(
+                        bot.client,
+                        "get_order_book",
+                        return_value={"bids": [[100, 1]]},
+                    ) as _:
+                        assert bot.sell_coin(coin) is True
+                        assert bot.wallet == []
+                        assert float(coin.price) == float(100)
+                        assert float(coin.bought_at) == float(0)
+                        assert float(coin.value) == float(0.0)
+
+    def test_get_step_size(self, bot):
         with mock.patch.object(
             bot.client,
             "get_symbol_info",
             return_value={
                 "symbol": "BTCUSDT",
-                "filters": [{}, {}, {"stepSize": "0.1"}],
+                "filters": [{}, {}, {"stepSize": "0.00001000"}],
             },
-        ) as m1:
-            result = bot.get_symbol_precision("BTCUSDT")
-            assert result == 1
+        ) as _:
+            result = bot.get_step_size("BTCUSDT")
+            assert result == "0.00001000"
 
     def test_extract_order_data(self):
         pass
 
     def test_calculate_volume_size(self, bot, coin):
         with mock.patch.object(
-            bot, "get_symbol_precision", return_value=1
-        ) as m1:
+            bot, "get_step_size", return_value="0.00001000"
+        ) as _:
             volume = bot.calculate_volume_size(coin)
             assert volume == 0.5
 
-    def test_get_binance_prices(self, bot, coin):
+    def test_get_binance_prices(self, bot):
         pass
 
-    def test_init_or_update_coin(self, bot, coin, cfg):
+    def test_init_or_update_coin(self, bot, cfg):
         binance_data = {"symbol": "BTCUSDT", "price": "101.000"}
 
         bot.load_klines_for_coin = mock.Mock()
 
         result = bot.init_or_update_coin(binance_data)
-        assert result == None
+        assert result is None
 
         assert float(bot.coins["BTCUSDT"].price) == float(101.0)
         assert bot.coins["BTCUSDT"].buy_at_percentage == float(
@@ -405,15 +467,15 @@ class TestBot:
                     }
                 ],
             },
-        ) as m1:
+        ) as _:
             with mock.patch.object(
                 bot.client,
                 "get_all_orders",
                 return_value=[{"symbol": "BTCUSDT", "orderId": 1}],
-            ) as m2:
+            ) as _:
                 with mock.patch.object(
-                    bot, "get_symbol_precision", return_value=1
-                ) as m3:
+                    bot, "get_step_size", return_value="0.00001000"
+                ) as _:
                     binance_data = [
                         {"symbol": "BTCUSDT", "price": "101.000"},
                         {"symbol": "BTCUSDT", "price": "70.000"},
@@ -421,7 +483,7 @@ class TestBot:
                     ]
                     with mock.patch.object(
                         bot, "get_binance_prices", return_value=binance_data
-                    ) as m4:
+                    ) as _:
                         with mock.patch.object(
                             bot, "run_strategy", return_value=None
                         ) as m5:
@@ -461,10 +523,11 @@ class TestBot:
             seconds = seconds + 60
 
         coin.date = date + seconds
+        # pylint: disable=protected-access
         r._content = json.dumps(response).encode("utf-8")
 
-        with mock.patch("requests.get", return_value=r) as mock2:
-            app.open = mock.mock_open()
+        with mock.patch("requests.get", return_value=r) as _:
+            # app.open = mock.mock_open()
             bot.load_klines_for_coin(coin)
 
         # upstream we retrieve 1000 days of history, but we only mock 60 days
@@ -830,8 +893,8 @@ class TestBuyCoin:
         bot.buy_coin(coin)
         assert bot.wallet == []
 
-    @mock.patch("app.Bot.get_symbol_precision", return_value=1)
-    def test_buy_coin_in_backtesting(self, mocked, bot, coin):
+    @mock.patch("app.Bot.get_step_size", return_value="0.00001000")
+    def test_buy_coin_in_backtesting(self, _, bot, coin):
         bot.mode = "backtesting"
         coin.price = 100
 
@@ -840,7 +903,7 @@ class TestBuyCoin:
         assert coin.bought_at == 100
         assert coin.volume == 0.5
 
-    def test_buy_coin_in_testnet(self, bot, coin):
+    def test_buy_coin_using_market_order_in_testnet(self, bot, coin):
         bot.mode = "testnet"
         coin.price = 100
 
@@ -854,26 +917,88 @@ class TestBuyCoin:
                 "fills": [
                     {
                         "price": "100",
-                        "qty": "1",
-                        "commission": "1",
+                        "qty": "0.5",
+                        "commission": "0.00000000",
+                        "commissionAsset": "BNB",
+                        "tradeId": 3616061,
                     }
                 ],
             },
-        ) as m1:
+        ) as _:
             with mock.patch.object(
                 bot.client,
-                "get_all_orders",
-                return_value=[{"symbol": "BTCUSDT", "orderId": 1}],
-            ) as m2:
+                "get_order",
+                return_value={
+                    "symbol": "BTCUSDT",
+                    "orderId": 1,
+                    "price": 100,
+                    "status": "FILLED",
+                    "executedQty": 0.5,
+                },
+            ) as _:
                 with mock.patch.object(
-                    bot, "get_symbol_precision", return_value=1
-                ) as m3:
+                    bot.client,
+                    "get_all_orders",
+                    return_value=[
+                        {
+                            "symbol": "BTCUSDT",
+                            "orderId": 1,
+                            "status": "FILLED",
+                            "price": 100,
+                            "executedQty": 0.5,
+                        }
+                    ],
+                ) as _:
+                    with mock.patch.object(
+                        bot, "get_step_size", return_value="0.00001000"
+                    ) as _:
 
-                    bot.buy_coin(coin)
-                    assert bot.wallet == ["BTCUSDT"]
-                    assert coin.bought_at == 100
-                    assert coin.volume == 0.5
-                    # TODO: assert that clear_all_coins_stats
+                        assert bot.buy_coin(coin) is True
+                        assert bot.wallet == ["BTCUSDT"]
+                        assert coin.bought_at == 100
+                        assert coin.volume == 0.5
+                        # TODO: assert that clear_all_coins_stats
+
+    def test_buy_coin_using_limit_order_in_testnet(self, bot, coin):
+        bot.mode = "testnet"
+        bot.debug = True
+        bot.order_type = "LIMIT"
+        coin.price = 100
+
+        with mock.patch.object(
+            bot.client,
+            "create_order",
+            return_value={
+                "symbol": "BTCUSDT",
+                "orderId": "1",
+                "transactTime": 1507725176595,
+            },
+        ) as _:
+            with mock.patch.object(
+                bot.client,
+                "get_order",
+                return_value={
+                    "symbol": "BTCUSDT",
+                    "orderId": 1,
+                    "status": "FILLED",
+                    "price": 100,
+                    "executedQty": 0.5,
+                },
+            ) as _:
+                with mock.patch.object(
+                    bot, "get_step_size", return_value="0.00001000"
+                ) as _:
+                    with mock.patch.object(
+                        bot.client,
+                        "get_order_book",
+                        return_value={"asks": [[100, 1]]},
+                    ) as _:
+
+                        assert bot.buy_coin(coin) is True
+                        assert bot.wallet == ["BTCUSDT"]
+                        assert coin.bought_at == 100
+                        assert coin.volume == 0.5
+                        # TODO: assert that clear_all_coins_stats
 
 
 class TestCoinStatus:
@@ -900,12 +1025,12 @@ class TestCoinStatus:
                     }
                 ],
             },
-        ) as m1:
+        ) as _:
             with mock.patch.object(
                 bot.client,
                 "get_all_orders",
                 return_value=[{"symbol": "BTCUSDT", "orderId": 1}],
-            ) as m2:
+            ) as _:
                 bot.stop_loss(coin)
                 assert bot.wallet == []
                 assert bot.profit == -80.12
@@ -936,15 +1061,15 @@ class TestCoinStatus:
                     }
                 ],
             },
-        ) as m1:
+        ) as _:
             with mock.patch.object(
                 bot.client,
                 "get_all_orders",
                 return_value=[{"symbol": "BTCUSDT", "orderId": 1}],
-            ) as m2:
+            ) as _:
 
                 result = bot.coin_gone_up_and_dropped(coin)
-                assert result == True
+                assert result is True
                 assert bot.wins == 1
                 assert bot.profit == -99.101
                 assert round(bot.investment, 1) == round(0.89, 1)
@@ -975,20 +1100,20 @@ class TestCoinStatus:
                     }
                 ],
             },
-        ) as m1:
+        ) as _:
             with mock.patch.object(
                 bot.client,
                 "get_all_orders",
                 return_value=[{"symbol": "BTCUSDT", "orderId": 1}],
-            ) as m2:
+            ) as _:
 
                 result = bot.possible_sale(coin)
-                assert result == True
+                assert result is True
                 assert bot.wins == 1
                 assert bot.profit == 99.7
                 assert round(bot.investment, 1) == round(199.7, 1)
 
-    def test_past_hard_limit(self, bot, coin, cfg):
+    def test_past_hard_limit(self, bot, coin):
         bot.wallet = ["BTCUSDT"]
         coin.bought_at = 100
         coin.cost = 100
@@ -1014,15 +1139,15 @@ class TestCoinStatus:
                     }
                 ],
             },
-        ) as m1:
+        ) as _:
             with mock.patch.object(
                 bot.client,
                 "get_all_orders",
                 return_value=[{"symbol": "BTCUSDT", "orderId": 1}],
-            ) as m2:
+            ) as _:
 
                 result = bot.past_hard_limit(coin)
-                assert result == True
+                assert result is True
                 assert bot.stales == 1
                 assert bot.profit == 99.7
                 assert coin.naughty_timeout == int(
@@ -1056,15 +1181,15 @@ class TestCoinStatus:
                     }
                 ],
             },
-        ) as m1:
+        ) as _:
             with mock.patch.object(
                 bot.client,
                 "get_all_orders",
                 return_value=[{"symbol": "BTCUSDT", "orderId": 1}],
-            ) as m2:
+            ) as _:
 
                 result = bot.past_soft_limit(coin)
-                assert result == True
+                assert result is True
                 assert coin.naughty_timeout == int(
                     bot.tickers["BTCUSDT"]["NAUGHTY_TIMEOUT"]
                 )
@@ -1101,7 +1226,7 @@ class TestCoinStatus:
         coin.min = float(9999)
 
         result = bot.clear_coin_stats(coin)
-        assert result == None
+        assert result is None
         assert coin.status == ""
         assert coin.holding_time == 1
         assert (
@@ -1143,14 +1268,14 @@ class TestBotProfit:
 
     def test_update_bot_profit_returns_None(self, bot, coin):
         result = bot.update_bot_profit(coin)
-        assert result == None
+        assert result is None
 
     def test_update_bot_profit_on_profit(self, bot, coin):
         coin.cost = 100
         coin.value = 200
         coin.profit = 100
 
-        result = bot.update_bot_profit(coin)
+        bot.update_bot_profit(coin)
         # bought 100 of coin and paid 0.1% of fees which is 0.10
         # sold 200 of coin and paid 0.1% of fees which is 0.20
         assert float(round(bot.fees, 1)) == float(0.3)
@@ -1161,7 +1286,7 @@ class TestBotProfit:
         coin.value = 100
         coin.profit = -10
 
-        result = bot.update_bot_profit(coin)
+        bot.update_bot_profit(coin)
         # bought 110 of coin and paid 0.1% of fees which is 0.11
         # sold 100 of coin and paid 0.1% of fees which is 0.10
         assert bot.profit == -10.21
@@ -1180,7 +1305,7 @@ class StrategyBaseTestClass:
             coin.averages["h"].append((datetime.now().timestamp(), 9999))
 
         result = bot.buy_strategy(coin)
-        assert result == False
+        assert result is False
         assert coin.status == "TARGET_DIP"
 
     def test_returns_early_when_coin_is_not_TARGET_DIP(self, bot, coin):
@@ -1188,7 +1313,7 @@ class StrategyBaseTestClass:
         coin.price = 100
         coin.max = 100
         result = bot.buy_strategy(coin)
-        assert result == False
+        assert result is False
         assert coin.status == ""
 
 
@@ -1203,7 +1328,7 @@ class TestStrategyBuyDropSellRecovery(StrategyBaseTestClass):
             mock1.return_value = None
             client = Client("FAKE", "FAKE")
 
-            with mock.patch("requests.get", return_value={}) as mock2:
+            with mock.patch("requests.get", return_value={}) as _:
 
                 bot = Strategy(client, "configfilename", cfg)
                 bot.client.API_URL = "https://www.google.com"
@@ -1218,7 +1343,7 @@ class TestStrategyBuyDropSellRecovery(StrategyBaseTestClass):
         coin.last = 100
         with mock.patch.object(bot, "buy_coin", return_value=False) as m1:
             result = bot.buy_strategy(coin)
-            assert result == False
+            assert result is False
             assert coin.status == "TARGET_DIP"
             m1.assert_not_called()
 
@@ -1233,7 +1358,7 @@ class TestStrategyBuyDropSellRecovery(StrategyBaseTestClass):
 
         with mock.patch.object(bot, "buy_coin", return_value=False) as m1:
             result = bot.buy_strategy(coin)
-            assert result == True
+            assert result is True
             assert coin.status == "TARGET_DIP"
             m1.assert_called()
 
@@ -1249,7 +1374,7 @@ class TestStrategyMoonSellRecovery:
             mock1.return_value = None
             client = Client("FAKE", "FAKE")
 
-            with mock.patch("requests.get", return_value={}) as mock2:
+            with mock.patch("requests.get", return_value={}) as _:
 
                 bot = Strategy(client, "configfilename", cfg)
                 bot.client.API_URL = "https://www.google.com"
@@ -1265,7 +1390,7 @@ class TestStrategyMoonSellRecovery:
         coin.last = 100
         with mock.patch.object(bot, "buy_coin", return_value=False) as m1:
             result = bot.buy_strategy(coin)
-            assert result == False
+            assert result is False
             m1.assert_not_called()
 
     def test_bot_buys_coin_when_price_above_buy_at_percentage(self, bot, coin):
@@ -1278,7 +1403,7 @@ class TestStrategyMoonSellRecovery:
 
         with mock.patch.object(bot, "buy_coin", return_value=True) as m1:
             result = bot.buy_strategy(coin)
-            assert result == True
+            assert result is True
             m1.assert_called()
 
 
@@ -1293,7 +1418,7 @@ class TestStrategyBuyOnGrowthTrendAfterDrop(StrategyBaseTestClass):
             mock1.return_value = None
             client = Client("FAKE", "FAKE")
 
-            with mock.patch("requests.get", return_value={}) as mock2:
+            with mock.patch("requests.get", return_value={}) as _:
 
                 bot = Strategy(client, "configfilename", cfg)
                 bot.client.API_URL = "https://www.google.com"
@@ -1317,7 +1442,7 @@ class TestStrategyBuyOnGrowthTrendAfterDrop(StrategyBaseTestClass):
 
         with mock.patch.object(bot, "buy_coin", return_value=True) as m1:
             result = bot.buy_strategy(coin)
-            assert result == False
+            assert result is False
             assert coin.status == "TARGET_DIP"
             m1.assert_not_called()
 
@@ -1340,7 +1465,7 @@ class TestStrategyBuyOnGrowthTrendAfterDrop(StrategyBaseTestClass):
             result = bot.buy_strategy(coin)
             m1.assert_called()
             assert coin.status == "TARGET_DIP"
-            assert result == True
+            assert result is True
 
 
 class TestBacktesting:

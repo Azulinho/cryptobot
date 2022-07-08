@@ -34,6 +34,7 @@ A python based trading bot for Binance, which relies heavily on backtesting.
    * [ENABLE_NEW_LISTING_CHECKS](#enable_new_listing_checks)
    * [ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS](#enable_new_listing_checks_in_days)
    * [STOP_BOT_ON_LOSS](#stop_bot_on_loss)
+   * [ORDER_TYPE](#order type)
 6. [Bot command center](#bot-command-center)
 7. [Automated Backtesting](#automated-backtesting)
 8. [Obtaining old price log files](#obtaining-old-price-log-files)
@@ -683,6 +684,17 @@ STOP_BOT_ON_LOSS: True
 defaults to False
 
 Stops the bot immediately after a STOP_LOSS
+
+### ORDER_TYPE
+
+```
+ORDER_TYPE: "MARKET"
+```
+
+defaults to MARKET, available options are *MARKET* or *LIMIT*.
+
+Tells the BOT if it should use MARKET order or a LIMIT [FOK](https://academy.binance.com/en/articles/understanding-the-different-order-types) order.
+
 
 ## Bot command center
 

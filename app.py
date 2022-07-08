@@ -4,7 +4,6 @@ import argparse
 import importlib
 import json
 import logging
-import math
 import pickle
 import sys
 import threading
@@ -24,6 +23,7 @@ import web_pdb
 import yaml
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
+from filelock import FileLock
 from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 from xopen import xopen
@@ -33,6 +33,7 @@ from lib.helpers import (
     c_date_from,
     c_from_timestamp,
     cached_binance_client,
+    floor_value,
     mean,
     percent,
     requests_with_backoff,
@@ -380,7 +381,7 @@ class Coin:  # pylint: disable=too-few-public-methods
 
         return False
 
-    def new_listing(self, mode, days):
+    def new_listing(self, days):
         """checks if coin is a new listing"""
         # wait a few days before going to buy a new coin
         # since we list what coins we buy in TICKERS the bot would never
@@ -390,7 +391,7 @@ class Coin:  # pylint: disable=too-few-public-methods
         # we want to avoid buy these new listings as they are very volatile
         # and the bot won't have enough history to properly backtest a coin
         # looking for a profit pattern to use.
-        if mode == "backtesting" and len(self.averages["d"]) < days:
+        if len(self.averages["d"]) < days:
             return True
         return False
 
@@ -488,6 +489,34 @@ class Bot:
         # set by the bot so to quit safely as soon as possible.
         # used by STOP_BOT_ON_LOSS checks
         self.quit: bool = False
+        # define if we want to use MARKET or LIMIT orders
+        self.order_type: str = config.get("ORDER_TYPE", "MARKET")
+
+    def extract_order_data(self, order_details, coin) -> Dict[str, Any]:
+        """calculate average price and volume for a buy order"""
+
+        # Each order will be fullfilled by different traders, and made of
+        # different amounts and prices. Here we calculate the average over all
+        # those different lines in our order.
+
+        total: float = 0
+        qty: float = 0
+
+        for k in order_details["fills"]:
+            item_price = float(k["price"])
+            item_qty = float(k["qty"])
+
+            total += item_price * item_qty
+            qty += item_qty
+
+        avg = total / qty
+
+        volume = float(self.calculate_volume_size(coin))
+
+        return {
+            "avgPrice": float(avg),
+            "volume": float(volume),
+        }
 
     def run_strategy(self, coin) -> None:
         """runs a specific strategy against a coin"""
@@ -515,9 +544,7 @@ class Bot:
 
         # is this a new coin?
         if self.enable_new_listing_checks:
-            if coin.new_listing(
-                self.mode, self.enable_new_listing_checks_age_in_days
-            ):
+            if coin.new_listing(self.enable_new_listing_checks_age_in_days):
                 return
 
         # has the current price been influenced by a pump and dump?
@@ -543,20 +570,20 @@ class Bot:
         self.profit = float(self.profit) + float(coin.profit) - float(fees)
         self.fees = self.fees + fees
 
-    def buy_coin(self, coin) -> None:
+    def buy_coin(self, coin) -> bool:
         """calls Binance to buy a coin"""
 
         # quit early if we already hold this coin in our wallet
         if coin.symbol in self.wallet:
-            return
+            return False
 
         # quit early if our wallet is full
         if len(self.wallet) == self.max_coins:
-            return
+            return False
 
         # quit early if this coin was involved in a recent STOP_LOSS
         if coin.naughty:
-            return
+            return False
 
         # calculate how many units of this coin we can afford based on our
         # investment share.
@@ -565,48 +592,97 @@ class Bot:
         # we never place binance orders in backtesting mode.
         if self.mode in ["testnet", "live"]:
             try:
-                order_details = self.client.create_order(
-                    symbol=coin.symbol,
-                    side="BUY",
-                    type="MARKET",
-                    quantity=volume,
-                )
+                now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+                if self.order_type == "LIMIT":
+                    order_book = self.client.get_order_book(symbol=coin.symbol)
+                    logging.debug(f"order_book: {order_book}")
+                    ask, _ = order_book["asks"][0]
+                    logging.debug(f"ask: {ask}")
+                    logging.info(
+                        f"{now}: {coin.symbol} [BUYING] {volume} of "
+                        + f"{coin.symbol} at LIMIT {ask}"
+                    )
+                    order_details = self.client.create_order(
+                        symbol=coin.symbol,
+                        side="BUY",
+                        type="LIMIT",
+                        quantity=volume,
+                        timeInForce="FOK",
+                        price=ask,
+                    )
+                else:
+                    logging.info(
+                        f"{now}: {coin.symbol} [BUYING] {volume} of "
+                        + f"{coin.symbol} at MARKET {coin.price}"
+                    )
+                    order_details = self.client.create_order(
+                        symbol=coin.symbol,
+                        side="BUY",
+                        type="MARKET",
+                        quantity=volume,
+                    )
 
             # error handling here in case position cannot be placed
             except BinanceAPIException as error_msg:
                 logging.error(f"buy() exception: {error_msg}")
                 logging.error(f"tried to buy: {volume} of {coin.symbol}")
-                return
+                return False
+            logging.debug(order_details)
 
-            # retrieve our order, the bot assumes that we only have 1 order open
-            # this means that if we run multiple bots, there could be a race
-            # condition where both boths have issued a buy order FOR THE SAME COIN
-            # and this bot could end up retrieving the wrong order.
-            # if possible, dedicate one binance account to one bot.
-            orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
-            # when selling on the spot market and using a spot price, the market
-            # might be slow in fullfilling our order. Keep checking until we
-            # suceed.
-            while orders == []:
-                logging.warning(
-                    "Binance is being slow in returning the order, "
-                    + "calling the API again..."
-                )
+            while True:
+                try:
+                    order_status = self.client.get_order(
+                        symbol=coin.symbol, orderId=order_details["orderId"]
+                    )
+                    logging.debug(order_status)
+                    if order_status["status"] == "FILLED":
+                        break
 
+                    now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+
+                    if order_status["status"] == "EXPIRED":
+                        if self.order_type == "LIMIT":
+                            price = ask
+                        else:
+                            price = coin.price
+                        logging.info(
+                            " ".join(
+                                [
+                                    f"{now}: {coin.symbol} ",
+                                    f"[EXPIRED_{self.order_type}_BUY] order",
+                                    f" for {volume} of {coin.symbol} ",
+                                    f"at {price}",
+                                ]
+                            )
+                        )
+                        return False
+                    sleep(0.1)
+
+                except BinanceAPIException as error_msg:
+                    logging.warning(error_msg)
+            logging.debug(order_status)
+
+            if self.order_type == "LIMIT":
+                # our order will have been fullfilled by different traders,
+                # find out the average price we paid accross all these sales.
+                coin.bought_at = float(order_status["price"])
+                # retrieve the total number of units for this coin
+                coin.volume = float(order_status["executedQty"])
+            else:
                 orders = self.client.get_all_orders(
                     symbol=coin.symbol, limit=1
                 )
-                sleep(1)
+                logging.debug(orders)
+                # our order will have been fullfilled by different traders,
+                # find out the average price we paid accross all these sales.
+                coin.bought_at = self.extract_order_data(order_details, coin)[
+                    "avgPrice"
+                ]
+                # retrieve the total number of units for this coin
+                coin.volume = self.extract_order_data(order_details, coin)[
+                    "volume"
+                ]
 
-            # our order will have been fullfilled by different traders,
-            # find out the average price we paid accross all these sales.
-            coin.bought_at = self.extract_order_data(order_details, coin)[
-                "avgPrice"
-            ]
-            # retrieve the total number of units for this coin
-            coin.volume = self.extract_order_data(order_details, coin)[
-                "volume"
-            ]
             # calculate the current value
             coin.value = float(coin.bought_at) * float(coin.volume)
             # and the total cost which will match the value at this moment
@@ -659,51 +735,95 @@ class Bot:
             logging.debug(f"lowest[d]: {coin.lowest['d']}")
             logging.debug(f"averages[d]: {coin.averages['d']}")
             logging.debug(f"highest[d]: {coin.highest['d']}")
+        return True
 
-    def sell_coin(self, coin) -> None:
+    def sell_coin(self, coin) -> bool:
         """calls Binance to sell a coin"""
 
         # if we don't own this coin, then there's nothing more to do here
         if coin.symbol not in self.wallet:
-            return
+            return False
 
         # in backtesting mode, we never place sell orders on binance
         if self.mode in ["testnet", "live"]:
             try:
-                order_details = self.client.create_order(
-                    symbol=coin.symbol,
-                    side="SELL",
-                    type="MARKET",
-                    quantity=coin.volume,
-                )
+                now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+                if self.order_type == "LIMIT":
+                    order_book = self.client.get_order_book(symbol=coin.symbol)
+                    logging.debug(f"order_book: {order_book}")
+                    bid, _ = order_book["bids"][0]
+                    logging.debug(f"bid: {bid}")
+                    logging.info(
+                        f"{now}: {coin.symbol} [SELLING] {coin.volume} of "
+                        + f"{coin.symbol} at LIMIT {bid}"
+                    )
+                    order_details = self.client.create_order(
+                        symbol=coin.symbol,
+                        side="SELL",
+                        type="LIMIT",
+                        quantity=coin.volume,
+                        timeInForce="FOK",
+                        price=bid,
+                    )
+                else:
+                    logging.info(
+                        f"{now}: {coin.symbol} [SELLING] {coin.volume} of "
+                        + f"{coin.symbol} at MARKET {coin.price}"
+                    )
+                    order_details = self.client.create_order(
+                        symbol=coin.symbol,
+                        side="SELL",
+                        type="MARKET",
+                        quantity=coin.volume,
+                    )
+
             # error handling here in case position cannot be placed
             except BinanceAPIException as error_msg:
                 logging.error(f"sell() exception: {error_msg}")
                 logging.error(f"tried to sell: {coin.volume} of {coin.symbol}")
-                return
+                return False
 
-            orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
-            # we we are selling on the spot market and using a market price,
-            # the market traders will take a bit to fullfill our order.
-            # we wait until that happens
-            while orders == []:
-                logging.warning(
-                    "Binance is being slow in returning the order, "
-                    + "calling the API again..."
-                )
-                # as when buying, there is a risk here, that if we are running
-                # multiple bots, another both could be placing a sales order
-                # FOR THE SAME COIN and this bot retrieve that order instead
-                # of ours
+            while True:
+                try:
+                    order_status = self.client.get_order(
+                        symbol=coin.symbol, orderId=order_details["orderId"]
+                    )
+                    logging.debug(order_status)
+                    if order_status["status"] == "FILLED":
+                        break
+
+                    if order_status["status"] == "EXPIRED":
+                        now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+                        logging.info(
+                            f"{now}: {coin.symbol} [EXPIRED_LIMIT_SELL] "
+                            + f"order for {coin.volume} of {coin.symbol} "
+                            + f"at {bid}"
+                        )
+                        return False
+                    sleep(0.1)
+                except BinanceAPIException as error_msg:
+                    logging.warning(error_msg)
+
+            logging.debug(order_status)
+
+            if self.order_type == "LIMIT":
+                # calculate how much we got based on the total lines in our order
+                coin.price = float(order_status["price"])
+                coin.volume = float(order_status["executedQty"])
+            else:
                 orders = self.client.get_all_orders(
                     symbol=coin.symbol, limit=1
                 )
-                sleep(1)
+                logging.debug(orders)
+                # calculate how much we got based on the total lines in our order
+                coin.price = self.extract_order_data(order_details, coin)[
+                    "avgPrice"
+                ]
+                # retrieve the total number of units for this coin
+                coin.volume = self.extract_order_data(order_details, coin)[
+                    "volume"
+                ]
 
-            # calculate how much we got based on the total lines in our order
-            coin.price = self.extract_order_data(order_details, coin)[
-                "avgPrice"
-            ]
             # and give this coin a new fresh date based on our recent actions
             coin.date = float(udatetime.now().timestamp())
 
@@ -762,37 +882,12 @@ class Bot:
             f"{c_from_timestamp(coin.date)}: INVESTMENT: {self.investment} "
             + f"PROFIT: {self.profit} WALLET: {self.wallet}"
         )
-
-    def extract_order_data(self, order_details, coin) -> Dict[str, Any]:
-        """calculate average price and volume for a buy order"""
-
-        # Each order will be fullfilled by different traders, and made of
-        # different amounts and prices. Here we calculate the average over all
-        # those different lines in our order.
-
-        total: float = 0
-        qty: float = 0
-
-        for k in order_details["fills"]:
-            item_price = float(k["price"])
-            item_qty = float(k["qty"])
-
-            total += item_price * item_qty
-            qty += item_qty
-
-        avg = total / qty
-
-        volume = float(self.calculate_volume_size(coin))
-
-        return {
-            "avgPrice": float(avg),
-            "volume": float(volume),
-        }
+        return True
 
     @lru_cache()
     @retry(wait=wait_exponential(multiplier=1, max=10))
-    def get_symbol_precision(self, symbol: str) -> int:
-        """retrieves and caches the decimal precision for a coin in binance"""
+    def get_step_size(self, symbol: str) -> str:
+        """retrieves and caches the decimal step size for a coin in binance"""
 
         # each coin in binance uses a number of decimal points, these can vary
         # greatly between them. We need this information when placing and order
@@ -812,32 +907,32 @@ class Bot:
                 info = self.client.get_symbol_info(symbol)
             except BinanceAPIException as error_msg:
                 logging.error(error_msg)
-                return -1
+                return str(-1)
 
-        step_size = float(info["filters"][2]["stepSize"])
-        precision = int(round(-math.log(step_size, 10), 0))
+        step_size = info["filters"][2]["stepSize"]
 
         if self.mode == "backtesting" and not exists(f_path):
             with open(f_path, "w") as f:
                 f.write(json.dumps(info))
 
-        return precision
+        return step_size
 
     def calculate_volume_size(self, coin) -> float:
         """calculates the amount of coin we are to buy"""
 
         # calculates the number of units we are about to buy based on the number
         # of decimal points used, the share of the investment and the price
-        precision = self.get_symbol_precision(coin.symbol)
+        step_size = self.get_step_size(coin.symbol)
 
         volume = float(
-            round((self.investment / self.max_coins) / coin.price, precision)
+            floor_value(
+                (self.investment / self.max_coins) / coin.price, step_size
+            )
         )
-
         if self.debug:
             logging.debug(
                 f"[{coin.symbol}] investment:{self.investment} "
-                + f"vol:{volume} price:{coin.price} precision:{precision}"
+                + f"vol:{volume} price:{coin.price} step_size:{step_size}"
             )
         return volume
 
@@ -873,7 +968,19 @@ class Bot:
         """creates a new coin or updates its price with latest binance data"""
         symbol = binance_data["symbol"]
 
-        market_price = float(binance_data["price"])
+        if symbol not in self.coins:
+            market_price = float(binance_data["price"])
+        else:
+            if self.coins[symbol].status == "TARGET_DIP":
+                order_book = self.client.get_order_book(symbol=symbol)
+                market_price = float(order_book["asks"][0][0])
+                logging.debug(
+                    f"{symbol} in TARGET_DIP using order_book price:"
+                    + f" {market_price}"
+                )
+            else:
+                market_price = float(binance_data["price"])
+
         # add every single coin to our coins dict, even if they're coins not
         # listed in our tickers file as the bot will use this info to record
         # the price.logs as well as cache/ data.
@@ -965,7 +1072,10 @@ class Bot:
             and coin.status != "STOP_LOSS"
         ):
             coin.status = "STOP_LOSS"
-            self.sell_coin(coin)
+            if not self.sell_coin(coin):
+                coin.status = "HOLD"
+                return False
+
             self.losses = self.losses + 1
             # places the coin in the naughty corner by setting the naughty_date
             # NAUGHTY_TIMEOUT will kick in from now on
@@ -997,7 +1107,9 @@ class Bot:
                 f"{c_from_timestamp(coin.date)} {coin.symbol} "
                 + "[TARGET_SELL] -> [GONE_UP_AND_DROPPED]"
             )
-            self.sell_coin(coin)
+            if not self.sell_coin(coin):
+                coin.status = "TARGET_SELL"
+                return False
             self.wins = self.wins + 1
             return True
         return False
@@ -1028,7 +1140,9 @@ class Bot:
                 coin.trail_target_sell_percentage, coin.tip
             ):
                 # let's sell it then
-                self.sell_coin(coin)
+                if not self.sell_coin(coin):
+                    coin.status = "TARGET_SELL"
+                    return False
                 self.wins = self.wins + 1
                 return True
         return False
@@ -1042,7 +1156,9 @@ class Bot:
 
         if coin.holding_time > coin.hard_limit_holding_time:
             coin.status = "STALE"
-            self.sell_coin(coin)
+            if not self.sell_coin(coin):
+                coin.status = "HOLD"
+                return False
             self.stales = self.stales + 1
 
             # any coins that enter a STOP_LOSS or a STALE get added to the
@@ -1184,6 +1300,8 @@ class Bot:
         coin.dip = float(0)
         coin.tip = float(0)
         coin.status = ""
+        coin.volume = float(0)
+        coin.value = float(0)
 
         # reset the min, max prices so that the bot won't look at all time high
         # and instead use the values since the last sale.
@@ -1369,6 +1487,8 @@ class Bot:
                     + f"TTS:-{(100 - self.coins[symbol].trail_target_sell_percentage):.3f}% "
                     + f"LP:{self.coins[symbol].min:.3f} "
                 )
+            # make sure we unset .quit if its set from a previous run
+            self.quit = False
 
     def check_for_sale_conditions(self, coin: Coin) -> Tuple[bool, str]:
         """checks for multiple sale conditions for a coin"""
@@ -1602,6 +1722,7 @@ class Bot:
         # exact same data, we can pull it from disk instead.
         # we pull klines for the last 60min, the last 24h, and the last 1000days
 
+        lock = FileLock("state/load_klines.lockfile", timeout=10)
         symbol = coin.symbol
         logging.info(
             f"{c_from_timestamp(coin.date)}: loading klines for: {symbol}"
@@ -1654,7 +1775,8 @@ class Bot:
                 logging.debug(
                     f"calling binance after failed read from {f_path}"
                 )
-                response = requests_with_backoff(query)
+                with lock:
+                    response = requests_with_backoff(query)
                 # binance will return a 400 for when a coin doesn't exist
                 if response.status_code == 400:
                     logging.warning(f"got a 400 from binance for {symbol}")
