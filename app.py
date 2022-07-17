@@ -805,16 +805,7 @@ class Bot:
         )
 
         # this gets noisy quickly
-        if self.debug:
-            logging.debug(f"lowest[m]: {coin.lowest['m']}")
-            logging.debug(f"averages[m]: {coin.averages['m']}")
-            logging.debug(f"highest[m]: {coin.highest['m']}")
-            logging.debug(f"lowest[h]: {coin.lowest['h']}")
-            logging.debug(f"averages[h]: {coin.averages['h']}")
-            logging.debug(f"highest[h]: {coin.highest['h']}")
-            logging.debug(f"lowest[d]: {coin.lowest['d']}")
-            logging.debug(f"averages[d]: {coin.averages['d']}")
-            logging.debug(f"highest[d]: {coin.highest['d']}")
+        self.log_debug_coin(coin)
         return True
 
     def sell_coin(self, coin) -> bool:
@@ -839,7 +830,8 @@ class Bot:
 
         message = " ".join(
             [
-                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}]",
+                f"{c_from_timestamp(coin.date)}: {coin.symbol} "
+                f"[{coin.status}]",
                 f"A:{coin.holding_time}s",
                 f"U:{coin.volume} P:{coin.price} T:{coin.value}",
                 f"{word}:{coin.profit:.3f}",
@@ -1246,9 +1238,28 @@ class Bot:
                 + f"now:{coin.price} "
                 + f"bought:{coin.bought_at} "
                 + f"sell:{(coin.sell_at_percentage - 100):.4f}% "
-                + f"trail_target_sell:{(coin.trail_target_sell_percentage - 100):.4f}% "
+                + "trail_target_sell:"
+                + f"{(coin.trail_target_sell_percentage - 100):.4f}% "
                 + f"LP:{coin.min:.3f} "
             )
+            logging.debug(f"{coin.symbol} : price:{coin.price}")
+            logging.debug(f"{coin.symbol} : min:{coin.min}")
+            logging.debug(f"{coin.symbol} : max:{coin.max}")
+            logging.debug(f"{coin.symbol} : lowest['m']:{coin.lowest['m']}")
+            logging.debug(f"{coin.symbol} : lowest['h']:{coin.lowest['h']}")
+            logging.debug(f"{coin.symbol} : lowest['d']:{coin.lowest['d']}")
+            logging.debug(
+                f"{coin.symbol} : averages['m']:{coin.averages['m']}"
+            )
+            logging.debug(
+                f"{coin.symbol} : averages['h']:{coin.averages['h']}"
+            )
+            logging.debug(
+                f"{coin.symbol} : averages['d']:{coin.averages['d']}"
+            )
+            logging.debug(f"{coin.symbol} : highest['m']:{coin.highest['m']}")
+            logging.debug(f"{coin.symbol} : highest['h']:{coin.highest['h']}")
+            logging.debug(f"{coin.symbol} : highest['d']:{coin.highest['d']}")
 
     def clear_all_coins_stats(self) -> None:
         """clear important coin stats such as max, min price on all coins"""
@@ -1859,20 +1870,7 @@ class Bot:
                     logging.debug("caused by results variable with value:")
                     logging.debug(results)
 
-        if self.debug:
-            logging.debug(f"{symbol} : price:{coin.price}")
-            logging.debug(f"{symbol} : min:{coin.min}")
-            logging.debug(f"{symbol} : max:{coin.max}")
-            logging.debug(f"{symbol} : lowest['m']:{coin.lowest['m']}")
-            logging.debug(f"{symbol} : lowest['h']:{coin.lowest['h']}")
-            logging.debug(f"{symbol} : lowest['d']:{coin.lowest['d']}")
-            logging.debug(f"{symbol} : averages['m']:{coin.averages['m']}")
-            logging.debug(f"{symbol} : averages['h']:{coin.averages['h']}")
-            logging.debug(f"{symbol} : averages['d']:{coin.averages['d']}")
-            logging.debug(f"{symbol} : highest['m']:{coin.highest['m']}")
-            logging.debug(f"{symbol} : highest['h']:{coin.highest['h']}")
-            logging.debug(f"{symbol} : highest['d']:{coin.highest['d']}")
-
+        self.log_debug_coin(coin)
         return True
 
     def print_final_balance_report(self):
