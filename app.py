@@ -1575,30 +1575,21 @@ class Bot:
             self.process_coins()
             self.wait()
 
-    def process_line(self, line: str) -> None:
-        """processes a backlog line"""
-
-        # when just told to quit, just quit nicely
-        if self.quit:
-            return
-
-        # skip processing the line if it doesn't not match our PAIRING settings
-        if self.pairing not in line:
-            return
+    def split_logline(self, line: str) -> Tuple:
+        """splits a log line into symbol, date, price"""
 
         parts = line.split(" ", maxsplit=4)
         symbol = parts[2]
         # skip processing the line if we don't care about this coin
         if symbol not in self.tickers:
-            return
+            return (False, False, False)
 
         # skip processing the line we hold max coins and this coins is not in
         # our wallet. Only process lines containing the coin in our wallets
         # until we sell or drop those.
         if len(self.wallet) >= self.max_coins:
             if symbol not in self.wallet:
-                return
-
+                return (False, False, False)
         day = " ".join(parts[0:2])
         try:
             # datetime is very slow, discard the .microseconds and fetch a
@@ -1613,6 +1604,41 @@ class Bot:
             # we just skip it
             market_price = float(parts[3])
         except ValueError:
+            return (False, False, False)
+
+        return (symbol, date, market_price)
+
+    def check_for_delisted_coin(self, symbol: str) -> bool:
+        """checks if a coin has been delisted"""
+
+        # when we process old logfiles, we might encounter symbols that are
+        # no longer available on binance, these will not return any klines
+        # data from the API. For those we are better to remove them from our
+        # tickers list as we don't want to process them.
+
+        if not self.load_klines_for_coin(self.coins[symbol]):
+            # got no klines data on this coin, probably delisted
+            # will remove this coin from our ticker list
+            if symbol not in self.wallet:
+                logging.warning(f"removing {symbol} from tickers")
+                del self.coins[symbol]
+                del self.tickers[symbol]
+                return True
+        return False
+
+    def process_line(self, line: str) -> None:
+        """processes a backlog line"""
+
+        if self.quit:  # when told to quit, just go nicely
+            return
+
+        # skip processing the line if it doesn't not match our PAIRING settings
+        if self.pairing not in line:
+            return
+
+        symbol, date, market_price = self.split_logline(line)
+        # symbol will be False if we fail to process the line fields
+        if not symbol:
             return
 
         # TODO: rework this, generate a binance_data blob to pass to
@@ -1633,14 +1659,8 @@ class Bot:
                 self.tickers[symbol]["KLINES_TREND_PERIOD"],
                 self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"],
             )
-            if not self.load_klines_for_coin(self.coins[symbol]):
-                # got no klines data on this coin, probably delisted
-                # will remove this coin from our ticker list
-                if symbol not in self.wallet:
-                    logging.warning(f"removing {symbol} from tickers")
-                    del self.coins[symbol]
-                    del self.tickers[symbol]
-                    return
+            if self.check_for_delisted_coin(symbol):
+                return
         else:
             # implements a PAUSE_FOR pause while reading from
             # our price logs.
