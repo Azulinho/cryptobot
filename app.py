@@ -475,8 +475,9 @@ class Bot:
         self.enable_new_listing_checks_age_in_days: int = config.get(
             "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS", 31
         )
-        # stops the bot as soon we hit a STOP_LOSS. If we are still holding coins,
-        # those remain in our wallet. Typically used when MAX_COINS = 1
+        # stops the bot as soon we hit a STOP_LOSS. If we are still holding
+        # coins, those remain in our wallet.
+        # Typically used when MAX_COINS = 1
         self.stop_bot_on_loss: bool = config.get("STOP_BOT_ON_LOSS", False)
         # indicates where we found a .stop flag file
         self.stop_flag: bool = False
@@ -564,6 +565,181 @@ class Bot:
         self.profit = float(self.profit) + float(coin.profit) - float(fees)
         self.fees = self.fees + fees
 
+    def place_sell_order(self, coin):
+        """places a limit/market sell order"""
+        try:
+            now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+            if self.order_type == "LIMIT":
+                order_book = self.client.get_order_book(symbol=coin.symbol)
+                logging.debug(f"order_book: {order_book}")
+                bid, _ = order_book["bids"][0]
+                logging.debug(f"bid: {bid}")
+                logging.info(
+                    f"{now}: {coin.symbol} [SELLING] {coin.volume} of "
+                    + f"{coin.symbol} at LIMIT {bid}"
+                )
+                order_details = self.client.create_order(
+                    symbol=coin.symbol,
+                    side="SELL",
+                    type="LIMIT",
+                    quantity=coin.volume,
+                    timeInForce="FOK",
+                    price=bid,
+                )
+            else:
+                logging.info(
+                    f"{now}: {coin.symbol} [SELLING] {coin.volume} of "
+                    + f"{coin.symbol} at MARKET {coin.price}"
+                )
+                order_details = self.client.create_order(
+                    symbol=coin.symbol,
+                    side="SELL",
+                    type="MARKET",
+                    quantity=coin.volume,
+                )
+
+        # error handling here in case position cannot be placed
+        except BinanceAPIException as error_msg:
+            logging.error(f"sell() exception: {error_msg}")
+            logging.error(f"tried to sell: {coin.volume} of {coin.symbol}")
+            return False
+
+        while True:
+            try:
+                order_status = self.client.get_order(
+                    symbol=coin.symbol, orderId=order_details["orderId"]
+                )
+                logging.debug(order_status)
+                if order_status["status"] == "FILLED":
+                    break
+
+                if order_status["status"] == "EXPIRED":
+                    now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+                    logging.info(
+                        f"{now}: {coin.symbol} [EXPIRED_LIMIT_SELL] "
+                        + f"order for {coin.volume} of {coin.symbol} "
+                        + f"at {bid}"
+                    )
+                    return False
+                sleep(0.1)
+            except BinanceAPIException as error_msg:
+                logging.warning(error_msg)
+
+        logging.debug(order_status)
+
+        if self.order_type == "LIMIT":
+            # calculate how much we got based on the total lines in our order
+            coin.price = float(order_status["price"])
+            coin.volume = float(order_status["executedQty"])
+        else:
+            orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
+            logging.debug(orders)
+            # calculate how much we got based on the total lines in our order
+            coin.price = self.extract_order_data(order_details, coin)[
+                "avgPrice"
+            ]
+            # retrieve the total number of units for this coin
+            coin.volume = self.extract_order_data(order_details, coin)[
+                "volume"
+            ]
+
+        # and give this coin a new fresh date based on our recent actions
+        coin.date = float(udatetime.now().timestamp())
+
+    def place_buy_order(self, coin, volume):
+        """places a limit/market buy order"""
+        try:
+            now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+            # TODO: add the ability to place a order from a specific position
+            # within the order book.
+            if self.order_type == "LIMIT":
+                order_book = self.client.get_order_book(symbol=coin.symbol)
+                logging.debug(f"order_book: {order_book}")
+                ask, _ = order_book["asks"][0]
+                logging.debug(f"ask: {ask}")
+                logging.info(
+                    f"{now}: {coin.symbol} [BUYING] {volume} of "
+                    + f"{coin.symbol} at LIMIT {ask}"
+                )
+                order_details = self.client.create_order(
+                    symbol=coin.symbol,
+                    side="BUY",
+                    type="LIMIT",
+                    quantity=volume,
+                    timeInForce="FOK",
+                    price=ask,
+                )
+            else:
+                logging.info(
+                    f"{now}: {coin.symbol} [BUYING] {volume} of "
+                    + f"{coin.symbol} at MARKET {coin.price}"
+                )
+                order_details = self.client.create_order(
+                    symbol=coin.symbol,
+                    side="BUY",
+                    type="MARKET",
+                    quantity=volume,
+                )
+
+        # error handling here in case position cannot be placed
+        except BinanceAPIException as error_msg:
+            logging.error(f"buy() exception: {error_msg}")
+            logging.error(f"tried to buy: {volume} of {coin.symbol}")
+            return False
+        logging.debug(order_details)
+
+        while True:
+            try:
+                order_status = self.client.get_order(
+                    symbol=coin.symbol, orderId=order_details["orderId"]
+                )
+                logging.debug(order_status)
+                if order_status["status"] == "FILLED":
+                    break
+
+                now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+
+                if order_status["status"] == "EXPIRED":
+                    if self.order_type == "LIMIT":
+                        price = ask
+                    else:
+                        price = coin.price
+                    logging.info(
+                        " ".join(
+                            [
+                                f"{now}: {coin.symbol} ",
+                                f"[EXPIRED_{self.order_type}_BUY] order",
+                                f" for {volume} of {coin.symbol} ",
+                                f"at {price}",
+                            ]
+                        )
+                    )
+                    return False
+                sleep(0.1)
+
+            except BinanceAPIException as error_msg:
+                logging.warning(error_msg)
+        logging.debug(order_status)
+
+        if self.order_type == "LIMIT":
+            # our order will have been fullfilled by different traders,
+            # find out the average price we paid accross all these sales.
+            coin.bought_at = float(order_status["price"])
+            # retrieve the total number of units for this coin
+            coin.volume = float(order_status["executedQty"])
+        else:
+            orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
+            logging.debug(orders)
+            # our order will have been fullfilled by different traders,
+            # find out the average price we paid accross all these sales.
+            coin.bought_at = self.extract_order_data(order_details, coin)[
+                "avgPrice"
+            ]
+            # retrieve the total number of units for this coin
+            coin.volume = self.extract_order_data(order_details, coin)[
+                "volume"
+            ]
+
     def buy_coin(self, coin) -> bool:
         """calls Binance to buy a coin"""
 
@@ -585,97 +761,7 @@ class Bot:
 
         # we never place binance orders in backtesting mode.
         if self.mode in ["testnet", "live"]:
-            try:
-                now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-                if self.order_type == "LIMIT":
-                    order_book = self.client.get_order_book(symbol=coin.symbol)
-                    logging.debug(f"order_book: {order_book}")
-                    ask, _ = order_book["asks"][0]
-                    logging.debug(f"ask: {ask}")
-                    logging.info(
-                        f"{now}: {coin.symbol} [BUYING] {volume} of "
-                        + f"{coin.symbol} at LIMIT {ask}"
-                    )
-                    order_details = self.client.create_order(
-                        symbol=coin.symbol,
-                        side="BUY",
-                        type="LIMIT",
-                        quantity=volume,
-                        timeInForce="FOK",
-                        price=ask,
-                    )
-                else:
-                    logging.info(
-                        f"{now}: {coin.symbol} [BUYING] {volume} of "
-                        + f"{coin.symbol} at MARKET {coin.price}"
-                    )
-                    order_details = self.client.create_order(
-                        symbol=coin.symbol,
-                        side="BUY",
-                        type="MARKET",
-                        quantity=volume,
-                    )
-
-            # error handling here in case position cannot be placed
-            except BinanceAPIException as error_msg:
-                logging.error(f"buy() exception: {error_msg}")
-                logging.error(f"tried to buy: {volume} of {coin.symbol}")
-                return False
-            logging.debug(order_details)
-
-            while True:
-                try:
-                    order_status = self.client.get_order(
-                        symbol=coin.symbol, orderId=order_details["orderId"]
-                    )
-                    logging.debug(order_status)
-                    if order_status["status"] == "FILLED":
-                        break
-
-                    now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-
-                    if order_status["status"] == "EXPIRED":
-                        if self.order_type == "LIMIT":
-                            price = ask
-                        else:
-                            price = coin.price
-                        logging.info(
-                            " ".join(
-                                [
-                                    f"{now}: {coin.symbol} ",
-                                    f"[EXPIRED_{self.order_type}_BUY] order",
-                                    f" for {volume} of {coin.symbol} ",
-                                    f"at {price}",
-                                ]
-                            )
-                        )
-                        return False
-                    sleep(0.1)
-
-                except BinanceAPIException as error_msg:
-                    logging.warning(error_msg)
-            logging.debug(order_status)
-
-            if self.order_type == "LIMIT":
-                # our order will have been fullfilled by different traders,
-                # find out the average price we paid accross all these sales.
-                coin.bought_at = float(order_status["price"])
-                # retrieve the total number of units for this coin
-                coin.volume = float(order_status["executedQty"])
-            else:
-                orders = self.client.get_all_orders(
-                    symbol=coin.symbol, limit=1
-                )
-                logging.debug(orders)
-                # our order will have been fullfilled by different traders,
-                # find out the average price we paid accross all these sales.
-                coin.bought_at = self.extract_order_data(order_details, coin)[
-                    "avgPrice"
-                ]
-                # retrieve the total number of units for this coin
-                coin.volume = self.extract_order_data(order_details, coin)[
-                    "volume"
-                ]
+            self.place_buy_order(coin, volume)
 
             # calculate the current value
             coin.value = float(coin.bought_at) * float(coin.volume)
@@ -740,86 +826,7 @@ class Bot:
 
         # in backtesting mode, we never place sell orders on binance
         if self.mode in ["testnet", "live"]:
-            try:
-                now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-                if self.order_type == "LIMIT":
-                    order_book = self.client.get_order_book(symbol=coin.symbol)
-                    logging.debug(f"order_book: {order_book}")
-                    bid, _ = order_book["bids"][0]
-                    logging.debug(f"bid: {bid}")
-                    logging.info(
-                        f"{now}: {coin.symbol} [SELLING] {coin.volume} of "
-                        + f"{coin.symbol} at LIMIT {bid}"
-                    )
-                    order_details = self.client.create_order(
-                        symbol=coin.symbol,
-                        side="SELL",
-                        type="LIMIT",
-                        quantity=coin.volume,
-                        timeInForce="FOK",
-                        price=bid,
-                    )
-                else:
-                    logging.info(
-                        f"{now}: {coin.symbol} [SELLING] {coin.volume} of "
-                        + f"{coin.symbol} at MARKET {coin.price}"
-                    )
-                    order_details = self.client.create_order(
-                        symbol=coin.symbol,
-                        side="SELL",
-                        type="MARKET",
-                        quantity=coin.volume,
-                    )
-
-            # error handling here in case position cannot be placed
-            except BinanceAPIException as error_msg:
-                logging.error(f"sell() exception: {error_msg}")
-                logging.error(f"tried to sell: {coin.volume} of {coin.symbol}")
-                return False
-
-            while True:
-                try:
-                    order_status = self.client.get_order(
-                        symbol=coin.symbol, orderId=order_details["orderId"]
-                    )
-                    logging.debug(order_status)
-                    if order_status["status"] == "FILLED":
-                        break
-
-                    if order_status["status"] == "EXPIRED":
-                        now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-                        logging.info(
-                            f"{now}: {coin.symbol} [EXPIRED_LIMIT_SELL] "
-                            + f"order for {coin.volume} of {coin.symbol} "
-                            + f"at {bid}"
-                        )
-                        return False
-                    sleep(0.1)
-                except BinanceAPIException as error_msg:
-                    logging.warning(error_msg)
-
-            logging.debug(order_status)
-
-            if self.order_type == "LIMIT":
-                # calculate how much we got based on the total lines in our order
-                coin.price = float(order_status["price"])
-                coin.volume = float(order_status["executedQty"])
-            else:
-                orders = self.client.get_all_orders(
-                    symbol=coin.symbol, limit=1
-                )
-                logging.debug(orders)
-                # calculate how much we got based on the total lines in our order
-                coin.price = self.extract_order_data(order_details, coin)[
-                    "avgPrice"
-                ]
-                # retrieve the total number of units for this coin
-                coin.volume = self.extract_order_data(order_details, coin)[
-                    "volume"
-                ]
-
-            # and give this coin a new fresh date based on our recent actions
-            coin.date = float(udatetime.now().timestamp())
+            self.place_sell_order(coin)
 
         # finally calculate the value at sale and the total profit
         coin.value = float(float(coin.volume) * float(coin.price))
