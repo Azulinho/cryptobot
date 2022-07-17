@@ -856,8 +856,8 @@ class Bot:
         # update the total profit for this bot run
         self.update_bot_profit(coin)
         # and the total amount we now have available to invest.
-        # this could have gone up, or down, depending on wether we made a profit
-        # or a loss.
+        # this could have gone up, or down, depending on wether we made a
+        # profit or a loss.
         self.update_investment()
         # and clear the status for this coin
         coin.status = ""
@@ -939,10 +939,10 @@ class Bot:
 
         # only write logs if price changed, for coins which price doesn't
         # change often such as low volume coins, we keep track of the old price
-        # and check it against the latest value. If the price hasn't changed, we
-        # don't record it in the price.log file. This greatly reduces the size
-        # of the log, and the backtesting time to process these.
-        if not symbol in self.oldprice:
+        # and check it against the latest value. If the price hasn't changed,
+        # we don't record it in the price.log file. This greatly reduces the
+        # size of the log, and the backtesting time to process these.
+        if symbol not in self.oldprice:
             self.oldprice[symbol] = float(0)
 
         if self.oldprice[symbol] == float(price):
@@ -965,6 +965,8 @@ class Bot:
             market_price = float(binance_data["price"])
         else:
             if self.coins[symbol].status == "TARGET_DIP":
+                # when looking for a buy/sell position, we can look  at a
+                # position within the order book and not retrive the first one
                 order_book = self.client.get_order_book(symbol=symbol)
                 market_price = float(order_book["asks"][0][0])
                 logging.debug(
@@ -1771,16 +1773,13 @@ class Bot:
             # lets find out the from what date we need to pull klines from while in
             # backtesting mode.
             coin.averages[unit] = []
-            if unit == "m":
-                timeslice = 60
-                minutes_before_now = 1
-            if unit == "h":
-                timeslice = 24
-                minutes_before_now = 60
-
-            if unit == "d":
-                timeslice = 1000  # retrieve 1000 days, binance API default
-                minutes_before_now = 60 * 24
+            unit_values = {
+                "m": (60, 1),
+                "h": (24, 60),
+                # for 'Days' we retrieve 1000 days, binance API default
+                "d": (1000, 60 * 24),
+            }
+            timeslice, minutes_before_now = unit_values[unit]
 
             backtest_end_time = coin.date
             end_unix_time = int(
@@ -1815,9 +1814,10 @@ class Bot:
                     return False
 
                 results = response.json()
-                # this can be fairly API intensive for a large number of tickers
-                # so we cache these calls on disk, each coin, period, start day
-                # is md5sum'd and stored on a dedicated file on /cache
+                # this can be fairly API intensive for a large number of
+                # tickers so we cache these calls on disk, each coin, period,
+                # start day is md5sum'd and stored on a dedicated file on
+                # /cache
                 logging.debug(
                     f"writing klines data from binance into {f_path}"
                 )
