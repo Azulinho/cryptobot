@@ -218,36 +218,22 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.consolidate_averages(date, market_price)
         self.trim_averages(date)
 
-    def consolidate_averages(self, date, market_price: float) -> None:
-        """consolidates all coin price averages over the different buckets"""
+    def consolidate_on_new_slot(self, date, unit):
+        """consolidates on a new min/hour/day"""
 
-        # append the latest 's' value, this could done more frequently than once
-        # per second.
-        self.averages["s"].append((date, market_price))
+        previous = {"d": "h", "h": "m", "m": "s"}[unit]
 
-        # append the latest values,
-        # but only if the old 'm' record, is older than 1 minute
-        new_minute = False
-        # deals with the scenario, where we don't yet have 'minutes' data
-        #  available
-        if not self.averages["m"] and self.averages["s"]:
-            # if our oldest 'seconds' data is older than one minute
-            # then we've entered a new minute window
-            if self.averages["s"][0][0] <= date - 60:
-                new_minute = True
-
-        # looks up if the latest 'minute' record of data is older than 1minute
-        if self.averages["m"] and not new_minute:
-            record_date, _ = self.averages["m"][-1]
-            if record_date <= date - 60:
-                new_minute = True
-
-        # on a new minute window, we need to find the lowest, average, and max
-        # prices across all the last 60 seconds of data we have available in
-        # our 'seconds' buckets.
-        # note that for seconds, we only store 'averages' as it doesn't make
-        # sense, to record lows/highs within a second window
-        if new_minute:
+        if unit != "m":
+            self.lowest[unit].append(
+                (date, min([v for _, v in self.lowest[previous]]))
+            )
+            self.averages[unit].append(
+                (date, mean([v for _, v in self.averages[previous]]))
+            )
+            self.highest[unit].append(
+                (date, max([v for _, v in self.highest[previous]]))
+            )
+        else:
             self.lowest["m"].append(
                 (date, min([v for _, v in self.averages["s"]]))
             )
@@ -257,6 +243,24 @@ class Coin:  # pylint: disable=too-few-public-methods
             self.highest["m"].append(
                 (date, max([v for _, v in self.averages["s"]]))
             )
+
+    def consolidate_averages(self, date, market_price: float) -> None:
+        """consolidates all coin price averages over the different buckets"""
+
+        # append the latest 's' value, this could done more frequently than
+        # once per second.
+        self.averages["s"].append((date, market_price))
+
+        # append the latest values,
+        # but only if the old 'm' record, is older than 1 minute
+        new_minute = self.is_a_new_slot_of(date, "m")
+        # on a new minute window, we need to find the lowest, average, and max
+        # prices across all the last 60 seconds of data we have available in
+        # our 'seconds' buckets.
+        # note that for seconds, we only store 'averages' as it doesn't make
+        # sense, to record lows/highs within a second window
+        if new_minute:
+            self.consolidate_on_new_slot(date, "m")
         else:
             # finally if we're not reached a new minute, then jump out early
             # as we won't have any additional data to process in the following
@@ -267,61 +271,51 @@ class Coin:  # pylint: disable=too-few-public-methods
         # data in our buckets yet.
         # if we find the oldest record in our 'minutes' bucket is older than
         # 1 hour, then we have entered a new hour window.
-        new_hour = False
-        if not self.averages["h"] and self.averages["m"]:
-            if self.averages["m"][0][0] <= date - 3600:
-                new_hour = True
-
-        # checks if our latest hour record is older than 1 hour
-        if self.averages["h"] and not new_hour:
-            record_date, _ = self.averages["h"][-1]
-            if record_date <= date - 3600:
-                new_hour = True
+        new_hour = self.is_a_new_slot_of(date, "h")
 
         # on a new hour, we need to record the min, average, max prices for
         # this coin, based on the data we have from the last 60 minutes.
         if new_hour:
-            self.lowest["h"].append(
-                (date, min([v for _, v in self.lowest["m"]]))
-            )
-            self.averages["h"].append(
-                (date, mean([v for _, v in self.averages["m"]]))
-            )
-            self.highest["h"].append(
-                (date, max([v for _, v in self.highest["m"]]))
-            )
+            self.consolidate_on_new_slot(date, "h")
         else:
             # if we're not in a new hour, then skip further processing as
             # there won't be any new day changes to be managed.
             return
 
-        # deal with the scenario where we have hourly data but no daily data yet
-        # if the older record for hourly data is older than 1 day, then we've
-        # entered a new day window
-        new_day = False
-        if not self.averages["d"] and self.averages["h"]:
-            if self.averages["h"][0][0] <= date - 86400:
-                new_day = True
-
-        # checks if most recent day record is older than 1 day
-        if self.averages["d"] and not new_day:
-            record_date, _ = self.averages["d"][-1]
-            if record_date <= date - 86400:
-                new_day = True
+        # deal with the scenario where we have hourly data but no daily data
+        # yet if the older record for hourly data is older than 1 day, then
+        # we've entered a new day window
+        new_day = self.is_a_new_slot_of(date, "d")
 
         # on a new day window, we need to update the min, averages, max prices
         # recorded for this coin, based on the history available from the last
         # 24 hours as recorded in our hourly buckets.
         if new_day:
-            self.lowest["d"].append(
-                (date, min([v for _, v in self.lowest["h"]]))
-            )
-            self.averages["d"].append(
-                (date, mean([v for _, v in self.averages["h"]]))
-            )
-            self.highest["d"].append(
-                (date, max([v for _, v in self.highest["h"]]))
-            )
+            self.consolidate_on_new_slot(date, "d")
+
+    def is_a_new_slot_of(self, date, unit):
+        """finds out if we entered a new unit time slot"""
+        table = {
+            "m": ("s", 60),
+            "h": ("m", 3600),
+            "d": ("h", 86400),
+        }
+        previous, period = table[unit]
+
+        new_slot = False
+        # deals with the scenario, where we don't yet have 'units' data
+        #  available yet
+        if not self.averages[unit] and self.averages[previous]:
+            if self.averages[previous][0][0] <= date - period:
+                new_slot = True
+
+        # checks if our latest 'unit' record is older than 'period'
+        # then we've entered a new 'unit' window
+        if self.averages[unit] and not new_slot:
+            record_date, _ = self.averages[unit][-1]
+            if record_date <= date - period:
+                new_slot = True
+        return new_slot
 
     def trim_averages(self, date: float) -> None:
         """trims all coin price older than ..."""
