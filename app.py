@@ -218,36 +218,22 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.consolidate_averages(date, market_price)
         self.trim_averages(date)
 
-    def consolidate_averages(self, date, market_price: float) -> None:
-        """consolidates all coin price averages over the different buckets"""
+    def consolidate_on_new_slot(self, date, unit):
+        """consolidates on a new min/hour/day"""
 
-        # append the latest 's' value, this could done more frequently than once
-        # per second.
-        self.averages["s"].append((date, market_price))
+        previous = {"d": "h", "h": "m", "m": "s"}[unit]
 
-        # append the latest values,
-        # but only if the old 'm' record, is older than 1 minute
-        new_minute = False
-        # deals with the scenario, where we don't yet have 'minutes' data
-        #  available
-        if not self.averages["m"] and self.averages["s"]:
-            # if our oldest 'seconds' data is older than one minute
-            # then we've entered a new minute window
-            if self.averages["s"][0][0] <= date - 60:
-                new_minute = True
-
-        # looks up if the latest 'minute' record of data is older than 1minute
-        if self.averages["m"] and not new_minute:
-            record_date, _ = self.averages["m"][-1]
-            if record_date <= date - 60:
-                new_minute = True
-
-        # on a new minute window, we need to find the lowest, average, and max
-        # prices across all the last 60 seconds of data we have available in
-        # our 'seconds' buckets.
-        # note that for seconds, we only store 'averages' as it doesn't make
-        # sense, to record lows/highs within a second window
-        if new_minute:
+        if unit != "m":
+            self.lowest[unit].append(
+                (date, min([v for _, v in self.lowest[previous]]))
+            )
+            self.averages[unit].append(
+                (date, mean([v for _, v in self.averages[previous]]))
+            )
+            self.highest[unit].append(
+                (date, max([v for _, v in self.highest[previous]]))
+            )
+        else:
             self.lowest["m"].append(
                 (date, min([v for _, v in self.averages["s"]]))
             )
@@ -257,6 +243,24 @@ class Coin:  # pylint: disable=too-few-public-methods
             self.highest["m"].append(
                 (date, max([v for _, v in self.averages["s"]]))
             )
+
+    def consolidate_averages(self, date, market_price: float) -> None:
+        """consolidates all coin price averages over the different buckets"""
+
+        # append the latest 's' value, this could done more frequently than
+        # once per second.
+        self.averages["s"].append((date, market_price))
+
+        # append the latest values,
+        # but only if the old 'm' record, is older than 1 minute
+        new_minute = self.is_a_new_slot_of(date, "m")
+        # on a new minute window, we need to find the lowest, average, and max
+        # prices across all the last 60 seconds of data we have available in
+        # our 'seconds' buckets.
+        # note that for seconds, we only store 'averages' as it doesn't make
+        # sense, to record lows/highs within a second window
+        if new_minute:
+            self.consolidate_on_new_slot(date, "m")
         else:
             # finally if we're not reached a new minute, then jump out early
             # as we won't have any additional data to process in the following
@@ -267,61 +271,51 @@ class Coin:  # pylint: disable=too-few-public-methods
         # data in our buckets yet.
         # if we find the oldest record in our 'minutes' bucket is older than
         # 1 hour, then we have entered a new hour window.
-        new_hour = False
-        if not self.averages["h"] and self.averages["m"]:
-            if self.averages["m"][0][0] <= date - 3600:
-                new_hour = True
-
-        # checks if our latest hour record is older than 1 hour
-        if self.averages["h"] and not new_hour:
-            record_date, _ = self.averages["h"][-1]
-            if record_date <= date - 3600:
-                new_hour = True
+        new_hour = self.is_a_new_slot_of(date, "h")
 
         # on a new hour, we need to record the min, average, max prices for
         # this coin, based on the data we have from the last 60 minutes.
         if new_hour:
-            self.lowest["h"].append(
-                (date, min([v for _, v in self.lowest["m"]]))
-            )
-            self.averages["h"].append(
-                (date, mean([v for _, v in self.averages["m"]]))
-            )
-            self.highest["h"].append(
-                (date, max([v for _, v in self.highest["m"]]))
-            )
+            self.consolidate_on_new_slot(date, "h")
         else:
             # if we're not in a new hour, then skip further processing as
             # there won't be any new day changes to be managed.
             return
 
-        # deal with the scenario where we have hourly data but no daily data yet
-        # if the older record for hourly data is older than 1 day, then we've
-        # entered a new day window
-        new_day = False
-        if not self.averages["d"] and self.averages["h"]:
-            if self.averages["h"][0][0] <= date - 86400:
-                new_day = True
-
-        # checks if most recent day record is older than 1 day
-        if self.averages["d"] and not new_day:
-            record_date, _ = self.averages["d"][-1]
-            if record_date <= date - 86400:
-                new_day = True
+        # deal with the scenario where we have hourly data but no daily data
+        # yet if the older record for hourly data is older than 1 day, then
+        # we've entered a new day window
+        new_day = self.is_a_new_slot_of(date, "d")
 
         # on a new day window, we need to update the min, averages, max prices
         # recorded for this coin, based on the history available from the last
         # 24 hours as recorded in our hourly buckets.
         if new_day:
-            self.lowest["d"].append(
-                (date, min([v for _, v in self.lowest["h"]]))
-            )
-            self.averages["d"].append(
-                (date, mean([v for _, v in self.averages["h"]]))
-            )
-            self.highest["d"].append(
-                (date, max([v for _, v in self.highest["h"]]))
-            )
+            self.consolidate_on_new_slot(date, "d")
+
+    def is_a_new_slot_of(self, date, unit):
+        """finds out if we entered a new unit time slot"""
+        table = {
+            "m": ("s", 60),
+            "h": ("m", 3600),
+            "d": ("h", 86400),
+        }
+        previous, period = table[unit]
+
+        new_slot = False
+        # deals with the scenario, where we don't yet have 'units' data
+        #  available yet
+        if not self.averages[unit] and self.averages[previous]:
+            if self.averages[previous][0][0] <= date - period:
+                new_slot = True
+
+        # checks if our latest 'unit' record is older than 'period'
+        # then we've entered a new 'unit' window
+        if self.averages[unit] and not new_slot:
+            record_date, _ = self.averages[unit][-1]
+            if record_date <= date - period:
+                new_slot = True
+        return new_slot
 
     def trim_averages(self, date: float) -> None:
         """trims all coin price older than ..."""
@@ -481,8 +475,9 @@ class Bot:
         self.enable_new_listing_checks_age_in_days: int = config.get(
             "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS", 31
         )
-        # stops the bot as soon we hit a STOP_LOSS. If we are still holding coins,
-        # those remain in our wallet. Typically used when MAX_COINS = 1
+        # stops the bot as soon we hit a STOP_LOSS. If we are still holding
+        # coins, those remain in our wallet.
+        # Typically used when MAX_COINS = 1
         self.stop_bot_on_loss: bool = config.get("STOP_BOT_ON_LOSS", False)
         # indicates where we found a .stop flag file
         self.stop_flag: bool = False
@@ -570,6 +565,181 @@ class Bot:
         self.profit = float(self.profit) + float(coin.profit) - float(fees)
         self.fees = self.fees + fees
 
+    def place_sell_order(self, coin):
+        """places a limit/market sell order"""
+        try:
+            now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+            if self.order_type == "LIMIT":
+                order_book = self.client.get_order_book(symbol=coin.symbol)
+                logging.debug(f"order_book: {order_book}")
+                bid, _ = order_book["bids"][0]
+                logging.debug(f"bid: {bid}")
+                logging.info(
+                    f"{now}: {coin.symbol} [SELLING] {coin.volume} of "
+                    + f"{coin.symbol} at LIMIT {bid}"
+                )
+                order_details = self.client.create_order(
+                    symbol=coin.symbol,
+                    side="SELL",
+                    type="LIMIT",
+                    quantity=coin.volume,
+                    timeInForce="FOK",
+                    price=bid,
+                )
+            else:
+                logging.info(
+                    f"{now}: {coin.symbol} [SELLING] {coin.volume} of "
+                    + f"{coin.symbol} at MARKET {coin.price}"
+                )
+                order_details = self.client.create_order(
+                    symbol=coin.symbol,
+                    side="SELL",
+                    type="MARKET",
+                    quantity=coin.volume,
+                )
+
+        # error handling here in case position cannot be placed
+        except BinanceAPIException as error_msg:
+            logging.error(f"sell() exception: {error_msg}")
+            logging.error(f"tried to sell: {coin.volume} of {coin.symbol}")
+            return False
+
+        while True:
+            try:
+                order_status = self.client.get_order(
+                    symbol=coin.symbol, orderId=order_details["orderId"]
+                )
+                logging.debug(order_status)
+                if order_status["status"] == "FILLED":
+                    break
+
+                if order_status["status"] == "EXPIRED":
+                    now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+                    logging.info(
+                        f"{now}: {coin.symbol} [EXPIRED_LIMIT_SELL] "
+                        + f"order for {coin.volume} of {coin.symbol} "
+                        + f"at {bid}"
+                    )
+                    return False
+                sleep(0.1)
+            except BinanceAPIException as error_msg:
+                logging.warning(error_msg)
+
+        logging.debug(order_status)
+
+        if self.order_type == "LIMIT":
+            # calculate how much we got based on the total lines in our order
+            coin.price = float(order_status["price"])
+            coin.volume = float(order_status["executedQty"])
+        else:
+            orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
+            logging.debug(orders)
+            # calculate how much we got based on the total lines in our order
+            coin.price = self.extract_order_data(order_details, coin)[
+                "avgPrice"
+            ]
+            # retrieve the total number of units for this coin
+            coin.volume = self.extract_order_data(order_details, coin)[
+                "volume"
+            ]
+
+        # and give this coin a new fresh date based on our recent actions
+        coin.date = float(udatetime.now().timestamp())
+
+    def place_buy_order(self, coin, volume):
+        """places a limit/market buy order"""
+        try:
+            now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+            # TODO: add the ability to place a order from a specific position
+            # within the order book.
+            if self.order_type == "LIMIT":
+                order_book = self.client.get_order_book(symbol=coin.symbol)
+                logging.debug(f"order_book: {order_book}")
+                ask, _ = order_book["asks"][0]
+                logging.debug(f"ask: {ask}")
+                logging.info(
+                    f"{now}: {coin.symbol} [BUYING] {volume} of "
+                    + f"{coin.symbol} at LIMIT {ask}"
+                )
+                order_details = self.client.create_order(
+                    symbol=coin.symbol,
+                    side="BUY",
+                    type="LIMIT",
+                    quantity=volume,
+                    timeInForce="FOK",
+                    price=ask,
+                )
+            else:
+                logging.info(
+                    f"{now}: {coin.symbol} [BUYING] {volume} of "
+                    + f"{coin.symbol} at MARKET {coin.price}"
+                )
+                order_details = self.client.create_order(
+                    symbol=coin.symbol,
+                    side="BUY",
+                    type="MARKET",
+                    quantity=volume,
+                )
+
+        # error handling here in case position cannot be placed
+        except BinanceAPIException as error_msg:
+            logging.error(f"buy() exception: {error_msg}")
+            logging.error(f"tried to buy: {volume} of {coin.symbol}")
+            return False
+        logging.debug(order_details)
+
+        while True:
+            try:
+                order_status = self.client.get_order(
+                    symbol=coin.symbol, orderId=order_details["orderId"]
+                )
+                logging.debug(order_status)
+                if order_status["status"] == "FILLED":
+                    break
+
+                now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+
+                if order_status["status"] == "EXPIRED":
+                    if self.order_type == "LIMIT":
+                        price = ask
+                    else:
+                        price = coin.price
+                    logging.info(
+                        " ".join(
+                            [
+                                f"{now}: {coin.symbol} ",
+                                f"[EXPIRED_{self.order_type}_BUY] order",
+                                f" for {volume} of {coin.symbol} ",
+                                f"at {price}",
+                            ]
+                        )
+                    )
+                    return False
+                sleep(0.1)
+
+            except BinanceAPIException as error_msg:
+                logging.warning(error_msg)
+        logging.debug(order_status)
+
+        if self.order_type == "LIMIT":
+            # our order will have been fullfilled by different traders,
+            # find out the average price we paid accross all these sales.
+            coin.bought_at = float(order_status["price"])
+            # retrieve the total number of units for this coin
+            coin.volume = float(order_status["executedQty"])
+        else:
+            orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
+            logging.debug(orders)
+            # our order will have been fullfilled by different traders,
+            # find out the average price we paid accross all these sales.
+            coin.bought_at = self.extract_order_data(order_details, coin)[
+                "avgPrice"
+            ]
+            # retrieve the total number of units for this coin
+            coin.volume = self.extract_order_data(order_details, coin)[
+                "volume"
+            ]
+
     def buy_coin(self, coin) -> bool:
         """calls Binance to buy a coin"""
 
@@ -591,97 +761,7 @@ class Bot:
 
         # we never place binance orders in backtesting mode.
         if self.mode in ["testnet", "live"]:
-            try:
-                now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-                if self.order_type == "LIMIT":
-                    order_book = self.client.get_order_book(symbol=coin.symbol)
-                    logging.debug(f"order_book: {order_book}")
-                    ask, _ = order_book["asks"][0]
-                    logging.debug(f"ask: {ask}")
-                    logging.info(
-                        f"{now}: {coin.symbol} [BUYING] {volume} of "
-                        + f"{coin.symbol} at LIMIT {ask}"
-                    )
-                    order_details = self.client.create_order(
-                        symbol=coin.symbol,
-                        side="BUY",
-                        type="LIMIT",
-                        quantity=volume,
-                        timeInForce="FOK",
-                        price=ask,
-                    )
-                else:
-                    logging.info(
-                        f"{now}: {coin.symbol} [BUYING] {volume} of "
-                        + f"{coin.symbol} at MARKET {coin.price}"
-                    )
-                    order_details = self.client.create_order(
-                        symbol=coin.symbol,
-                        side="BUY",
-                        type="MARKET",
-                        quantity=volume,
-                    )
-
-            # error handling here in case position cannot be placed
-            except BinanceAPIException as error_msg:
-                logging.error(f"buy() exception: {error_msg}")
-                logging.error(f"tried to buy: {volume} of {coin.symbol}")
-                return False
-            logging.debug(order_details)
-
-            while True:
-                try:
-                    order_status = self.client.get_order(
-                        symbol=coin.symbol, orderId=order_details["orderId"]
-                    )
-                    logging.debug(order_status)
-                    if order_status["status"] == "FILLED":
-                        break
-
-                    now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-
-                    if order_status["status"] == "EXPIRED":
-                        if self.order_type == "LIMIT":
-                            price = ask
-                        else:
-                            price = coin.price
-                        logging.info(
-                            " ".join(
-                                [
-                                    f"{now}: {coin.symbol} ",
-                                    f"[EXPIRED_{self.order_type}_BUY] order",
-                                    f" for {volume} of {coin.symbol} ",
-                                    f"at {price}",
-                                ]
-                            )
-                        )
-                        return False
-                    sleep(0.1)
-
-                except BinanceAPIException as error_msg:
-                    logging.warning(error_msg)
-            logging.debug(order_status)
-
-            if self.order_type == "LIMIT":
-                # our order will have been fullfilled by different traders,
-                # find out the average price we paid accross all these sales.
-                coin.bought_at = float(order_status["price"])
-                # retrieve the total number of units for this coin
-                coin.volume = float(order_status["executedQty"])
-            else:
-                orders = self.client.get_all_orders(
-                    symbol=coin.symbol, limit=1
-                )
-                logging.debug(orders)
-                # our order will have been fullfilled by different traders,
-                # find out the average price we paid accross all these sales.
-                coin.bought_at = self.extract_order_data(order_details, coin)[
-                    "avgPrice"
-                ]
-                # retrieve the total number of units for this coin
-                coin.volume = self.extract_order_data(order_details, coin)[
-                    "volume"
-                ]
+            self.place_buy_order(coin, volume)
 
             # calculate the current value
             coin.value = float(coin.bought_at) * float(coin.volume)
@@ -725,16 +805,7 @@ class Bot:
         )
 
         # this gets noisy quickly
-        if self.debug:
-            logging.debug(f"lowest[m]: {coin.lowest['m']}")
-            logging.debug(f"averages[m]: {coin.averages['m']}")
-            logging.debug(f"highest[m]: {coin.highest['m']}")
-            logging.debug(f"lowest[h]: {coin.lowest['h']}")
-            logging.debug(f"averages[h]: {coin.averages['h']}")
-            logging.debug(f"highest[h]: {coin.highest['h']}")
-            logging.debug(f"lowest[d]: {coin.lowest['d']}")
-            logging.debug(f"averages[d]: {coin.averages['d']}")
-            logging.debug(f"highest[d]: {coin.highest['d']}")
+        self.log_debug_coin(coin)
         return True
 
     def sell_coin(self, coin) -> bool:
@@ -746,86 +817,7 @@ class Bot:
 
         # in backtesting mode, we never place sell orders on binance
         if self.mode in ["testnet", "live"]:
-            try:
-                now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-                if self.order_type == "LIMIT":
-                    order_book = self.client.get_order_book(symbol=coin.symbol)
-                    logging.debug(f"order_book: {order_book}")
-                    bid, _ = order_book["bids"][0]
-                    logging.debug(f"bid: {bid}")
-                    logging.info(
-                        f"{now}: {coin.symbol} [SELLING] {coin.volume} of "
-                        + f"{coin.symbol} at LIMIT {bid}"
-                    )
-                    order_details = self.client.create_order(
-                        symbol=coin.symbol,
-                        side="SELL",
-                        type="LIMIT",
-                        quantity=coin.volume,
-                        timeInForce="FOK",
-                        price=bid,
-                    )
-                else:
-                    logging.info(
-                        f"{now}: {coin.symbol} [SELLING] {coin.volume} of "
-                        + f"{coin.symbol} at MARKET {coin.price}"
-                    )
-                    order_details = self.client.create_order(
-                        symbol=coin.symbol,
-                        side="SELL",
-                        type="MARKET",
-                        quantity=coin.volume,
-                    )
-
-            # error handling here in case position cannot be placed
-            except BinanceAPIException as error_msg:
-                logging.error(f"sell() exception: {error_msg}")
-                logging.error(f"tried to sell: {coin.volume} of {coin.symbol}")
-                return False
-
-            while True:
-                try:
-                    order_status = self.client.get_order(
-                        symbol=coin.symbol, orderId=order_details["orderId"]
-                    )
-                    logging.debug(order_status)
-                    if order_status["status"] == "FILLED":
-                        break
-
-                    if order_status["status"] == "EXPIRED":
-                        now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-                        logging.info(
-                            f"{now}: {coin.symbol} [EXPIRED_LIMIT_SELL] "
-                            + f"order for {coin.volume} of {coin.symbol} "
-                            + f"at {bid}"
-                        )
-                        return False
-                    sleep(0.1)
-                except BinanceAPIException as error_msg:
-                    logging.warning(error_msg)
-
-            logging.debug(order_status)
-
-            if self.order_type == "LIMIT":
-                # calculate how much we got based on the total lines in our order
-                coin.price = float(order_status["price"])
-                coin.volume = float(order_status["executedQty"])
-            else:
-                orders = self.client.get_all_orders(
-                    symbol=coin.symbol, limit=1
-                )
-                logging.debug(orders)
-                # calculate how much we got based on the total lines in our order
-                coin.price = self.extract_order_data(order_details, coin)[
-                    "avgPrice"
-                ]
-                # retrieve the total number of units for this coin
-                coin.volume = self.extract_order_data(order_details, coin)[
-                    "volume"
-                ]
-
-            # and give this coin a new fresh date based on our recent actions
-            coin.date = float(udatetime.now().timestamp())
+            self.place_sell_order(coin)
 
         # finally calculate the value at sale and the total profit
         coin.value = float(float(coin.volume) * float(coin.price))
@@ -838,7 +830,8 @@ class Bot:
 
         message = " ".join(
             [
-                f"{c_from_timestamp(coin.date)}: {coin.symbol} [{coin.status}]",
+                f"{c_from_timestamp(coin.date)}: {coin.symbol} "
+                f"[{coin.status}]",
                 f"A:{coin.holding_time}s",
                 f"U:{coin.volume} P:{coin.price} T:{coin.value}",
                 f"{word}:{coin.profit:.3f}",
@@ -863,8 +856,8 @@ class Bot:
         # update the total profit for this bot run
         self.update_bot_profit(coin)
         # and the total amount we now have available to invest.
-        # this could have gone up, or down, depending on wether we made a profit
-        # or a loss.
+        # this could have gone up, or down, depending on wether we made a
+        # profit or a loss.
         self.update_investment()
         # and clear the status for this coin
         coin.status = ""
@@ -946,10 +939,10 @@ class Bot:
 
         # only write logs if price changed, for coins which price doesn't
         # change often such as low volume coins, we keep track of the old price
-        # and check it against the latest value. If the price hasn't changed, we
-        # don't record it in the price.log file. This greatly reduces the size
-        # of the log, and the backtesting time to process these.
-        if not symbol in self.oldprice:
+        # and check it against the latest value. If the price hasn't changed,
+        # we don't record it in the price.log file. This greatly reduces the
+        # size of the log, and the backtesting time to process these.
+        if symbol not in self.oldprice:
             self.oldprice[symbol] = float(0)
 
         if self.oldprice[symbol] == float(price):
@@ -972,6 +965,8 @@ class Bot:
             market_price = float(binance_data["price"])
         else:
             if self.coins[symbol].status == "TARGET_DIP":
+                # when looking for a buy/sell position, we can look  at a
+                # position within the order book and not retrive the first one
                 order_book = self.client.get_order_book(symbol=symbol)
                 market_price = float(order_book["asks"][0][0])
                 logging.debug(
@@ -1245,9 +1240,28 @@ class Bot:
                 + f"now:{coin.price} "
                 + f"bought:{coin.bought_at} "
                 + f"sell:{(coin.sell_at_percentage - 100):.4f}% "
-                + f"trail_target_sell:{(coin.trail_target_sell_percentage - 100):.4f}% "
+                + "trail_target_sell:"
+                + f"{(coin.trail_target_sell_percentage - 100):.4f}% "
                 + f"LP:{coin.min:.3f} "
             )
+            logging.debug(f"{coin.symbol} : price:{coin.price}")
+            logging.debug(f"{coin.symbol} : min:{coin.min}")
+            logging.debug(f"{coin.symbol} : max:{coin.max}")
+            logging.debug(f"{coin.symbol} : lowest['m']:{coin.lowest['m']}")
+            logging.debug(f"{coin.symbol} : lowest['h']:{coin.lowest['h']}")
+            logging.debug(f"{coin.symbol} : lowest['d']:{coin.lowest['d']}")
+            logging.debug(
+                f"{coin.symbol} : averages['m']:{coin.averages['m']}"
+            )
+            logging.debug(
+                f"{coin.symbol} : averages['h']:{coin.averages['h']}"
+            )
+            logging.debug(
+                f"{coin.symbol} : averages['d']:{coin.averages['d']}"
+            )
+            logging.debug(f"{coin.symbol} : highest['m']:{coin.highest['m']}")
+            logging.debug(f"{coin.symbol} : highest['h']:{coin.highest['h']}")
+            logging.debug(f"{coin.symbol} : highest['d']:{coin.highest['d']}")
 
     def clear_all_coins_stats(self) -> None:
         """clear important coin stats such as max, min price on all coins"""
@@ -1563,30 +1577,21 @@ class Bot:
             self.process_coins()
             self.wait()
 
-    def process_line(self, line: str) -> None:
-        """processes a backlog line"""
-
-        # when just told to quit, just quit nicely
-        if self.quit:
-            return
-
-        # skip processing the line if it doesn't not match our PAIRING settings
-        if self.pairing not in line:
-            return
+    def split_logline(self, line: str) -> Tuple:
+        """splits a log line into symbol, date, price"""
 
         parts = line.split(" ", maxsplit=4)
         symbol = parts[2]
         # skip processing the line if we don't care about this coin
         if symbol not in self.tickers:
-            return
+            return (False, False, False)
 
         # skip processing the line we hold max coins and this coins is not in
         # our wallet. Only process lines containing the coin in our wallets
         # until we sell or drop those.
         if len(self.wallet) >= self.max_coins:
             if symbol not in self.wallet:
-                return
-
+                return (False, False, False)
         day = " ".join(parts[0:2])
         try:
             # datetime is very slow, discard the .microseconds and fetch a
@@ -1601,6 +1606,41 @@ class Bot:
             # we just skip it
             market_price = float(parts[3])
         except ValueError:
+            return (False, False, False)
+
+        return (symbol, date, market_price)
+
+    def check_for_delisted_coin(self, symbol: str) -> bool:
+        """checks if a coin has been delisted"""
+
+        # when we process old logfiles, we might encounter symbols that are
+        # no longer available on binance, these will not return any klines
+        # data from the API. For those we are better to remove them from our
+        # tickers list as we don't want to process them.
+
+        if not self.load_klines_for_coin(self.coins[symbol]):
+            # got no klines data on this coin, probably delisted
+            # will remove this coin from our ticker list
+            if symbol not in self.wallet:
+                logging.warning(f"removing {symbol} from tickers")
+                del self.coins[symbol]
+                del self.tickers[symbol]
+                return True
+        return False
+
+    def process_line(self, line: str) -> None:
+        """processes a backlog line"""
+
+        if self.quit:  # when told to quit, just go nicely
+            return
+
+        # skip processing the line if it doesn't not match our PAIRING settings
+        if self.pairing not in line:
+            return
+
+        symbol, date, market_price = self.split_logline(line)
+        # symbol will be False if we fail to process the line fields
+        if not symbol:
             return
 
         # TODO: rework this, generate a binance_data blob to pass to
@@ -1621,14 +1661,8 @@ class Bot:
                 self.tickers[symbol]["KLINES_TREND_PERIOD"],
                 self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"],
             )
-            if not self.load_klines_for_coin(self.coins[symbol]):
-                # got no klines data on this coin, probably delisted
-                # will remove this coin from our ticker list
-                if symbol not in self.wallet:
-                    logging.warning(f"removing {symbol} from tickers")
-                    del self.coins[symbol]
-                    del self.tickers[symbol]
-                    return
+            if self.check_for_delisted_coin(symbol):
+                return
         else:
             # implements a PAUSE_FOR pause while reading from
             # our price logs.
@@ -1739,16 +1773,13 @@ class Bot:
             # lets find out the from what date we need to pull klines from while in
             # backtesting mode.
             coin.averages[unit] = []
-            if unit == "m":
-                timeslice = 60
-                minutes_before_now = 1
-            if unit == "h":
-                timeslice = 24
-                minutes_before_now = 60
-
-            if unit == "d":
-                timeslice = 1000  # retrieve 1000 days, binance API default
-                minutes_before_now = 60 * 24
+            unit_values = {
+                "m": (60, 1),
+                "h": (24, 60),
+                # for 'Days' we retrieve 1000 days, binance API default
+                "d": (1000, 60 * 24),
+            }
+            timeslice, minutes_before_now = unit_values[unit]
 
             backtest_end_time = coin.date
             end_unix_time = int(
@@ -1783,9 +1814,10 @@ class Bot:
                     return False
 
                 results = response.json()
-                # this can be fairly API intensive for a large number of tickers
-                # so we cache these calls on disk, each coin, period, start day
-                # is md5sum'd and stored on a dedicated file on /cache
+                # this can be fairly API intensive for a large number of
+                # tickers so we cache these calls on disk, each coin, period,
+                # start day is md5sum'd and stored on a dedicated file on
+                # /cache
                 logging.debug(
                     f"writing klines data from binance into {f_path}"
                 )
@@ -1858,20 +1890,7 @@ class Bot:
                     logging.debug("caused by results variable with value:")
                     logging.debug(results)
 
-        if self.debug:
-            logging.debug(f"{symbol} : price:{coin.price}")
-            logging.debug(f"{symbol} : min:{coin.min}")
-            logging.debug(f"{symbol} : max:{coin.max}")
-            logging.debug(f"{symbol} : lowest['m']:{coin.lowest['m']}")
-            logging.debug(f"{symbol} : lowest['h']:{coin.lowest['h']}")
-            logging.debug(f"{symbol} : lowest['d']:{coin.lowest['d']}")
-            logging.debug(f"{symbol} : averages['m']:{coin.averages['m']}")
-            logging.debug(f"{symbol} : averages['h']:{coin.averages['h']}")
-            logging.debug(f"{symbol} : averages['d']:{coin.averages['d']}")
-            logging.debug(f"{symbol} : highest['m']:{coin.highest['m']}")
-            logging.debug(f"{symbol} : highest['h']:{coin.highest['h']}")
-            logging.debug(f"{symbol} : highest['d']:{coin.highest['d']}")
-
+        self.log_debug_coin(coin)
         return True
 
     def print_final_balance_report(self):
