@@ -2,6 +2,8 @@ configs/*
 log/*
 .venv/*
 tests/*
+cache/*
+state/*
 .mypy_cache/*
 __pycache__/*
 .venv/*
