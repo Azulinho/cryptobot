@@ -842,7 +842,7 @@ class Bot:
         message = " ".join(
             [
                 f"{c_from_timestamp(coin.date)}: {coin.symbol} "
-                f"[{coin.status}]",
+                f"[SOLD_BY_{coin.status}]",
                 f"A:{coin.holding_time}s",
                 f"U:{coin.volume} P:{coin.price} T:{coin.value}",
                 f"{word}:{coin.profit:.3f}",
@@ -1816,6 +1816,7 @@ class Bot:
                 # new listed coins will return an empty array
                 # so we bail out early here
                 if not results:
+                    logging.debug(f"(empty klines from {f_path}")
                     return True
 
                 _, _, high, low, _, _, closetime, _, _, _, _, _ = results[0]
