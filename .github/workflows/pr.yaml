@@ -83,7 +83,7 @@ jobs:
         run: |
           set -e
           pip install docker-compose
-          docker-compose build
+          docker-compose build --no-cache
 
       - name: run automated-backtesting
         run: |
