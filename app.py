@@ -650,6 +650,7 @@ class Bot:
 
         # and give this coin a new fresh date based on our recent actions
         coin.date = float(udatetime.now().timestamp())
+        return True
 
     def place_buy_order(self, coin, volume):
         """places a limit/market buy order"""
