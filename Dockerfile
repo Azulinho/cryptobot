@@ -34,6 +34,13 @@ RUN install_packages \
 
 
 RUN useradd -d /cryptobot -u 1001 -ms /bin/bash cryptobot
+RUN cd /tmp \
+  && wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz \
+  && tar xf ta-lib-0.4.0-src.tar.gz \
+  && cd ta-lib \
+  && ./configure --prefix=/usr \
+  && make \
+  && make install
 USER cryptobot
 ENV HOME /cryptobot
 WORKDIR /cryptobot
@@ -47,6 +54,7 @@ ADD requirements.txt .
 RUN /cryptobot/.venv/bin/pip install --upgrade pip setuptools wheel
 # pyenv is failling to compile isal without setting C_INCLUDE_PATH
 RUN C_INCLUDE_PATH=/cryptobot/.pyenv/versions/pyston-2.3.2/include/python3.8-pyston2.3/ /cryptobot/.venv/bin/pip install -r requirements.txt
+
 
 FROM bitnami/minideb:bullseye AS cryptobot
 RUN install_packages \
@@ -65,6 +73,8 @@ ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims/:$PATH"
 COPY --from=builder /cryptobot/.python-version /cryptobot/
 COPY --from=builder /cryptobot/.pyenv/ /cryptobot/.pyenv/
 COPY --from=builder /cryptobot/.venv/ /cryptobot/.venv/
+COPY --from=builder /usr/include/ta-lib/ /usr/include-ta-lib/
+COPY --from=builder /usr/bin/ta-lib-config /usr/bin/ta-lib-config
 ADD app.py .
 ADD lib/ lib/
 ADD strategies/ strategies/

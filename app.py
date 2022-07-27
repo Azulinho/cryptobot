@@ -572,7 +572,12 @@ class Bot:
             if self.order_type == "LIMIT":
                 order_book = self.client.get_order_book(symbol=coin.symbol)
                 logging.debug(f"order_book: {order_book}")
-                bid, _ = order_book["bids"][0]
+                try:
+                    bid, _ = order_book["bids"][0]
+                except IndexError as error:
+                    # if the order_book is empty we'll get an exception here
+                    logging.debug(f"{coin.symbol} {error}")
+                    return False
                 logging.debug(f"bid: {bid}")
                 logging.info(
                     f"{now}: {coin.symbol} [SELLING] {coin.volume} of "
@@ -645,6 +650,7 @@ class Bot:
 
         # and give this coin a new fresh date based on our recent actions
         coin.date = float(udatetime.now().timestamp())
+        return True
 
     def place_buy_order(self, coin, volume):
         """places a limit/market buy order"""
@@ -655,7 +661,12 @@ class Bot:
             if self.order_type == "LIMIT":
                 order_book = self.client.get_order_book(symbol=coin.symbol)
                 logging.debug(f"order_book: {order_book}")
-                ask, _ = order_book["asks"][0]
+                try:
+                    ask, _ = order_book["asks"][0]
+                except IndexError as error:
+                    # if the order_book is empty we'll get an exception here
+                    logging.debug(f"{coin.symbol} {error}")
+                    return False
                 logging.debug(f"ask: {ask}")
                 logging.info(
                     f"{now}: {coin.symbol} [BUYING] {volume} of "
@@ -831,7 +842,7 @@ class Bot:
         message = " ".join(
             [
                 f"{c_from_timestamp(coin.date)}: {coin.symbol} "
-                f"[{coin.status}]",
+                f"[SOLD_BY_{coin.status}]",
                 f"A:{coin.holding_time}s",
                 f"U:{coin.volume} P:{coin.price} T:{coin.value}",
                 f"{word}:{coin.profit:.3f}",
@@ -968,7 +979,13 @@ class Bot:
                 # when looking for a buy/sell position, we can look  at a
                 # position within the order book and not retrive the first one
                 order_book = self.client.get_order_book(symbol=symbol)
-                market_price = float(order_book["asks"][0][0])
+                try:
+                    market_price = float(order_book["asks"][0][0])
+                except IndexError as error:
+                    # if the order_book is empty we'll get an exception here
+                    logging.debug(f"{symbol} {error}")
+                    return
+
                 logging.debug(
                     f"{symbol} in TARGET_DIP using order_book price:"
                     + f" {market_price}"
@@ -1799,6 +1816,7 @@ class Bot:
                 # new listed coins will return an empty array
                 # so we bail out early here
                 if not results:
+                    logging.debug(f"(empty klines from {f_path}")
                     return True
 
                 _, _, high, low, _, _, closetime, _, _, _, _, _ = results[0]

@@ -14,6 +14,16 @@ jobs:
       - name: install build-essentials
         run: sudo apt-get -y install build-essential
 
+      - name: install ta-lib
+        run: |
+          cd /tmp \
+          && wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz \
+          && tar xf ta-lib-0.4.0-src.tar.gz \
+          && cd ta-lib \
+          && ./configure --prefix=/usr \
+          && make \
+          && sudo make install
+
       - name: pyenv install
         uses: "gabrielfalcao/pyenv-action@v5"
         with:
@@ -83,7 +93,7 @@ jobs:
         run: |
           set -e
           pip install docker-compose
-          docker-compose build
+          docker-compose build --no-cache
 
       - name: run automated-backtesting
         run: |
