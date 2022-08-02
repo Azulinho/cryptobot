@@ -211,6 +211,7 @@ class Coin:  # pylint: disable=too-few-public-methods
         # to buy soon.
         if self.status == "TARGET_DIP":
             if market_price < self.dip:
+                logging.debug(f"{self.symbol}: new dip: {self.dip}")
                 self.dip = market_price
 
         # updates the different price buckets data for this coint and
@@ -497,6 +498,8 @@ class Bot:
         total: float = 0
         qty: float = 0
 
+        logging.debug(f"{coin.symbol} -> order_dtails:{order_details}")
+
         for k in order_details["fills"]:
             item_price = float(k["price"])
             item_qty = float(k["qty"])
@@ -507,6 +510,7 @@ class Bot:
         avg = total / qty
 
         volume = float(self.calculate_volume_size(coin))
+        logging.debug(f"{coin.symbol} -> volume:{volume} avgPrice:{avg}")
 
         return {
             "avgPrice": float(avg),
@@ -718,7 +722,7 @@ class Bot:
                     logging.info(
                         " ".join(
                             [
-                                f"{now}: {coin.symbol} ",
+                                f"{now}: {coin.symbol}",
                                 f"[EXPIRED_{self.order_type}_BUY] order",
                                 f" for {volume} of {coin.symbol} ",
                                 f"at {price}",
@@ -750,6 +754,7 @@ class Bot:
             coin.volume = self.extract_order_data(order_details, coin)[
                 "volume"
             ]
+        return True
 
     def buy_coin(self, coin) -> bool:
         """calls Binance to buy a coin"""
@@ -772,7 +777,8 @@ class Bot:
 
         # we never place binance orders in backtesting mode.
         if self.mode in ["testnet", "live"]:
-            self.place_buy_order(coin, volume)
+            if not self.place_buy_order(coin, volume):
+                return False
 
             # calculate the current value
             coin.value = float(coin.bought_at) * float(coin.volume)
@@ -828,7 +834,8 @@ class Bot:
 
         # in backtesting mode, we never place sell orders on binance
         if self.mode in ["testnet", "live"]:
-            self.place_sell_order(coin)
+            if not self.place_sell_order(coin):
+                return False
 
         # finally calculate the value at sale and the total profit
         coin.value = float(float(coin.volume) * float(coin.price))
@@ -935,7 +942,7 @@ class Bot:
         )
         if self.debug:
             logging.debug(
-                f"[{coin.symbol}] investment:{self.investment} "
+                f"[{coin.symbol}] investment:{self.investment}{self.pairing} "
                 + f"vol:{volume} price:{coin.price} step_size:{step_size}"
             )
         return volume
@@ -1079,13 +1086,14 @@ class Bot:
         """checks for possible loss on a coin"""
         # oh we already own this one, lets check prices
         # deal with STOP_LOSS
-        if (
-            coin.price < percent(coin.stop_loss_at_percentage, coin.bought_at)
-            and coin.status != "STOP_LOSS"
-        ):
+        if coin.price < percent(coin.stop_loss_at_percentage, coin.bought_at):
+            if coin.status != "STOP_LOSS":
+                logging.info(
+                    f"{c_from_timestamp(coin.date)}: {coin.symbol} "
+                    + f"[{coin.status}] -> [STOP_LOSS]"
+                )
             coin.status = "STOP_LOSS"
             if not self.sell_coin(coin):
-                coin.status = "HOLD"
                 return False
 
             self.losses = self.losses + 1
@@ -1111,16 +1119,20 @@ class Bot:
         # when we have reached the TARGET_SELL and a coin drops in price
         # below the SELL_AT_PERCENTAGE price we sell the coin immediately
         # if SELL_AS_SOON_IT_DROPS is set
-        if coin.status == "TARGET_SELL" and coin.price < percent(
-            coin.sell_at_percentage, coin.bought_at
+        if (
+            coin.status
+            in [
+                "TARGET_SELL",
+                "GONE_UP_AND_DROPPED",
+            ]
+            and coin.price < percent(coin.sell_at_percentage, coin.bought_at)
         ):
             coin.status = "GONE_UP_AND_DROPPED"
             logging.info(
-                f"{c_from_timestamp(coin.date)} {coin.symbol} "
+                f"{c_from_timestamp(coin.date)}: {coin.symbol} "
                 + "[TARGET_SELL] -> [GONE_UP_AND_DROPPED]"
             )
             if not self.sell_coin(coin):
-                coin.status = "TARGET_SELL"
                 return False
             self.wins = self.wins + 1
             return True
@@ -1153,7 +1165,6 @@ class Bot:
             ):
                 # let's sell it then
                 if not self.sell_coin(coin):
-                    coin.status = "TARGET_SELL"
                     return False
                 self.wins = self.wins + 1
                 return True
@@ -1169,7 +1180,6 @@ class Bot:
         if coin.holding_time > coin.hard_limit_holding_time:
             coin.status = "STALE"
             if not self.sell_coin(coin):
-                coin.status = "HOLD"
                 return False
             self.stales = self.stales + 1
 

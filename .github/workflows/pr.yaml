@@ -87,7 +87,6 @@ jobs:
       - name: Pull latest upstream base
         run: |
           docker pull bitnami/minideb:bullseye
-          docker pull ghcr.io/azulinho/cryptobot:latest
 
       - name: local docker-compose build
         run: |
