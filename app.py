@@ -891,7 +891,7 @@ class Bot:
 
         logging.info(
             f"{c_from_timestamp(coin.date)}: INVESTMENT: {self.investment} "
-            + f"PROFIT: {self.profit} WALLET: {self.wallet}"
+            + f"PROFIT: {self.profit} WALLET: ({len(self.wallet)}/{self.max_coins}) {self.wallet}"
         )
         return True
 
