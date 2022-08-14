@@ -1119,14 +1119,10 @@ class Bot:
         # when we have reached the TARGET_SELL and a coin drops in price
         # below the SELL_AT_PERCENTAGE price we sell the coin immediately
         # if SELL_AS_SOON_IT_DROPS is set
-        if (
-            coin.status
-            in [
-                "TARGET_SELL",
-                "GONE_UP_AND_DROPPED",
-            ]
-            and coin.price < percent(coin.sell_at_percentage, coin.bought_at)
-        ):
+        if coin.status in [
+            "TARGET_SELL",
+            "GONE_UP_AND_DROPPED",
+        ] and coin.price < percent(coin.sell_at_percentage, coin.bought_at):
             coin.status = "GONE_UP_AND_DROPPED"
             logging.info(
                 f"{c_from_timestamp(coin.date)}: {coin.symbol} "
@@ -1180,6 +1176,7 @@ class Bot:
         # allow a TARGET_SELL to run
         if coin.status == "TARGET_SELL":
             return False
+
         if coin.holding_time > coin.hard_limit_holding_time:
             coin.status = "STALE"
             if not self.sell_coin(coin):
