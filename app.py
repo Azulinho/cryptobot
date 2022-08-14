@@ -1177,6 +1177,9 @@ class Bot:
         # for longer than that amount of time, we force a sale, regardless of
         # its current value.
 
+        # allow a TARGET_SELL to run
+        if coin.status == "TARGET_SELL":
+            return False
         if coin.holding_time > coin.hard_limit_holding_time:
             coin.status = "STALE"
             if not self.sell_coin(coin):
@@ -1210,6 +1213,10 @@ class Bot:
         # This improves ours chances of selling a coin for which our
         # SELL_AT_PERCENTAGE was just a bit too high, and the bot downgrades
         # its expectactions by meeting half-way.
+
+        # allow a TARGET_SELL to run
+        if coin.status == "TARGET_SELL":
+            return False
 
         # This coin is past our soft limit
         # we apply a sliding window to the buy profit
