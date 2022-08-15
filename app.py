@@ -889,9 +889,10 @@ class Bot:
         self.clear_coin_stats(coin)
         self.clear_all_coins_stats()
 
+        exposure = self.calculates_exposure()
         logging.info(
             f"{c_from_timestamp(coin.date)}: INVESTMENT: {self.investment} "
-            + f"PROFIT: {self.profit} WALLET: ({len(self.wallet)}/{self.max_coins}) {self.wallet}"
+            + f"PROFIT: {self.profit} EXPOSURE: {exposure} WALLET: ({len(self.wallet)}/{self.max_coins}) {self.wallet}"
         )
         return True
 
@@ -1720,6 +1721,7 @@ class Bot:
 
         logging.info(f"backtesting: {price_log}")
         logging.info(f"wallet: {self.wallet}")
+        logging.info(f"exposure: {self.calculates_exposure()}")
         try:
             # we support .lz4 and .gz for our price.log files.
             # gzip -3 files provide the fastest decompression times we were able
@@ -1950,6 +1952,15 @@ class Bot:
             f"wins:{self.wins} losses:{self.losses} "
             + f"stales:{self.stales} holds:{len(self.wallet)}"
         )
+
+    def calculates_exposure(self):
+        """calculates current balance"""
+
+        exposure = 0
+        for symbol in self.wallet:
+            exposure = exposure + self.coins[symbol].profit
+
+        return exposure
 
 
 if __name__ == "__main__":
