@@ -537,14 +537,14 @@ class Bot:
         if self.wallet:
             self.check_for_sale_conditions(coin)
 
-        # our wallet is already full
-        if len(self.wallet) == self.max_coins:
-            return
-
         # is this a new coin?
         if self.enable_new_listing_checks:
             if coin.new_listing(self.enable_new_listing_checks_age_in_days):
                 return
+
+        # our wallet is already full
+        if len(self.wallet) == self.max_coins:
+            return
 
         # has the current price been influenced by a pump and dump?
         if self.enable_pump_and_dump_checks:
