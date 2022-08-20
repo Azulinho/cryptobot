@@ -1740,6 +1740,8 @@ class Bot:
             while True:
                 # reading a chunk of lines like this speeds up backtesting
                 # by a large amount.
+                if self.quit:
+                    break
                 next_n_lines = list(islice(f, 4 * 1024 * 1024))
                 if not next_n_lines:
                     break
