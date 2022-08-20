@@ -480,6 +480,10 @@ class Bot:
         # coins, those remain in our wallet.
         # Typically used when MAX_COINS = 1
         self.stop_bot_on_loss: bool = config.get("STOP_BOT_ON_LOSS", False)
+        # stops the bot as soon we hit a STALE. If we are still holding
+        # coins, those remain in our wallet.
+        # Mostly used for quitting a backtesting session early
+        self.stop_bot_on_stale: bool = config.get("STOP_BOT_ON_STALE", False)
         # indicates where we found a .stop flag file
         self.stop_flag: bool = False
         # set by the bot so to quit safely as soon as possible.
@@ -1193,6 +1197,9 @@ class Bot:
             coin.naughty_timeout = int(
                 self.tickers[coin.symbol]["NAUGHTY_TIMEOUT"]
             )
+            if self.stop_bot_on_stale:
+                # STOP_BOT_ON_STALE is set, set a STOP flag to stop the bot
+                self.quit = True
             return True
         return False
 
