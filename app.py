@@ -1834,8 +1834,10 @@ class Bot:
             # and attempt to pull the required fields from our data.
             try:
                 logging.debug(f"(trying to read klines from {f_path}")
-                with open(f_path, "r") as f:
-                    results = json.load(f)
+                results = []
+                if exists(f_path):
+                    with open(f_path, "r") as f:
+                        results = json.load(f)
                 # new listed coins will return an empty array
                 # so we bail out early here
                 if not results:
@@ -1852,6 +1854,9 @@ class Bot:
                 # binance will return a 400 for when a coin doesn't exist
                 if response.status_code == 400:
                     logging.warning(f"got a 400 from binance for {symbol}")
+                    if self.mode == "backtesting":
+                        with open(f_path, "w") as f:
+                            f.write(json.dumps([]))
                     return False
 
                 results = response.json()
