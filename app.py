@@ -4,7 +4,7 @@ import argparse
 import importlib
 import json
 import logging
-import pickle
+import pickle  # nosec
 import sys
 import threading
 import traceback
@@ -28,16 +28,9 @@ from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 from xopen import xopen
 
-from lib.helpers import (
-    add_100,
-    c_date_from,
-    c_from_timestamp,
-    cached_binance_client,
-    floor_value,
-    mean,
-    percent,
-    requests_with_backoff,
-)
+from lib.helpers import (add_100, c_date_from, c_from_timestamp,
+                         cached_binance_client, floor_value, mean, percent,
+                         requests_with_backoff)
 
 
 def control_center() -> None:
@@ -896,7 +889,8 @@ class Bot:
         exposure = self.calculates_exposure()
         logging.info(
             f"{c_from_timestamp(coin.date)}: INVESTMENT: {self.investment} "
-            + f"PROFIT: {self.profit} EXPOSURE: {exposure} WALLET: ({len(self.wallet)}/{self.max_coins}) {self.wallet}"
+            + f"PROFIT: {self.profit} EXPOSURE: {exposure} WALLET: "
+            + f"({len(self.wallet)}/{self.max_coins}) {self.wallet}"
         )
         return True
 
@@ -942,7 +936,8 @@ class Bot:
 
         volume = float(
             floor_value(
-                (self.investment / self.max_coins) / coin.price, step_size
+                (self.investment / self.max_coins) / coin.price,
+                step_size
             )
         )
         if self.debug:
@@ -1124,10 +1119,14 @@ class Bot:
         # when we have reached the TARGET_SELL and a coin drops in price
         # below the SELL_AT_PERCENTAGE price we sell the coin immediately
         # if SELL_AS_SOON_IT_DROPS is set
-        if coin.status in [
-            "TARGET_SELL",
-            "GONE_UP_AND_DROPPED",
-        ] and coin.price < percent(coin.sell_at_percentage, coin.bought_at):
+        if (
+            coin.status
+            in [
+                "TARGET_SELL",
+                "GONE_UP_AND_DROPPED",
+            ]
+            and coin.price < percent(coin.sell_at_percentage, coin.bought_at)
+        ):
             coin.status = "GONE_UP_AND_DROPPED"
             logging.info(
                 f"{c_from_timestamp(coin.date)}: {coin.symbol} "
@@ -1405,11 +1404,11 @@ class Bot:
         if exists("state/coins.pickle"):
             logging.warning("found coins.pickle, loading coins")
             with open("state/coins.pickle", "rb") as f:
-                self.coins = pickle.load(f)
+                self.coins = pickle.load(f)  # nosec
         if exists("state/wallet.pickle"):
             logging.warning("found wallet.pickle, loading wallet")
             with open("state/wallet.pickle", "rb") as f:
-                self.wallet = pickle.load(f)
+                self.wallet = pickle.load(f)  # nosec
             logging.warning(f"wallet contains {self.wallet}")
 
         # sync our coins state with the list of coins we want to use.
@@ -1829,7 +1828,7 @@ class Bot:
             )
 
             query = f"{api_url}endTime={end_unix_time}&interval=1{unit}"
-            md5_query = md5(query.encode()).hexdigest()
+            md5_query = md5(query.encode()).hexdigest()  # nosec
             f_path = f"cache/{symbol}.{md5_query}"
 
             # wrap results in a try call, in case our cached files are corrupt
