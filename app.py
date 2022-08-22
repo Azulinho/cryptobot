@@ -1835,15 +1835,14 @@ class Bot:
             # and attempt to pull the required fields from our data.
             try:
                 logging.debug(f"(trying to read klines from {f_path}")
-                results = []
                 if exists(f_path):
                     with open(f_path, "r") as f:
                         results = json.load(f)
-                # new listed coins will return an empty array
-                # so we bail out early here
-                if not results:
-                    logging.debug(f"(empty klines from {f_path}")
-                    return True
+                    # new listed coins will return an empty array
+                    # so we bail out early here
+                    if not results:
+                        logging.debug(f"(empty klines from {f_path}")
+                        return True
 
                 _, _, high, low, _, _, closetime, _, _, _, _, _ = results[0]
             except Exception:  # pylint: disable=broad-except
