@@ -53,36 +53,55 @@ jobs:
           pylint lib/*.py
           pylint strategies/*.py
 
-      - name: run backtesting strategies
+      - name: run backtesting strategies BuyMoonSellRecoveryStrategy.yaml
         run: |
           set -e
           echo BuyMoonSellRecoveryStrategy.yaml
           python app.py -c tests/BuyMoonSellRecoveryStrategy.yaml -m backtesting -s tests/fake.yaml |tail | tee result.txt
-          grep ' wins:375 losses:98 stales:119 holds:1' result.txt
+          grep ' wins:385 losses:97 stales:107 holds:1' result.txt
 
+      - name: run backtesting strategies BuyOnGrowthTrendAfterDropStrategy.yaml
+        run: |
+          set -e
           echo BuyOnGrowthTrendAfterDropStrategy.yaml
           python app.py -c tests/BuyOnGrowthTrendAfterDropStrategy.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:2 losses:1 stales:97 holds:2' result.txt
+          grep 'wins:19 losses:1 stales:78 holds:2' result.txt
 
+
+      - name: run backtesting strategies BuyDropSellRecoveryStrategy.yaml
+        run: |
+          set -e
           echo BuyDropSellRecoveryStrategy.yaml
           python app.py -c tests/BuyDropSellRecoveryStrategy.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:0 losses:6 stales:10 holds:0' result.txt
+          grep 'wins:4 losses:9 stales:1 holds:0' result.txt
 
+      - name: run backtesting strategies BuyDropSellRecoveryStrategyWhenBTCisUp.yaml
+        run: |
+          set -e
           echo BuyDropSellRecoveryStrategyWhenBTCisUp.yaml
           python app.py -c tests/BuyDropSellRecoveryStrategyWhenBTCisUp.yaml -m backtesting -s tests/fake.yaml | tail |tee result.txt
-          grep 'wins:13 losses:1 stales:929 holds:0' result.txt
+          grep 'wins:207 losses:1 stales:648 holds:0' result.txt
 
+      - name: run backtesting strategies BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
+        run: |
+          set -e
           echo BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
           python app.py -c tests/BuyDropSellRecoveryStrategyWhenBTCisDown.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:0 losses:0 stales:105 holds:0' result.txt
+          grep 'wins:9 losses:0 stales:97 holds:0' result.txt
 
+      - name: run backtesting strategies BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml
+        run: |
+          set -e
           echo BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml
           python app.py -c tests/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:3 losses:1 stales:500 holds:0' result.txt
+          grep 'wins:116 losses:0 stales:358 holds:0' result.txt
 
+      - name: run backtesting strategies BuyOnRecoveryAfterDropFromAverageStrategy.yaml
+        run: |
+          set -e
           echo BuyOnRecoveryAfterDropFromAverageStrategy.yaml
           python app.py -c tests/BuyOnRecoveryAfterDropFromAverageStrategy.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:7 losses:5 stales:775 holds:0' result.txt
+          grep 'wins:186 losses:4 stales:599 holds:0' result.txt
 
       - name: Pull latest upstream base
         run: |
