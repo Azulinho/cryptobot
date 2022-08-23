@@ -4,7 +4,7 @@ import argparse
 import importlib
 import json
 import logging
-import pickle
+import pickle  # nosec
 import sys
 import threading
 import traceback
@@ -28,16 +28,9 @@ from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 from xopen import xopen
 
-from lib.helpers import (
-    add_100,
-    c_date_from,
-    c_from_timestamp,
-    cached_binance_client,
-    floor_value,
-    mean,
-    percent,
-    requests_with_backoff,
-)
+from lib.helpers import (add_100, c_date_from, c_from_timestamp,
+                         cached_binance_client, floor_value, mean, percent,
+                         requests_with_backoff)
 
 
 def control_center() -> None:
@@ -480,6 +473,10 @@ class Bot:
         # coins, those remain in our wallet.
         # Typically used when MAX_COINS = 1
         self.stop_bot_on_loss: bool = config.get("STOP_BOT_ON_LOSS", False)
+        # stops the bot as soon we hit a STALE. If we are still holding
+        # coins, those remain in our wallet.
+        # Mostly used for quitting a backtesting session early
+        self.stop_bot_on_stale: bool = config.get("STOP_BOT_ON_STALE", False)
         # indicates where we found a .stop flag file
         self.stop_flag: bool = False
         # set by the bot so to quit safely as soon as possible.
@@ -537,14 +534,14 @@ class Bot:
         if self.wallet:
             self.check_for_sale_conditions(coin)
 
-        # our wallet is already full
-        if len(self.wallet) == self.max_coins:
-            return
-
         # is this a new coin?
         if self.enable_new_listing_checks:
             if coin.new_listing(self.enable_new_listing_checks_age_in_days):
                 return
+
+        # our wallet is already full
+        if len(self.wallet) == self.max_coins:
+            return
 
         # has the current price been influenced by a pump and dump?
         if self.enable_pump_and_dump_checks:
@@ -889,9 +886,11 @@ class Bot:
         self.clear_coin_stats(coin)
         self.clear_all_coins_stats()
 
+        exposure = self.calculates_exposure()
         logging.info(
             f"{c_from_timestamp(coin.date)}: INVESTMENT: {self.investment} "
-            + f"PROFIT: {self.profit} WALLET: {self.wallet}"
+            + f"PROFIT: {self.profit} EXPOSURE: {exposure} WALLET: "
+            + f"({len(self.wallet)}/{self.max_coins}) {self.wallet}"
         )
         return True
 
@@ -937,7 +936,8 @@ class Bot:
 
         volume = float(
             floor_value(
-                (self.investment / self.max_coins) / coin.price, step_size
+                (self.investment / self.max_coins) / coin.price,
+                step_size
             )
         )
         if self.debug:
@@ -1177,6 +1177,10 @@ class Bot:
         # for longer than that amount of time, we force a sale, regardless of
         # its current value.
 
+        # allow a TARGET_SELL to run
+        if coin.status == "TARGET_SELL":
+            return False
+
         if coin.holding_time > coin.hard_limit_holding_time:
             coin.status = "STALE"
             if not self.sell_coin(coin):
@@ -1192,6 +1196,9 @@ class Bot:
             coin.naughty_timeout = int(
                 self.tickers[coin.symbol]["NAUGHTY_TIMEOUT"]
             )
+            if self.stop_bot_on_stale:
+                # STOP_BOT_ON_STALE is set, set a STOP flag to stop the bot
+                self.quit = True
             return True
         return False
 
@@ -1210,6 +1217,10 @@ class Bot:
         # This improves ours chances of selling a coin for which our
         # SELL_AT_PERCENTAGE was just a bit too high, and the bot downgrades
         # its expectactions by meeting half-way.
+
+        # allow a TARGET_SELL to run
+        if coin.status == "TARGET_SELL":
+            return False
 
         # This coin is past our soft limit
         # we apply a sliding window to the buy profit
@@ -1393,11 +1404,11 @@ class Bot:
         if exists("state/coins.pickle"):
             logging.warning("found coins.pickle, loading coins")
             with open("state/coins.pickle", "rb") as f:
-                self.coins = pickle.load(f)
+                self.coins = pickle.load(f)  # nosec
         if exists("state/wallet.pickle"):
             logging.warning("found wallet.pickle, loading wallet")
             with open("state/wallet.pickle", "rb") as f:
-                self.wallet = pickle.load(f)
+                self.wallet = pickle.load(f)  # nosec
             logging.warning(f"wallet contains {self.wallet}")
 
         # sync our coins state with the list of coins we want to use.
@@ -1716,6 +1727,7 @@ class Bot:
 
         logging.info(f"backtesting: {price_log}")
         logging.info(f"wallet: {self.wallet}")
+        logging.info(f"exposure: {self.calculates_exposure()}")
         try:
             # we support .lz4 and .gz for our price.log files.
             # gzip -3 files provide the fastest decompression times we were able
@@ -1727,6 +1739,8 @@ class Bot:
             while True:
                 # reading a chunk of lines like this speeds up backtesting
                 # by a large amount.
+                if self.quit:
+                    break
                 next_n_lines = list(islice(f, 4 * 1024 * 1024))
                 if not next_n_lines:
                     break
@@ -1814,20 +1828,21 @@ class Bot:
             )
 
             query = f"{api_url}endTime={end_unix_time}&interval=1{unit}"
-            md5_query = md5(query.encode()).hexdigest()
+            md5_query = md5(query.encode()).hexdigest()  # nosec
             f_path = f"cache/{symbol}.{md5_query}"
 
             # wrap results in a try call, in case our cached files are corrupt
             # and attempt to pull the required fields from our data.
             try:
                 logging.debug(f"(trying to read klines from {f_path}")
-                with open(f_path, "r") as f:
-                    results = json.load(f)
-                # new listed coins will return an empty array
-                # so we bail out early here
-                if not results:
-                    logging.debug(f"(empty klines from {f_path}")
-                    return True
+                if exists(f_path):
+                    with open(f_path, "r") as f:
+                        results = json.load(f)
+                    # new listed coins will return an empty array
+                    # so we bail out early here
+                    if not results:
+                        logging.debug(f"(empty klines from {f_path}")
+                        return True
 
                 _, _, high, low, _, _, closetime, _, _, _, _, _ = results[0]
             except Exception:  # pylint: disable=broad-except
@@ -1839,6 +1854,9 @@ class Bot:
                 # binance will return a 400 for when a coin doesn't exist
                 if response.status_code == 400:
                     logging.warning(f"got a 400 from binance for {symbol}")
+                    if self.mode == "backtesting":
+                        with open(f_path, "w") as f:
+                            f.write(json.dumps([]))
                     return False
 
                 results = response.json()
@@ -1946,6 +1964,15 @@ class Bot:
             f"wins:{self.wins} losses:{self.losses} "
             + f"stales:{self.stales} holds:{len(self.wallet)}"
         )
+
+    def calculates_exposure(self):
+        """calculates current balance"""
+
+        exposure = 0
+        for symbol in self.wallet:
+            exposure = exposure + self.coins[symbol].profit
+
+        return exposure
 
 
 if __name__ == "__main__":

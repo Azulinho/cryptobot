@@ -1,7 +1,7 @@
 """ helpers module """
 import logging
 import math
-import pickle
+import pickle  # nosec
 from datetime import datetime
 from functools import lru_cache
 from os.path import exists, getctime
@@ -79,7 +79,7 @@ def cached_binance_client(access_key: str, secret_key: str) -> Client:
         ):
             logging.debug("re-using local cached binance.client file")
             with open(cachefile, "rb") as f:
-                _client = pickle.load(f)
+                _client = pickle.load(f)  # nosec
         else:
             try:
                 logging.debug("refreshing cached binance.client")

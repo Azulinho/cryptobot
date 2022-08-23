@@ -179,6 +179,7 @@ def generate_coin_template_config_file(coin, strategy, cfg):
     "TRADING_FEE": $TRADING_FEE,
     "SELL_AS_SOON_IT_DROPS": $SELL_AS_SOON_IT_DROPS,
     "STOP_BOT_ON_LOSS": $STOP_BOT_ON_LOSS,
+    "STOP_BOT_ON_STALE": $STOP_BOT_ON_STALE,
     "ENABLE_NEW_LISTING_CHECKS": False,
     "TICKERS": {
       "$COIN": {
@@ -235,6 +236,7 @@ def generate_coin_template_config_file(coin, strategy, cfg):
                     ],
                     "STRATEGY": strategy,
                     "STOP_BOT_ON_LOSS": cfg.get("STOP_BOT_ON_LOSS", False),
+                    "STOP_BOT_ON_STALE": cfg.get("STOP_BOT_ON_STALE", False),
                 }
             )
         )
@@ -327,6 +329,7 @@ def main():
                     # when we hit a STOP_LOSS
                     if args.sortby == "wins":
                         config["STOP_BOT_ON_LOSS"] = True
+                        config["STOP_BOT_ON_STALE"] = True
 
                     # and we generate a specific coin config file for that strategy
                     generate_coin_template_config_file(
