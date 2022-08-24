@@ -40,6 +40,9 @@ build: checks
 download-price-logs: checks
 	U="$$(id -u)" G="$$(id -g)" docker compose run --name cryptobot.download-price-logs.$(WHOAMI) --rm --entrypoint="/cryptobot/.venv/bin/python /cryptobot/utils/pull_klines.py -s $(FROM) -e $(TO)" cryptobot
 
+prove-backtesting: checks
+	cd log ; zcat $(LOGS) | gzip -3 > lastfewdays.log.gz
+	U="$$(id -u)" G="$$(id -g)" docker compose run --name cryptobot.backtesting.$(WHOAMI).$(CONFIG) --rm --service-ports cryptobot -s secrets/binance.prod.yaml -c configs/$(CONFIG)  -m  backtesting  > results/$(CONFIG).txt 2>&1
 
 help:
 	@echo "USAGE:"
@@ -53,6 +56,7 @@ help:
 	@echo "make lastfewdays DAYS=3 PAIR=USDT"
 	@echo "make automated-backtesting LOGFILE=lastfewdays.log.gz CONFIG=backtesting.yaml MIN=10 FILTER='' SORTBY='profit|wins'"
 	@echo "make download-price-logs FROM=20210101 TO=20211231"
+	@echo "make prove-backtesting CONFIG=myconfig.yaml LOGS='2022060*.log.gz'"
 
 
 support:
