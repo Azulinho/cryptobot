@@ -18,8 +18,8 @@ from time import sleep
 from typing import Any, Dict, List, Tuple
 
 import colorlog
+import epdb
 import udatetime
-import web_pdb
 import yaml
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
@@ -34,8 +34,12 @@ from lib.helpers import (add_100, c_date_from, c_from_timestamp,
 
 
 def control_center() -> None:
-    """pdb web endpoint"""
-    web_pdb.set_trace()
+    """pdb remote endpoint"""
+    while True:
+        try:
+            epdb.serve(port=5555)
+        except Exception:  # pylint: disable=broad-except
+            pass
 
 
 class Coin:  # pylint: disable=too-few-public-methods
