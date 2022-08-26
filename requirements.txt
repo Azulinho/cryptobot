@@ -4,7 +4,6 @@ async-timeout==4.0.0
 asyncore-wsgi==0.0.10
 attrs==21.2.0
 backports.zoneinfo==0.2.1
-bottle==0.12.19
 certifi==2021.10.8
 charset-normalizer==2.0.7
 colorama==0.4.4
@@ -39,9 +38,9 @@ tzlocal==4.1
 udatetime==0.0.16
 ujson==5.4.0
 urllib3==1.26.7
-web-pdb==1.5.7
 websockets==9.1
 xopen==1.2.1
 yarl==1.7.2
 filelock==3.7.1
 ta-lib==0.4.24
+epdb==0.15.1
