@@ -489,6 +489,7 @@ class Bot:
         self.quit: bool = False
         # define if we want to use MARKET or LIMIT orders
         self.order_type: str = config.get("ORDER_TYPE", "MARKET")
+        self.binance_lock = FileLock("state/binance.lock", timeout=30)
 
     def extract_order_data(self, order_details, coin) -> Dict[str, Any]:
         """calculate average price and volume for a buy order"""
@@ -817,8 +818,10 @@ class Bot:
             + f"U:{coin.volume} P:{coin.price} T:{coin.value} "
             + f"SP:{coin.bought_at * coin.sell_at_percentage /100} "
             + f"SL:{coin.bought_at * coin.stop_loss_at_percentage / 100} "
+            + f"BP:-{(100 - coin.buy_at_percentage):.2f}% "
+            + f"TRP:{(100 - coin.trail_recovery_percentage):.2f}% "
             + f"S:+{s_value:.3f}% "
-            + f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}% "
+            + f"TTS:-{(100 - coin.trail_target_sell_percentage):.2f}% "
             + f"LP:{coin.min:.3f} "
             + f"({len(self.wallet)}/{self.max_coins}) "
         )
@@ -856,12 +859,13 @@ class Bot:
                 f"U:{coin.volume} P:{coin.price} T:{coin.value}",
                 f"{word}:{coin.profit:.3f}",
                 f"BP:{coin.bought_at}",
+                f"BP:-{(100 - coin.buy_at_percentage):.2f}%",
+                f"TRP:{(100 - coin.trail_recovery_percentage):.2f}%",
                 f"SP:{coin.bought_at * coin.sell_at_percentage /100}",
                 f"TP:{100 - (coin.bought_at / coin.price * 100):.2f}%",
                 f"SL:{coin.bought_at * coin.stop_loss_at_percentage/100}",
                 f"S:+{percent(coin.trail_target_sell_percentage,coin.sell_at_percentage) - 100:.3f}%",  # pylint: disable=line-too-long
                 f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}%",
-                f"LP:{coin.min}",
                 f"LP:{coin.min}(-{100 - ((coin.min/coin.max) * 100):.2f}%)",
                 f"({len(self.wallet)}/{self.max_coins}) ",
             ]
@@ -1803,7 +1807,6 @@ class Bot:
         # exact same data, we can pull it from disk instead.
         # we pull klines for the last 60min, the last 24h, and the last 1000days
 
-        lock = FileLock("state/load_klines.lockfile", timeout=10)
         symbol = coin.symbol
         logging.info(
             f"{c_from_timestamp(coin.date)}: loading klines for: {symbol}"
@@ -1855,7 +1858,8 @@ class Bot:
                 logging.debug(
                     f"calling binance after failed read from {f_path}"
                 )
-                with lock:
+                # TODO: this can cause an exception on a timeout
+                with self.binance_lock:
                     response = requests_with_backoff(query)
                 # binance will return a 400 for when a coin doesn't exist
                 if response.status_code == 400:

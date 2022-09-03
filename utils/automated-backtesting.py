@@ -62,7 +62,7 @@ def split_logs_into_coins(filename, cfg):
     for symbol in coinfh:
         coinfh[symbol].close()
 
-    now = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+    now = datetime.now().strftime("%H:%M:%S")
     print(f"{now} compressing logfiles....")
     tasks = []
     with get_context("spawn").Pool(processes=N_TASKS) as pool:
@@ -320,10 +320,10 @@ def main():
 
             for run in cfgs["STRATEGIES"][strategy]:
                 # in each strategy we will have multiple runs
-                now = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+                now = datetime.now().strftime("%H:%M:%S")
                 print(
-                    f"{now} backtesting {run} on {strategy} for"
-                    + f"{args.min} on {args.sortby}"
+                    f"{now} backtesting {run} on {strategy} for "
+                    + f"{args.min}% on {args.sortby} mode"
                 )
                 for coin in coinfiles:
                     symbol = coin.split(".")[1]
@@ -358,7 +358,7 @@ def main():
                     try:
                         t.get()
                     except subprocess.TimeoutExpired as excp:
-                        now = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+                        now = datetime.now().strftime("%H:%M:%S")
                         print(f"{now} timeout while running: {excp}")
 
             # finally we soak up the backtesting.log and generate the best
