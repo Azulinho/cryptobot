@@ -7,10 +7,12 @@ import shutil
 import subprocess
 from collections import OrderedDict
 from string import Template
+from datetime import datetime
 
 import yaml
-from xopen import xopen
+import gzip
 
+from multiprocessing import get_context, Pool
 
 def backup_backtesting_log():
     """makes a backup of backtesting.log"""
@@ -20,8 +22,7 @@ def backup_backtesting_log():
 def compress_file(filename):
     """compresses coin price.log file"""
     with open(filename) as uncompressed:
-        print(f"\ncompressing file {filename}\n")
-        with xopen(f"{filename}.gz", mode="wt") as compressed:
+        with gzip.open(f"{filename}.gz", mode="wt") as compressed:
             shutil.copyfileobj(uncompressed, compressed)
     os.remove(filename)
 
@@ -30,9 +31,8 @@ def split_logs_into_coins(filename, cfg):
     """splits one price.log into individual coin price.log files"""
     coinfiles = set()
     coinfh = {}
-    print(f"\nprocessing file {str(filename)}\n")
     pairing = cfg["DEFAULTS"]["PAIRING"]
-    with xopen(f"{filename}", "rt") as logfile:
+    with gzip.open(f"{filename}", "rt") as logfile:
         for line in logfile:
 
             # don't process all the lines, but only the ones related to our PAIR
@@ -62,13 +62,15 @@ def split_logs_into_coins(filename, cfg):
     for symbol in coinfh:
         coinfh[symbol].close()
 
+    now = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+    print(f"{now} compressing logfiles....")
     tasks = []
-    with concurrent.futures.ProcessPoolExecutor(max_workers=N_TASKS) as pool:
+    with get_context("spawn").Pool(processes=N_TASKS) as pool:
         for coin_filename in coinfiles:
-            job = pool.submit(compress_file, coin_filename)
+            job = pool.apply_async(compress_file, (coin_filename,))
             tasks.append(job)
         for t in tasks:
-            t.result()
+            t.get()
     return coinfiles
 
 
@@ -310,7 +312,7 @@ def main():
     if os.path.exists("cache/binance.client"):
         os.remove("cache/binance.client")
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=N_TASKS) as pool:
+    with get_context("spawn").Pool(processes=N_TASKS) as pool:
         # process one strategy at a time
         for strategy in cfgs["STRATEGIES"]:
             # cleanup backtesting.log
@@ -346,16 +348,18 @@ def main():
                     # then we backtesting this strategy run against each coin
                     # ocasionally we get stuck runs, so we timeout a coin run
                     # to a maximum of 15 minutes
-                    job = pool.submit(
-                        wrap_subprocessing, f"coin.{symbol}.yaml", 900
-                    )
+                    job = pool.apply_async(
+                        wrap_subprocessing, (
+                            f"coin.{symbol}.yaml", 900
+                                             ))
                     tasks.append(job)
 
                 for t in tasks:
                     try:
-                        t.result()
+                        t.get()
                     except subprocess.TimeoutExpired as excp:
-                        print(f"timeout while running: {excp}")
+                        now = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+                        print(f"{now} timeout while running: {excp}")
 
             # finally we soak up the backtesting.log and generate the best
             # config from all the runs in this strategy
@@ -373,13 +377,13 @@ def main():
         if os.path.exists("log/backtesting.log"):
             os.remove("log/backtesting.log")
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=N_TASKS) as pool:
+    with get_context("spawn").Pool(processes=N_TASKS) as pool:
         tasks = []
         for strategy in cfgs["STRATEGIES"]:
-            job = pool.submit(wrap_subprocessing, f"{strategy}.yaml")
+            job = pool.apply_async(wrap_subprocessing, (f"{strategy}.yaml", ))
             tasks.append(job)
         for t in tasks:
-            t.result()
+            t.get()
     for item in glob.glob("configs/coin.*.yaml"):
         os.remove(item)
     for item in glob.glob("results/coin.*.txt"):

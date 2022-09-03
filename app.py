@@ -1,6 +1,7 @@
 """ CryptoBot for Binance """
 
 import argparse
+import gzip
 import importlib
 import json
 import logging
@@ -26,7 +27,6 @@ from binance.exceptions import BinanceAPIException
 from filelock import FileLock
 from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
-from xopen import xopen
 
 from lib.helpers import (add_100, c_date_from, c_from_timestamp,
                          cached_binance_client, floor_value, mean, percent,
@@ -1739,7 +1739,7 @@ class Bot:
             if price_log.endswith(".lz4"):
                 f = lz4open(price_log, mode="rt")
             else:
-                f = xopen(price_log, "rt")
+                f = gzip.open(price_log, "rt")
             while True:
                 # reading a chunk of lines like this speeds up backtesting
                 # by a large amount.
