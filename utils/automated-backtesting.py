@@ -201,7 +201,6 @@ def generate_coin_template_config_file(coin, strategy, cfg):
     }"""
     )
 
-    print(f"\ncreating {coin} config for {strategy}\n")
     with open(f"configs/coin.{coin}.yaml", "wt") as f:
         f.write(
             tmpl.substitute(
@@ -321,6 +320,11 @@ def main():
 
             for run in cfgs["STRATEGIES"][strategy]:
                 # in each strategy we will have multiple runs
+                now = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+                print(
+                    f"{now} backtesting {run} on {strategy} for"
+                    + f"{args.min} on {args.sortby}"
+                )
                 for coin in coinfiles:
                     symbol = coin.split(".")[1]
                     config = {
@@ -341,10 +345,6 @@ def main():
                 tasks = []
                 for coin in coinfiles:
                     symbol = coin.split(".")[1]
-                    print(
-                        f"\nbacktesting {symbol} for {run} on {strategy} for"
-                        + f"{args.min} on {args.sortby}\n"
-                    )
                     # then we backtesting this strategy run against each coin
                     # ocasionally we get stuck runs, so we timeout a coin run
                     # to a maximum of 15 minutes

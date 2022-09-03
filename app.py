@@ -192,10 +192,11 @@ class Coin:  # pylint: disable=too-few-public-methods
                     + f"-> [TARGET_SELL] ({self.price}) "
                     + f"A:{self.holding_time}s "
                     + f"U:{self.volume} P:{self.price} T:{self.value} "
+                    + f"BP:{self.bought_at} "
                     + f"SP:{self.bought_at * self.sell_at_percentage /100} "
                     + f"S:+{s_value:.3f}% "
-                    + f"TTS:-{(100 - self.trail_target_sell_percentage):.3f}% "
-                    + f"LP:{self.min:.3f} "
+                    + f"TTS:-{(100 - self.trail_target_sell_percentage):.2f}% "
+                    + f"LP:{self.min}(-{100 - ((self.min/self.max) * 100):.3f}%) "
                 )
 
         # monitors for the highest price recorded for a coin we are looking
@@ -854,12 +855,14 @@ class Bot:
                 f"A:{coin.holding_time}s",
                 f"U:{coin.volume} P:{coin.price} T:{coin.value}",
                 f"{word}:{coin.profit:.3f}",
+                f"BP:{coin.bought_at}",
                 f"SP:{coin.bought_at * coin.sell_at_percentage /100}",
                 f"TP:{100 - (coin.bought_at / coin.price * 100):.2f}%",
                 f"SL:{coin.bought_at * coin.stop_loss_at_percentage/100}",
                 f"S:+{percent(coin.trail_target_sell_percentage,coin.sell_at_percentage) - 100:.3f}%",  # pylint: disable=line-too-long
                 f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}%",
-                f"LP:{coin.min:.3f}",
+                f"LP:{coin.min}",
+                f"LP:{coin.min}(-{100 - ((coin.min/coin.max) * 100):.2f}%)",
                 f"({len(self.wallet)}/{self.max_coins}) ",
             ]
         )
@@ -940,8 +943,7 @@ class Bot:
 
         volume = float(
             floor_value(
-                (self.investment / self.max_coins) / coin.price,
-                step_size
+                (self.investment / self.max_coins) / coin.price, step_size
             )
         )
         if self.debug:
