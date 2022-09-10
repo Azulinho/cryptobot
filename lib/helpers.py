@@ -62,7 +62,6 @@ def requests_with_backoff(query: str):
     return response
 
 
-@retry(wait=wait_exponential(multiplier=15, max=10))
 def cached_binance_client(access_key: str, secret_key: str) -> Client:
     """retry wrapper for binance client first call"""
 
