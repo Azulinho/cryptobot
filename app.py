@@ -1846,6 +1846,7 @@ class Bot:
             # wrap results in a try call, in case our cached files are corrupt
             # and attempt to pull the required fields from our data.
             try:
+                results = []
                 logging.debug(f"(trying to read klines from {f_path}")
                 if exists(f_path):
                     with open(f_path, "r") as f:
