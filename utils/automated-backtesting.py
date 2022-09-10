@@ -380,6 +380,15 @@ def main():
     with get_context("spawn").Pool(processes=N_TASKS) as pool:
         tasks = []
         for strategy in cfgs["STRATEGIES"]:
+            # first check if our config to test actually contain any tickers
+            # if not we will skip this round
+            with open(f"configs/{strategy}.yaml") as cf:
+                tickers = yaml.safe_load(cf.read())['TICKERS']
+            if not tickers:
+                now = datetime.now().strftime("%H:%M:%S")
+                print(f"{now} automated-backtesting: no tickers in {strategy} yaml, skipping run")
+                continue
+
             job = pool.apply_async(wrap_subprocessing, (f"{strategy}.yaml", ))
             tasks.append(job)
         for t in tasks:

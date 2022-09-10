@@ -1774,11 +1774,14 @@ class Bot:
         self.clear_all_coins_stats()
 
         # main backtesting block
-        for price_log in self.price_logs:
-            self.backtest_logfile(price_log)
-            if exists(".stop") or self.quit:
-                logging.warning(".stop flag found. Stopping bot.")
-                break
+        if not self.cfg["TICKERS"]:
+            logging.warning("no tickers to backtest")
+        else:
+            for price_log in self.price_logs:
+                self.backtest_logfile(price_log)
+                if exists(".stop") or self.quit:
+                    logging.warning(".stop flag found. Stopping bot.")
+                    break
 
         # now that we are done, lets record our results
         with open("log/backtesting.log", "a", encoding="utf-8") as f:
