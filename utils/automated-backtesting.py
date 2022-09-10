@@ -283,6 +283,7 @@ def generate_config_for_tuned_strategy_run(strategy, cfg, results, logfile):
                     "STRATEGY": strategy,
                     "RESULTS": results,
                     "LOGFILE": [logfile],
+                    "ENABLE_NEW_LISTING_CHECKS": True,
                     "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS": cfg.get(
                         "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS", 31
                     ),
