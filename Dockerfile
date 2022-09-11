@@ -1,5 +1,6 @@
-FROM bitnami/minideb:bullseye AS builder
-RUN install_packages \
+FROM ubuntu:focal AS builder
+RUN apt-get update &&  \
+  DEBIAN_FRONTEND=noninteractive apt-get install -yq \
   make \
   build-essential \
   libssl-dev \
@@ -53,11 +54,11 @@ RUN python -m venv /cryptobot/.venv
 ADD requirements.txt .
 RUN /cryptobot/.venv/bin/pip install --upgrade pip setuptools wheel
 # pyenv is failling to compile isal without setting C_INCLUDE_PATH
-RUN C_INCLUDE_PATH=/cryptobot/.pyenv/versions/pyston-2.3.2/include/python3.8-pyston2.3/ /cryptobot/.venv/bin/pip install -r requirements.txt
+RUN C_INCLUDE_PATH=/cryptobot/.pyenv/versions/pyston-2.3.4/include/python3.8-pyston2.3/ /cryptobot/.venv/bin/pip install -r requirements.txt
 
 
-FROM bitnami/minideb:bullseye AS cryptobot
-RUN install_packages \
+FROM ubuntu:focal AS cryptobot
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -yq \
   xz-utils \
   gzip \
   pigz \
@@ -80,5 +81,8 @@ ADD lib/ lib/
 ADD strategies/ strategies/
 ADD utils/automated-backtesting.py utils/automated-backtesting.py
 ADD utils/automated-backtesting.sh utils/automated-backtesting.sh
+ADD utils/prove-backtesting.py utils/prove-backtesting.py
+ADD utils/prove-backtesting.sh utils/prove-backtesting.sh
 ADD utils/pull_klines.py utils/pull_klines.py
+EXPOSE 5555
 ENTRYPOINT ["/cryptobot/.venv/bin/python", "-u",  "app.py"]
