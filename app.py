@@ -1997,6 +1997,10 @@ if __name__ == "__main__":
         parser.add_argument(
             "-m", "--mode", help='bot mode ["live", "backtesting", "testnet"]'
         )
+        # TODO: the args below are not currently consumed
+        parser.add_argument("-cd", "--config-dir", help="configs directory", default="configs/")
+        parser.add_argument("-rd", "--results-dir", help="results directory", default="results/")
+        parser.add_argument("-ld", "--logs-dir", help="logs directory", default="logs/")
         args = parser.parse_args()
 
         with open(args.config, encoding="utf-8") as _f:

@@ -300,6 +300,15 @@ def main():
     parser.add_argument("-m", "--min", help="min coin profit")
     parser.add_argument("-f", "--filter", help="filter by")
     parser.add_argument("-s", "--sortby", help="sort by 'profit' or 'wins'")
+    parser.add_argument(
+        "-cd", "--config-dir", help="configs directory", default="configs/"
+    )
+    parser.add_argument(
+        "-rd", "--results-dir", help="results directory", default="results/"
+    )
+    parser.add_argument(
+        "-ld", "--logs-dir", help="logs directory", default="logs/"
+    )
     args = parser.parse_args()
 
     with open(args.cfgs, "rt") as f:
