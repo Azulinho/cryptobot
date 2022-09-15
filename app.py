@@ -489,7 +489,7 @@ class Bot:
         self.quit: bool = False
         # define if we want to use MARKET or LIMIT orders
         self.order_type: str = config.get("ORDER_TYPE", "MARKET")
-        self.binance_lock = FileLock("state/binance.lock", timeout=30)
+        self.binance_lock = FileLock("state/binance.lock", timeout=90)
 
     def extract_order_data(self, order_details, coin) -> Dict[str, Any]:
         """calculate average price and volume for a buy order"""
