@@ -65,7 +65,7 @@ jobs:
           set -e
           echo BuyOnGrowthTrendAfterDropStrategy.yaml
           python app.py -c tests/BuyOnGrowthTrendAfterDropStrategy.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:19 losses:1 stales:78 holds:2' result.txt
+          grep 'wins:19 losses:1 stales:77 holds:2' result.txt
 
 
       - name: run backtesting strategies BuyDropSellRecoveryStrategy.yaml
@@ -101,7 +101,7 @@ jobs:
           set -e
           echo BuyOnRecoveryAfterDropFromAverageStrategy.yaml
           python app.py -c tests/BuyOnRecoveryAfterDropFromAverageStrategy.yaml -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:186 losses:4 stales:599 holds:0' result.txt
+          grep 'wins:187 losses:4 stales:598 holds:0' result.txt
 
       - name: Pull latest upstream base
         run: |
