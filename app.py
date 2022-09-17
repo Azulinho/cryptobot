@@ -489,6 +489,7 @@ class Bot:
         self.quit: bool = False
         # define if we want to use MARKET or LIMIT orders
         self.order_type: str = config.get("ORDER_TYPE", "MARKET")
+        self.binance_lock = FileLock("state/binance.lock", timeout=90)
 
     def extract_order_data(self, order_details, coin) -> Dict[str, Any]:
         """calculate average price and volume for a buy order"""
@@ -817,8 +818,10 @@ class Bot:
             + f"U:{coin.volume} P:{coin.price} T:{coin.value} "
             + f"SP:{coin.bought_at * coin.sell_at_percentage /100} "
             + f"SL:{coin.bought_at * coin.stop_loss_at_percentage / 100} "
+            + f"BP:-{(100 - coin.buy_at_percentage):.2f}% "
+            + f"TRP:{(coin.trail_recovery_percentage - 100):.2f}% "
             + f"S:+{s_value:.3f}% "
-            + f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}% "
+            + f"TTS:-{(100 - coin.trail_target_sell_percentage):.2f}% "
             + f"LP:{coin.min:.3f} "
             + f"({len(self.wallet)}/{self.max_coins}) "
         )
@@ -856,12 +859,13 @@ class Bot:
                 f"U:{coin.volume} P:{coin.price} T:{coin.value}",
                 f"{word}:{coin.profit:.3f}",
                 f"BP:{coin.bought_at}",
+                f"BP:-{(100 - coin.buy_at_percentage):.2f}%",
+                f"TRP:{(coin.trail_recovery_percentage - 100):.2f}%",
                 f"SP:{coin.bought_at * coin.sell_at_percentage /100}",
                 f"TP:{100 - (coin.bought_at / coin.price * 100):.2f}%",
                 f"SL:{coin.bought_at * coin.stop_loss_at_percentage/100}",
                 f"S:+{percent(coin.trail_target_sell_percentage,coin.sell_at_percentage) - 100:.3f}%",  # pylint: disable=line-too-long
                 f"TTS:-{(100 - coin.trail_target_sell_percentage):.3f}%",
-                f"LP:{coin.min}",
                 f"LP:{coin.min}(-{100 - ((coin.min/coin.max) * 100):.2f}%)",
                 f"({len(self.wallet)}/{self.max_coins}) ",
             ]
@@ -1770,11 +1774,14 @@ class Bot:
         self.clear_all_coins_stats()
 
         # main backtesting block
-        for price_log in self.price_logs:
-            self.backtest_logfile(price_log)
-            if exists(".stop") or self.quit:
-                logging.warning(".stop flag found. Stopping bot.")
-                break
+        if not self.cfg["TICKERS"]:
+            logging.warning("no tickers to backtest")
+        else:
+            for price_log in self.price_logs:
+                self.backtest_logfile(price_log)
+                if exists(".stop") or self.quit:
+                    logging.warning(".stop flag found. Stopping bot.")
+                    break
 
         # now that we are done, lets record our results
         with open("log/backtesting.log", "a", encoding="utf-8") as f:
@@ -1803,7 +1810,6 @@ class Bot:
         # exact same data, we can pull it from disk instead.
         # we pull klines for the last 60min, the last 24h, and the last 1000days
 
-        lock = FileLock("state/load_klines.lockfile", timeout=10)
         symbol = coin.symbol
         logging.info(
             f"{c_from_timestamp(coin.date)}: loading klines for: {symbol}"
@@ -1840,6 +1846,7 @@ class Bot:
             # wrap results in a try call, in case our cached files are corrupt
             # and attempt to pull the required fields from our data.
             try:
+                results = []
                 logging.debug(f"(trying to read klines from {f_path}")
                 if exists(f_path):
                     with open(f_path, "r") as f:
@@ -1855,7 +1862,8 @@ class Bot:
                 logging.debug(
                     f"calling binance after failed read from {f_path}"
                 )
-                with lock:
+                # TODO: this can cause an exception on a timeout
+                with self.binance_lock:
                     response = requests_with_backoff(query)
                 # binance will return a 400 for when a coin doesn't exist
                 if response.status_code == 400:
@@ -1988,6 +1996,19 @@ if __name__ == "__main__":
         parser.add_argument("-s", "--secrets", help="secrets.yaml file")
         parser.add_argument(
             "-m", "--mode", help='bot mode ["live", "backtesting", "testnet"]'
+        )
+        # TODO: the args below are not currently consumed
+        parser.add_argument(
+            "-cd", "--config-dir", help="configs directory", default="configs/"
+        )
+        parser.add_argument(
+            "-rd",
+            "--results-dir",
+            help="results directory",
+            default="results/",
+        )
+        parser.add_argument(
+            "-ld", "--logs-dir", help="logs directory", default="logs/"
         )
         args = parser.parse_args()
 

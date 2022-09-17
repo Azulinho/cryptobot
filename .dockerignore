@@ -7,3 +7,9 @@ state/*
 .mypy_cache/*
 __pycache__/*
 .venv/*
+tags
+.tags
+.git
+log/*
+cache/*
+state/*
