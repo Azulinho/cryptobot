@@ -43,6 +43,8 @@ A python based trading bot for Binance, which relies heavily on backtesting.
 
 ## Overview
 
+A cryptobot for the Bear market.
+
 This bot looks to buy coins that at have gone down in price recently and are
 now recovering from that downtrend. It relies on us specifying different
 buy and sell points for each coin individually. For example, we can tell the
@@ -54,22 +56,31 @@ and then sell it at 5% profit.
 
 In order to understand what are the best percentages on when to buy and sell for
 each one of the coins available in binance, we use backtesting strategies
-on a number of recorded price.logs.
-These price.logs can be obtained while the bot is running in a special mode
-called *logmode* where it records prices for all the available binance coins
-every 1 second or other chosen interval. Or we can obtain 1min interval klines
-from binance using a [tool available in this
-repository](#obtaining-old-price-log-files).
+against a number of logfiles containing dated coin prices. Let's call them
+price.logs.
+These price.logs can be generated while the bot is running in a *logmode* mode
+where it records prices for all the available binance coins every 1 second or
+any other chosen interval.
+Or we can obtain 1min interval klines from binance using a
+[tool available in this repository](#obtaining-old-price-log-files).
 
-Then using these price.log files we would run the bot in *backtesting* mode
-which would run our buy strategy against those price.log files and simulate
-what sort of returns we would get from a specify strategy and a time frame of the market.
+With these price.log files we can run the bot in *backtesting* mode
+which would run our buy/sell strategy against those price.log files and simulate
+what sort of returns we would get from a particular strategy and a time frame
+of the market.
+
 In order to help us identify the best buy/sell percentages for each coin, there
-is a helper tool in this repo which runs a kind of
+is a helper tool in this repo which runs a form of
 [automated-backtesting](#automated-backtesting) against
 all the coins in binance and a number of buy/sell percentages and strategies
 and returns the best config for each one of those coins. Use it as a starting
 point for your own strategy.
+
+An additional tool [prove-backtesting](#prove-automated-backtesting-results) can
+then be used to mitigate the risk, by using the input strategies given to the
+*automated-backtesting* tool and apply them over multiple time frames in order
+to understand how the strategy works in different market conditions, and how
+well the bot adapts to changing markets.
 
 The way the bot chooses when to buy is based on a set of strategies which are
 defined in the [strategies/](./strategies/) folder in this repo.
@@ -132,13 +143,13 @@ Some coins might be slow recovering from the price we paid, and take some time
 for their price to raise all the way to the 6% profit we aim for.
 
 To avoid having a bot coin slot locked forever, we set set a kind of TimeToLive
-on the coins the bot buys. Let's call this limit *HARD_LIMIT_HOLDING_TIME*.
+on the coins the bot buys. We call this limit *HARD_LIMIT_HOLDING_TIME*.
 The bot will forcefully sell the coin regardless of its price when this period expires.
 
 To improve the chances of selling a coin during a slow recovery, we decrease
 the target profit percentage gradually until we reach that *HARD_LIMIT_HOLDING_TIME*.
 
-This is done through a setting called *SOFT_LIMIT_HOLDING_TIME*, with this
+This is done through the setting *SOFT_LIMIT_HOLDING_TIME*, with this
 setting we set the number of seconds to wait before the bot starts decreasing
 the profit target percentage. Essentially we reduce the target profit until it
 meets the current price of the coin.
@@ -184,8 +195,9 @@ for testing containing a small set of coins
 Don't bother decompressing these files, as the bot consumes them compressed
 in the .gz format.
 
-Processing each daily logfile on a 1sec interval, takes around 30 seconds, so for a large number of
-price log files this can take a long time to run backtesting simulations.
+Processing each daily logfile on a 1sec interval, takes around 30 seconds,
+so for a large number of price log files this can take a long time to run
+backtesting simulations.
 A workaround is to test out each coin individually by generating a price.log
 file containing just the coins we care about.
 
@@ -224,6 +236,8 @@ Also: *NO TORIES, NO BREXITERS, NO WINDOWS USERS, NO TWATS*, this is not negotia
 
 If you don't know Python you might be better using an
 [Online Crypto Trading Bot](https://duckduckgo.com/?q=online+crypto+trading+bot&ia=web) instead.
+
+Or get your hands dirty by,
 
 1. Learn Python https://www.learnpython.org/
 
@@ -377,7 +391,7 @@ Describes which strategy to use when buying/selling coins, available options are
 *BuyMoonSellRecoveryStrategy*, *BuyDropSellRecoveryStrategy*,
 *BuyOnGrowthTrendAfterDropStrategy*
 
-In the *moon_sell_recovery_strategy*, the bot monitors coin prices and will
+In the *BuyMoonSellRecoveryStrategy*, the bot monitors coin prices and will
 buy coins that raised their price over a percentage since the last check.
 
 ```
@@ -396,7 +410,7 @@ TICKERS:
       KLINES_SLICE_PERCENTAGE_CHANGE: +0 # unused in this strategy
 ```
 
-In the *buy_drop_recovery_strategy*, the bot monitors coin prices and will
+In the *BuyDropSellRecoveryStrategy*, the bot monitors coin prices and will
 buy coins that dropped their price over a percentage against their maximum price.
 In this mode, the bot won't buy a coin as soon the price drops, but will keep
 monitoring its price allowing the price to go further down and only buy when the
@@ -787,12 +801,13 @@ make automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG=automated-back
 
 ## Prove automated-backtesting results
 
-Using the same config file provided to *automated-backtesting*, this will run
-multiple iterations of the automated-testing from a start date to an end date.
+Using the same config file provided to *automated-backtesting*, this tool runs
+multiple iterations of *automated-testing.py* from a start date to an end date.
 It begins by grabbing a set of logfiles from the days prior to the start date,
 and running automated-backtesting using those logfiles. Then using the newly
 generated tuned config, runs backtesting for a number of days and logs following the
-start date. It then repeats this process start the day after the last logfile
+start date.
+It then repeats this process starting the day after the last logfile
 backtested through the tuned config, all the way until the end date provided.
 
 ```

@@ -89,7 +89,7 @@ help:
 		CONFIG=backtesting.yaml MIN=10 FILTER='' SORTBY='profit|wins'"
 	@echo "make download-price-logs FROM=20210101 TO=20211231"
 	@echo "make prove-backtesting CONFIG=myconfig.yaml \
-		FROM=20220101 BACKTRACK=90 MIN=20 FORWARD=30 TO=20220901 SORTBY=wins"
+		FROM=20220101 BACKTRACK=90 MIN=20 FORWARD=30 TO=20220901 SORTBY=profit|wins"
 
 
 support:
