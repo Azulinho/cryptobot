@@ -24,7 +24,7 @@ import udatetime
 import yaml
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
-from filelock import FileLock
+from filelock import SoftFileLock
 from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 
@@ -489,7 +489,7 @@ class Bot:
         self.quit: bool = False
         # define if we want to use MARKET or LIMIT orders
         self.order_type: str = config.get("ORDER_TYPE", "MARKET")
-        self.binance_lock = FileLock("state/binance.lock", timeout=90)
+        self.binance_lock = SoftFileLock("state/binance.lock", timeout=90)
 
     def extract_order_data(self, order_details, coin) -> Dict[str, Any]:
         """calculate average price and volume for a buy order"""

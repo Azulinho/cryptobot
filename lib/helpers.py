@@ -10,7 +10,7 @@ from time import sleep
 import requests
 import udatetime
 from binance.client import Client
-from filelock import FileLock
+from filelock import SoftFileLock
 from tenacity import retry, wait_exponential
 
 
@@ -65,7 +65,7 @@ def requests_with_backoff(query: str):
 def cached_binance_client(access_key: str, secret_key: str) -> Client:
     """retry wrapper for binance client first call"""
 
-    lock = FileLock("state/binance.client.lockfile", timeout=10)
+    lock = SoftFileLock("state/binance.client.lockfile", timeout=10)
     # when running automated-testing with multiple threads, we will hit
     # api requests limits, this happens during the client initialization
     # which mostly issues a ping. To avoid this when running multiple processes
