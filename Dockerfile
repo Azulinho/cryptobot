@@ -31,7 +31,10 @@ RUN apt-get update &&  \
   autogen \
   libtool \
   shtool \
-  nasm
+  nasm && \
+  apt-get clean autoclean && \
+  apt-get autoremove --yes && \
+  rm -rf /var/lib/apt/lists/*
 
 
 RUN useradd -d /cryptobot -u 1001 -ms /bin/bash cryptobot
@@ -63,7 +66,10 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -yq \
   gzip \
   pigz \
   bzip2 \
-  pbzip2
+  pbzip2 && \
+  apt-get clean autoclean && \
+  apt-get autoremove --yes && \
+  rm -rf /var/lib/apt/lists/*
 
 RUN useradd -d /cryptobot -u 1001 -ms /bin/bash cryptobot
 USER cryptobot
