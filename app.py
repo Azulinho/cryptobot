@@ -1628,9 +1628,14 @@ class Bot:
     def split_logline(self, line: str) -> Tuple:
         """splits a log line into symbol, date, price"""
 
-        parts = line.split(" ", maxsplit=4)
-        symbol = parts[2]
-        # skip processing the line if we don't care about this coin
+        try:
+            symbol, price = line[27:].split(" ", maxsplit=1)
+            # ocasionally binance returns rubbish
+            # we just skip it
+            market_price = float(price)
+        except ValueError:
+            return (False, False, False)
+
         if symbol not in self.tickers:
             return (False, False, False)
 
@@ -1640,21 +1645,10 @@ class Bot:
         if len(self.wallet) >= self.max_coins:
             if symbol not in self.wallet:
                 return (False, False, False)
-        day = " ".join(parts[0:2])
-        try:
-            # datetime is very slow, discard the .microseconds and fetch a
-            # cached pre-calculated unix epoch timestamp
-            day = day.split(".", maxsplit=1)[0]
-            date = c_date_from(day)
-        except ValueError:
-            date = c_date_from(day)
 
-        try:
-            # ocasionally binance returns rubbish
-            # we just skip it
-            market_price = float(parts[3])
-        except ValueError:
-            return (False, False, False)
+        # datetime is very slow, discard the .microseconds and fetch a
+        # cached pre-calculated unix epoch timestamp
+        date = c_date_from(line[0:19])
 
         return (symbol, date, market_price)
 
