@@ -10,6 +10,7 @@ from collections import OrderedDict
 from datetime import datetime
 from multiprocessing import Pool, get_context
 from string import Template
+from isal import igzip
 
 import yaml
 
@@ -22,7 +23,7 @@ def backup_backtesting_log():
 def compress_file(filename):
     """compresses coin price.log file"""
     with open(filename) as uncompressed:
-        with gzip.open(f"{filename}.gz", mode="wt") as compressed:
+        with igzip.open(f"{filename}.gz", mode="wt") as compressed:
             shutil.copyfileobj(uncompressed, compressed)
     os.remove(filename)
 
@@ -32,7 +33,7 @@ def split_logs_into_coins(filename, cfg):
     coinfiles = set()
     coinfh = {}
     pairing = cfg["DEFAULTS"]["PAIRING"]
-    with gzip.open(f"{filename}", "rt") as logfile:
+    with igzip.open(f"{filename}", "rt") as logfile:
         for line in logfile:
 
             # don't process all the lines, but only the ones related to our PAIR
