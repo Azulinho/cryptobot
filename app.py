@@ -1,7 +1,6 @@
 """ CryptoBot for Binance """
 
 import argparse
-import gzip
 import importlib
 import json
 import logging

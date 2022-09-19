@@ -1,7 +1,6 @@
 """automated-backtesting.py"""
 import argparse
 import glob
-import gzip
 import os
 import re
 import shutil
