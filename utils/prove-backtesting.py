@@ -8,8 +8,8 @@ from itertools import islice
 
 import pandas
 import yaml
-import gzip
 
+from isal import igzip
 
 def cli():
     parser = argparse.ArgumentParser()
@@ -97,22 +97,20 @@ def run_automated_backtesting(config, min, sortby):
 def create_zipped_logfile(dates, pairing, symbols=[]):
     log_msg(f"creating gzip lastfewdays.log.gz")
 
-    cli = "zcat "
-    for day in dates:
-        log = f"log/{day}.log.gz"
-        if not os.path.exists(log):
-            log_msg(f"WARNING: {log} does not exist")
-            continue
-        cli += f" log/{day}.log.gz"
-    cli += " |grep -E '"
-    cli += pairing
-    for symbol in symbols:
-        cli += f"|{symbol}"
-    cli += "' "
-    cli += " | pigz > log/lastfewdays.log.gz"
-
-    subprocess.run(cli, shell=True)
-
+    with igzip.open("log/lastfewdays.log.gz", "wt") as w:
+        for day in dates:
+            log = f"log/{day}.log.gz"
+            if not os.path.exists(log):
+                log_msg(f"WARNING: {log} does not exist")
+                continue
+            with igzip.open(log, "rt") as r:
+                for line in r:
+                    if pairing not in line:
+                        continue
+                    if symbols:
+                        if not any(symbol in line for symbol in symbols):
+                            continue
+                    w.write(line)
 
 def main():
     """main"""
