@@ -25,6 +25,7 @@ import yaml
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
 from filelock import SoftFileLock
+from isal import igzip
 from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 
@@ -1734,12 +1735,12 @@ class Bot:
         logging.info(f"exposure: {self.calculates_exposure()}")
         try:
             # we support .lz4 and .gz for our price.log files.
-            # gzip -3 files provide the fastest decompression times we were able
+            # gzip -3 files provide the fastest decompression times I was able
             # to measure.
             if price_log.endswith(".lz4"):
                 f = lz4open(price_log, mode="rt")
             else:
-                f = gzip.open(price_log, "rt")
+                f = igzip.open(price_log, "rt")
             while True:
                 # reading a chunk of lines like this speeds up backtesting
                 # by a large amount.
