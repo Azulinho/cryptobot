@@ -1,4 +1,4 @@
-FROM ubuntu:focal AS builder
+FROM ubuntu:focal
 RUN apt-get update &&  \
   DEBIAN_FRONTEND=noninteractive apt-get install -yq \
   make \
@@ -59,32 +59,10 @@ RUN /cryptobot/.venv/bin/pip install --upgrade pip setuptools wheel
 # pyenv is failling to compile isal without setting C_INCLUDE_PATH
 RUN C_INCLUDE_PATH=/cryptobot/.pyenv/versions/pyston-2.3.4/include/python3.8-pyston2.3/ /cryptobot/.venv/bin/pip install -r requirements.txt
 
-
-FROM ubuntu:focal AS cryptobot
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -yq \
-  xz-utils \
-  gzip \
-  pigz \
-  bzip2 \
-  pbzip2 && \
-  apt-get clean autoclean && \
-  apt-get autoremove --yes && \
-  rm -rf /var/lib/apt/lists/*
-
-RUN useradd -d /cryptobot -u 1001 -ms /bin/bash cryptobot
-USER cryptobot
-ENV HOME /cryptobot
-WORKDIR /cryptobot
-ENV PYENV_ROOT="$HOME/.pyenv"
-ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims/:$PATH"
-COPY --from=builder /cryptobot/.python-version /cryptobot/
-COPY --from=builder /cryptobot/.pyenv/ /cryptobot/.pyenv/
-COPY --from=builder /cryptobot/.venv/ /cryptobot/.venv/
-COPY --from=builder /usr/include/ta-lib/ /usr/include-ta-lib/
-COPY --from=builder /usr/bin/ta-lib-config /usr/bin/ta-lib-config
 ADD app.py .
 ADD lib/ lib/
 ADD strategies/ strategies/
+
 ADD utils/automated-backtesting.py utils/automated-backtesting.py
 ADD utils/automated-backtesting.sh utils/automated-backtesting.sh
 ADD utils/prove-backtesting.py utils/prove-backtesting.py
