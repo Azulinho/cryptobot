@@ -107,6 +107,16 @@ def create_zipped_logfile(dates, pairing, symbols=[]):
                 for line in r:
                     if pairing not in line:
                         continue
+                    # don't process any BEAR/BULL/UP/DOWN lines
+                    excluded = [
+                        f"DOWN{pairing}",
+                        f"UP{pairing}",
+                        f"BEAR{pairing}",
+                        f"BULL{pairing}",
+                    ]
+                    if any(symbol in line for symbol in excluded):
+                        continue
+
                     if symbols:
                         if not any(symbol in line for symbol in symbols):
                             continue
