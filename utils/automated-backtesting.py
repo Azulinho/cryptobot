@@ -22,8 +22,12 @@ def backup_backtesting_log():
 def compress_file(filename):
     """compresses coin price.log file"""
     with open(filename) as uncompressed:
-        with igzip.open(f"{filename}.gz", mode="wt") as compressed:
-            shutil.copyfileobj(uncompressed, compressed)
+        with igzip.open(
+            f"{filename}.gz",
+            mode="wt",
+            compresslevel=1,
+        ) as compressed:
+            shutil.copyfileobj(uncompressed, compressed, length=1024*1024*64)
     os.remove(filename)
 
 
