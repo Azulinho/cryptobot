@@ -479,7 +479,9 @@ def gather_best_results_per_strategy(strategy, this):
         if this[run]["total_profit"] >= best_profit_in_runs:
             best_run = run
             best_profit_in_runs = this[run]["total_profit"]
-    log_msg(f"{strategy} best run {best_run} profit: {best_profit_in_runs:.3f}")
+    log_msg(
+        f"{strategy} best run {best_run} profit: {best_profit_in_runs:.3f}"
+    )
 
 
 def gather_strategies_best_runs(this):
@@ -501,8 +503,8 @@ def gather_strategies_best_runs(this):
                 best[strategy]["best_run"] = run
     for strategy in best.keys():
         log_msg(
-            f"{strategy} best run {best[strategy]['best_run']} " +
-            f"with profit: {best[strategy]['best_profit']:.3f}"
+            f"{strategy} best run {best[strategy]['best_run']} "
+            + f"with profit: {best[strategy]['best_profit']:.3f}"
         )
 
 
