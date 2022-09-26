@@ -2,6 +2,7 @@
 default: help ;
 
 WHOAMI := $$(whoami)
+SMP_MULTIPLIER := 1
 
 checks:
 	@if [ "`docker --version | cut -d " " -f3 | tr -d 'v'| cut -c1`" -lt 2 ]; \
@@ -55,7 +56,9 @@ automated-backtesting: checks
 		--entrypoint="/cryptobot/utils/automated-backtesting.sh" \
 		-e LOGFILE=/cryptobot/log/$(LOGFILE) \
 		-e CONFIG=configs/$(CONFIG) -e MIN=$(MIN) -e FILTER='$(FILTER)' \
-		-e SORTBY=$(SORTBY) cryptobot \
+		-e SORTBY=$(SORTBY) \
+		-e SMP_MULTIPLIER=$(SMP_MULTIPLIER) \
+		cryptobot \
 		> results/automated-backtesting.$(CONFIG).min$(MIN).$(SORTBY).txt
 
 build: checks
@@ -72,7 +75,9 @@ prove-backtesting: checks
 		--name cryptobot.prove-backtesting.$(WHOAMI) --rm \
 		--entrypoint="/cryptobot/utils/prove-backtesting.sh" \
 		-e FROM=$(FROM) -e BACKTRACK=$(BACKTRACK) -e CONFIG=$(CONFIG) -e MIN=$(MIN) \
-		-e FORWARD=$(FORWARD) -e TO=$(TO) -e SORTBY=$(SORTBY) cryptobot \
+		-e FORWARD=$(FORWARD) -e TO=$(TO) -e SORTBY=$(SORTBY) \
+		-e SMP_MULTIPLIER=$(SMP_MULTIPLIER) \
+		cryptobot \
 		> results/prove-backtesting.$(CONFIG).min$(MIN).$(SORTBY).$(FROM)_$(TO).f$(FORWARD)d.b$(BACKTRACK)d.txt
 
 help:

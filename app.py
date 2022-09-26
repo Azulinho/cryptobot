@@ -1639,13 +1639,6 @@ class Bot:
         if symbol not in self.tickers:
             return (False, False, False)
 
-        # skip processing the line we hold max coins and this coins is not in
-        # our wallet. Only process lines containing the coin in our wallets
-        # until we sell or drop those.
-        if len(self.wallet) >= self.max_coins:
-            if symbol not in self.wallet:
-                return (False, False, False)
-
         # datetime is very slow, discard the .microseconds and fetch a
         # cached pre-calculated unix epoch timestamp
         date = c_date_from(line[0:19])

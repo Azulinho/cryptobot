@@ -2,6 +2,7 @@ import argparse
 import os
 import re
 import json
+import shutil
 import subprocess
 from datetime import date, datetime, timedelta
 from itertools import islice
@@ -97,20 +98,40 @@ def run_automated_backtesting(config, min, sortby):
 def create_zipped_logfile(dates, pairing, symbols=[]):
     log_msg(f"creating gzip lastfewdays.log.gz")
 
-    with igzip.open("log/lastfewdays.log.gz", "wt") as w:
+    with open("log/lastfewdays.log", "wt") as w:
         for day in dates:
             log = f"log/{day}.log.gz"
             if not os.path.exists(log):
                 log_msg(f"WARNING: {log} does not exist")
                 continue
             with igzip.open(log, "rt") as r:
-                for line in r:
+                # daily price.logs are around 150MB,
+                # so we'll read this in one go.
+                for line in r.read():
                     if pairing not in line:
                         continue
+                    # don't process any BEAR/BULL/UP/DOWN lines
+                    excluded = [
+                        f"DOWN{pairing}",
+                        f"UP{pairing}",
+                        f"BEAR{pairing}",
+                        f"BULL{pairing}",
+                    ]
+                    if any(symbol in line for symbol in excluded):
+                        continue
+
                     if symbols:
                         if not any(symbol in line for symbol in symbols):
                             continue
                     w.write(line)
+    with igzip.open(
+        "log/lastfewdays.log.gz",
+        "wt",
+        compresslevel=1
+    ) as compressed:
+        with open("log/lastfewdays.log", "rt") as uncompressed:
+            shutil.copyfileobj(uncompressed, compressed, length=1024*1024*64)
+
 
 def main():
     """main"""
