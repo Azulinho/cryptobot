@@ -105,9 +105,7 @@ def create_zipped_logfile(dates, pairing, symbols=[]):
                 log_msg(f"WARNING: {log} does not exist")
                 continue
             with igzip.open(log, "rt") as r:
-                # daily price.logs are around 150MB,
-                # so we'll read this in one go.
-                for line in r.read():
+                for line in r:
                     if pairing not in line:
                         continue
                     # don't process any BEAR/BULL/UP/DOWN lines
@@ -124,13 +122,9 @@ def create_zipped_logfile(dates, pairing, symbols=[]):
                         if not any(symbol in line for symbol in symbols):
                             continue
                     w.write(line)
-    with igzip.open(
-        "log/lastfewdays.log.gz",
-        "wt",
-        compresslevel=1
-    ) as compressed:
+    with igzip.open("log/lastfewdays.log.gz", "wt") as compressed:
         with open("log/lastfewdays.log", "rt") as uncompressed:
-            shutil.copyfileobj(uncompressed, compressed, length=1024*1024*64)
+            shutil.copyfileobj(uncompressed, compressed)
 
 
 def main():
