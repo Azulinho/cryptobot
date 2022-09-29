@@ -10,7 +10,6 @@ import threading
 import traceback
 from datetime import datetime
 from functools import lru_cache
-from hashlib import md5
 from itertools import islice
 from os import fsync, getpid
 from os.path import basename, exists
@@ -30,8 +29,7 @@ from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 
 from lib.helpers import (add_100, c_date_from, c_from_timestamp,
-                         cached_binance_client, floor_value, mean, percent,
-                         requests_with_backoff)
+                         cached_binance_client, floor_value, mean, percent)
 
 
 def control_center() -> None:
@@ -1799,7 +1797,7 @@ class Bot:
         # 60min, 24h, and 1000 days
         ok = False
         response = requests.get(
-            f"http://klines:8999?"
+            "http://klines:8999?"
             + f"symbol={coin.symbol}"
             + f"&date={coin.date}"
             + f"&mode={self.mode}"
