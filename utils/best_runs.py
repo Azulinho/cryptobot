@@ -25,6 +25,16 @@ for result_txt in results_txt:
         proves_backtesting_files[result_txt]["backward"] = matches.group(7)
 
         with open(f"./results/{result_txt}") as f:
+            lines = f.readlines()
+
+            if len(lines[-1:]):
+                if "PROVE-BACKTESTING: FINISHED" not in lines[-1:][0]:
+                    continue
+            else:
+                continue
+
+
+        with open(f"./results/{result_txt}") as f:
             for line in f:
                 matches = re.search(final_balance_regex, line)
                 if matches:
