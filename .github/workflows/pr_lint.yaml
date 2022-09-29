@@ -1,0 +1,54 @@
+name: Run PR lint tests
+on: pull_request
+
+jobs:
+  pr_tests:
+    name: Run PR tests
+    runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+
+      - name: install build-essentials
+        run: sudo apt-get -y install build-essential
+
+      - name: install ta-lib
+        run: |
+          cd /tmp \
+          && wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz \
+          && tar xf ta-lib-0.4.0-src.tar.gz \
+          && cd ta-lib \
+          && ./configure --prefix=/usr \
+          && make \
+          && sudo make install
+
+      - name: pyenv install
+        uses: "gabrielfalcao/pyenv-action@v5"
+        with:
+          command: pyenv install
+
+      - name: pip install
+        run: |
+          set -e
+          pip install --upgrade pip
+          pip install wheel
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: pytest
+        run: |
+          pytest tests/
+
+      - name: mypy
+        run: |
+          mypy app.py
+          mypy strategies/*.py
+          mypy lib/*.py
+
+      - name: pylint
+        run: |
+          pylint app.py
+          pylint lib/*.py
+          pylint strategies/*.py

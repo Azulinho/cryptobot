@@ -1,0 +1,119 @@
+name: Run PR docker-compose based tests
+on: pull_request
+
+jobs:
+  pr_tests:
+    name: Run PR tests
+    runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+
+      - name: local docker-compose build
+        run: |
+          set -e
+          pip install docker-compose
+          IMAGE=pr docker-compose build --no-cache
+
+      - name: run backtesting strategies BuyMoonSellRecoveryStrategy.yaml
+        run: |
+          set -e
+          echo BuyMoonSellRecoveryStrategy.yaml
+          IMAGE=pr U="$$(id -u)" G="$$(id -g)" docker compose run \
+            --name cryptobot.automated-backtesting.$(whoami) --rm \
+            --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
+            PR \
+            -c tests/BuyMoonSellRecoveryStrategy.yaml \
+            -m backtesting -s tests/fake.yaml |tail | tee result.txt
+          grep ' wins:385 losses:97 stales:107 holds:1' result.txt
+
+      - name: run backtesting strategies BuyOnGrowthTrendAfterDropStrategy.yaml
+        run: |
+          set -e
+          echo BuyOnGrowthTrendAfterDropStrategy.yaml
+          IMAGE=pr U="$$(id -u)" G="$$(id -g)" docker compose run \
+            --name cryptobot.automated-backtesting.$(whoami) --rm \
+            --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
+            pr \
+            -c tests/BuyOnGrowthTrendAfterDropStrategy.yaml \
+            -m backtesting -s tests/fake.yaml | tail | tee result.txt
+          grep 'wins:19 losses:1 stales:77 holds:2' result.txt
+
+
+      - name: run backtesting strategies BuyDropSellRecoveryStrategy.yaml
+        run: |
+          set -e
+          echo BuyDropSellRecoveryStrategy.yaml
+          IMAGE=pr U="$$(id -u)" G="$$(id -g)" docker compose run \
+            --name cryptobot.automated-backtesting.$(whoami) --rm \
+            --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
+            pr \
+            -c tests/BuyDropSellRecoveryStrategy.yaml \
+            -m backtesting -s tests/fake.yaml | tail | tee result.txt
+          grep 'wins:4 losses:9 stales:1 holds:0' result.txt
+
+      - name: run backtesting strategies BuyDropSellRecoveryStrategyWhenBTCisUp.yaml
+        run: |
+          set -e
+          echo BuyDropSellRecoveryStrategyWhenBTCisUp.yaml
+          IMAGE=pr U="$$(id -u)" G="$$(id -g)" docker compose run \
+            --name cryptobot.automated-backtesting.$(whoami) --rm \
+            --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
+            pr \
+            -c tests/BuyDropSellRecoveryStrategyWhenBTCisUp.yaml \
+            -m backtesting -s tests/fake.yaml | tail |tee result.txt
+          grep 'wins:207 losses:1 stales:648 holds:0' result.txt
+
+      - name: run backtesting strategies BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
+        run: |
+          set -e
+          echo BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
+          IMAGE=pr U="$$(id -u)" G="$$(id -g)" docker compose run \
+            --name cryptobot.automated-backtesting.$(whoami) --rm \
+            --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
+            pr \
+            -c tests/BuyDropSellRecoveryStrategyWhenBTCisDown.yaml \
+            -m backtesting -s tests/fake.yaml | tail | tee result.txt
+          grep 'wins:9 losses:0 stales:97 holds:0' result.txt
+
+      - name: run backtesting strategies BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml
+        run: |
+          set -e
+          echo BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml
+          IMAGE=pr U="$$(id -u)" G="$$(id -g)" docker compose run \
+            --name cryptobot.automated-backtesting.$(whoami) --rm \
+            --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
+            pr \
+            -c tests/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml \
+            -m backtesting -s tests/fake.yaml | tail | tee result.txt
+          grep 'wins:116 losses:0 stales:358 holds:0' result.txt
+
+      - name: run backtesting strategies BuyOnRecoveryAfterDropFromAverageStrategy.yaml
+        run: |
+          set -e
+          echo BuyOnRecoveryAfterDropFromAverageStrategy.yaml
+          IMAGE=pr U="$$(id -u)" G="$$(id -g)" docker compose run \
+            --name cryptobot.automated-backtesting.$(whoami) --rm \
+            --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
+            pr \
+            -c tests/BuyOnRecoveryAfterDropFromAverageStrategy.yaml \
+            -m backtesting -s tests/fake.yaml | tail | tee result.txt
+          grep 'wins:187 losses:4 stales:598 holds:0' result.txt
+
+
+      - name: run automated-backtesting
+        run: |
+          set -ex
+          echo automated-tests
+          LOGFILE=tests/price.log.gz
+          CONFIG=tests/automated-backtesting.yaml
+          MIN=1
+          FILTER=""
+          IMAGE=pr U="$$(id -u)" G="$$(id -g)" docker compose run \
+            --name cryptobot.automated-backtesting.$(whoami) --rm \
+            --entrypoint="/cryptobot/.venv/bin/python /cryptobot/utils/automated-backtesting.py" \
+            pr \
+            -l ${LOGFILE} -c ${CONFIG} -m ${MIN} \
+            -f "${FILTER}" -s "profit"| tail
