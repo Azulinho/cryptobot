@@ -20,13 +20,6 @@ jobs:
           docker pull ${IMAGE}:${TAG} || true
           docker-compose build
 
-      - name: local docker-compose build
-        run: |
-          set -e
-          pip install docker-compose
-          docker pull ${IMAGE}:${TAG} || true
-          docker-compose build
-
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
         with:
