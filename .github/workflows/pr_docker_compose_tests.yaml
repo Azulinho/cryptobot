@@ -17,8 +17,7 @@ jobs:
         run: |
           set -e
           pip install docker-compose
-          docker pull ${IMAGE}:${TAG} || true
-          docker-compose build
+          docker-compose build --no-cache
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
@@ -26,11 +25,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: push PR image
-        run: |
-          set -e
-          docker push ${IMAGE}:${TAG} || true
 
       - name: run backtesting strategies BuyMoonSellRecoveryStrategy.yaml
         run: |
