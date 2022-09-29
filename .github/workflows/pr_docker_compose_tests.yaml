@@ -13,6 +13,12 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v2
 
+      - name: local docker-compose build
+        run: |
+          set -e
+          pip install docker-compose
+          docker pull ${IMAGE}:${TAG} || true
+          docker-compose build
 
       - name: local docker-compose build
         run: |
@@ -28,7 +34,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-
       - name: push PR image
         run: |
           set -e
@@ -38,7 +43,7 @@ jobs:
         run: |
           set -e
           echo BuyMoonSellRecoveryStrategy.yaml
-          U="$$(id -u)" G="$$(id -g)" docker compose run \
+          docker compose run \
             --name cryptobot.automated-backtesting.$(whoami) --rm \
             --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
             cryptobot \
@@ -50,7 +55,7 @@ jobs:
         run: |
           set -e
           echo BuyOnGrowthTrendAfterDropStrategy.yaml
-          U="$$(id -u)" G="$$(id -g)" docker compose run \
+          docker compose run \
             --name cryptobot.automated-backtesting.$(whoami) --rm \
             --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
             cryptobot \
@@ -63,7 +68,7 @@ jobs:
         run: |
           set -e
           echo BuyDropSellRecoveryStrategy.yaml
-          U="$$(id -u)" G="$$(id -g)" docker compose run \
+          docker compose run \
             --name cryptobot.automated-backtesting.$(whoami) --rm \
             --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
             cryptobot \
@@ -75,7 +80,7 @@ jobs:
         run: |
           set -e
           echo BuyDropSellRecoveryStrategyWhenBTCisUp.yaml
-          U="$$(id -u)" G="$$(id -g)" docker compose run \
+          docker compose run \
             --name cryptobot.automated-backtesting.$(whoami) --rm \
             --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
             cryptobot \
@@ -87,7 +92,7 @@ jobs:
         run: |
           set -e
           echo BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
-          U="$$(id -u)" G="$$(id -g)" docker compose run \
+          docker compose run \
             --name cryptobot.automated-backtesting.$(whoami) --rm \
             --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
             cryptobot \
@@ -99,7 +104,7 @@ jobs:
         run: |
           set -e
           echo BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml
-          U="$$(id -u)" G="$$(id -g)" docker compose run \
+          docker compose run \
             --name cryptobot.automated-backtesting.$(whoami) --rm \
             --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
             cryptobot \
@@ -111,7 +116,7 @@ jobs:
         run: |
           set -e
           echo BuyOnRecoveryAfterDropFromAverageStrategy.yaml
-          U="$$(id -u)" G="$$(id -g)" docker compose run \
+          docker compose run \
             --name cryptobot.automated-backtesting.$(whoami) --rm \
             --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
             cryptobot \
@@ -128,7 +133,7 @@ jobs:
           CONFIG=tests/automated-backtesting.yaml
           MIN=1
           FILTER=""
-          U="$$(id -u)" G="$$(id -g)" docker compose run \
+          docker compose run \
             --name cryptobot.automated-backtesting.$(whoami) --rm \
             --entrypoint="/cryptobot/.venv/bin/python /cryptobot/utils/automated-backtesting.py" \
             cryptobot \
