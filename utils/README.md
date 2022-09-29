@@ -6,3 +6,11 @@ lines for coins that have not changed price over consecutives reads.
 ```
 ls *.log.gz | xargs -i python utils/dedup-logs.py -l {}
 ```
+
+best_runs.py
+==============
+prints out the final results from each prove-backtesting run:
+
+```
+python utils/best_runs.py | sort -k
+```
