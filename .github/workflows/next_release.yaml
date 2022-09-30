@@ -24,10 +24,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: pull latest next_release tag
+        run: |
+          set -e
+          docker pull ghcr.io/azulinho/cryptobot:next_release || true
+
       - name: Push to GitHub Packages
         uses: docker/build-push-action@v2
         with:
           tags: ghcr.io/azulinho/cryptobot:next_release
           push: true
-          no-cache: true
+          no-cache: false
 

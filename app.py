@@ -10,7 +10,6 @@ import threading
 import traceback
 from datetime import datetime
 from functools import lru_cache
-from hashlib import md5
 from itertools import islice
 from os import fsync, getpid
 from os.path import basename, exists
@@ -19,6 +18,7 @@ from typing import Any, Dict, List, Tuple
 
 import colorlog
 import epdb
+import requests
 import udatetime
 import yaml
 from binance.client import Client
@@ -29,8 +29,7 @@ from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 
 from lib.helpers import (add_100, c_date_from, c_from_timestamp,
-                         cached_binance_client, floor_value, mean, percent,
-                         requests_with_backoff)
+                         cached_binance_client, floor_value, mean, percent)
 
 
 def control_center() -> None:
@@ -1653,6 +1652,8 @@ class Bot:
         # data from the API. For those we are better to remove them from our
         # tickers list as we don't want to process them.
 
+        # TODO: re-work this by checking values in 'm' if they're []
+        # as this will return a True
         if not self.load_klines_for_coin(self.coins[symbol]):
             # got no klines data on this coin, probably delisted
             # will remove this coin from our ticker list
@@ -1792,153 +1793,44 @@ class Bot:
     def load_klines_for_coin(self, coin) -> bool:
         """fetches from binance or a local cache klines for a coin"""
 
-        # when we initialise a coin, we pull a bunch of klines from binance
-        # for that coin and save it to disk, so that if we need to fetch the
-        # exact same data, we can pull it from disk instead.
-        # we pull klines for the last 60min, the last 24h, and the last 1000days
-
-        symbol = coin.symbol
-        logging.info(
-            f"{c_from_timestamp(coin.date)}: loading klines for: {symbol}"
+        # fetch all the available klines for this coin, for the last
+        # 60min, 24h, and 1000 days
+        ok = False
+        response = requests.get(
+            "http://klines:8999?"
+            + f"symbol={coin.symbol}"
+            + f"&date={coin.date}"
+            + f"&mode={self.mode}"
+            + f"&debug={self.debug}"
         )
+        data = response.json()
+        # TODO: rework this
+        if data:
+            ok = True
 
-        api_url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&"
+        if ok:
+            coin.lowest = data["lowest"]
+            coin.averages = data["averages"]
+            coin.highest = data["highest"]
 
-        # this is only to keep the python LSP happy
-        timeslice: int = 0
-        minutes_before_now: int = 0
-
+        # trim values
+        unit_values = {
+            "m": (60, 1),
+            "h": (24, 60),
+            # for 'Days' we retrieve 1000 days, binance API default
+            "d": (1000, 60 * 24),
+        }
         for unit in ["m", "h", "d"]:
+            # make sure we don't keep more values that we should
+            timeslice, _ = unit_values[unit]
+            while len(coin.lowest[unit]) > timeslice:
+                coin.lowest[unit].pop()
+            while len(coin.averages[unit]) > timeslice:
+                coin.averages[unit].pop()
+            while len(coin.highest[unit]) > timeslice:
+                coin.highest[unit].pop()
 
-            # lets find out the from what date we need to pull klines from while in
-            # backtesting mode.
-            coin.averages[unit] = []
-            unit_values = {
-                "m": (60, 1),
-                "h": (24, 60),
-                # for 'Days' we retrieve 1000 days, binance API default
-                "d": (1000, 60 * 24),
-            }
-            timeslice, minutes_before_now = unit_values[unit]
-
-            backtest_end_time = coin.date
-            end_unix_time = int(
-                (backtest_end_time - (60 * minutes_before_now)) * 1000
-            )
-
-            query = f"{api_url}endTime={end_unix_time}&interval=1{unit}"
-            md5_query = md5(query.encode()).hexdigest()  # nosec
-            f_path = f"cache/{symbol}.{md5_query}"
-
-            # wrap results in a try call, in case our cached files are corrupt
-            # and attempt to pull the required fields from our data.
-            try:
-                results = []
-                logging.debug(f"(trying to read klines from {f_path}")
-                if exists(f_path):
-                    with open(f_path, "r") as f:
-                        results = json.load(f)
-                    # new listed coins will return an empty array
-                    # so we bail out early here
-                    if not results:
-                        logging.debug(f"(empty klines from {f_path}")
-                        return True
-
-                _, _, high, low, _, _, closetime, _, _, _, _, _ = results[0]
-            except Exception:  # pylint: disable=broad-except
-                logging.debug(
-                    f"calling binance after failed read from {f_path}"
-                )
-                # TODO: this can cause an exception on a timeout
-                with self.binance_lock:
-                    response = requests_with_backoff(query)
-                # binance will return a 400 for when a coin doesn't exist
-                if response.status_code == 400:
-                    logging.warning(f"got a 400 from binance for {symbol}")
-                    if self.mode == "backtesting":
-                        with open(f_path, "w") as f:
-                            f.write(json.dumps([]))
-                    return False
-
-                results = response.json()
-                # this can be fairly API intensive for a large number of
-                # tickers so we cache these calls on disk, each coin, period,
-                # start day is md5sum'd and stored on a dedicated file on
-                # /cache
-                logging.debug(
-                    f"writing klines data from binance into {f_path}"
-                )
-                if self.mode == "backtesting":
-                    with open(f_path, "w") as f:
-                        f.write(json.dumps(results))
-
-            if self.debug:
-                # ocasionally we obtain an invalid results obj here
-                # this might need additional debugging (pun intended)
-                if results:
-                    logging.debug(f"{symbol} : last_{unit}:{results[-1:]}")
-                else:
-                    logging.debug(f"{symbol} : last_{unit}:{results}")
-
-            # TODO: review this, in what condition would timeslice be 0?
-            # could it be from when we were not pulling all the data by default
-            # from binance? and only the klines_trend_period ?
-            if timeslice != 0:
-                lowest = []
-                averages = []
-                highest = []
-                try:
-                    # retrieve and calculate the lowest, highest, averages
-                    # from the klines data.
-                    # we need to transform the dates into consumable timestamps
-                    # that work for our bot.
-                    for (
-                        _,
-                        _,
-                        high,
-                        low,
-                        _,
-                        _,
-                        closetime,
-                        _,
-                        _,
-                        _,
-                        _,
-                        _,
-                    ) in results:
-                        date = float(
-                            datetime.fromtimestamp(
-                                closetime / 1000
-                            ).timestamp()
-                        )
-                        low = float(low)
-                        high = float(high)
-                        avg = (low + high) / 2
-
-                        lowest.append((date, low))
-                        averages.append((date, avg))
-                        highest.append((date, high))
-
-                    # finally, populate all the data coin buckets
-                    # we gather all the data we collected and only populate
-                    # the required number of records we require.
-                    # this could possibly be optimized, but at the same time
-                    # this only runs the once when we initialise a coin
-                    for d, v in lowest[-timeslice:]:
-                        coin.lowest[unit].append((d, v))
-
-                    for d, v in averages[-timeslice:]:
-                        coin.averages[unit].append((d, v))
-
-                    for d, v in highest[-timeslice:]:
-                        coin.highest[unit].append((d, v))
-                except ValueError as e:
-                    logging.debug(e)
-                    logging.debug("caused by results variable with value:")
-                    logging.debug(results)
-
-        self.log_debug_coin(coin)
-        return True
+        return ok
 
     def print_final_balance_report(self):
         """calculates and outputs final balance"""

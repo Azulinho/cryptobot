@@ -9,6 +9,8 @@ services:
     privileged: false
     environment:
       SMP_MULTIPLIER: "${SMP_MULTIPLIER:-1}"
+    depends_on:
+      - klines
 
     ports:
       - "5555"
@@ -23,6 +25,24 @@ services:
       - ./cache:/cryptobot/cache:rw
       - ./results:/cryptobot/results:rw
       - ./tests:/cryptobot/tests:rw
+
+  klines:
+    networks:
+      - cryptobot-network
+    image: ${IMAGE:-ghcr.io/azulinho/cryptobot}:${TAG:-latest}
+    user: "${U}:${G}"
+    build: ./
+    entrypoint: ["/cryptobot/.venv/bin/python", "-u",  "load_klines_for_coin.py"]
+    privileged: false
+
+    ports:
+      - "8999"
+
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - ./log:/cryptobot/log:rw
+      - ./cache:/cryptobot/cache:rw
 
 
 networks:
