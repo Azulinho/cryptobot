@@ -392,6 +392,9 @@ def cli():
     parser.add_argument(
         "-ld", "--logs-dir", help="logs directory", default="logs/"
     )
+    parser.add_argument(
+        "-rfbt", "--run-final-backtest", help="run final backtesting?", default=True
+    )
     args = parser.parse_args()
 
     with open(args.cfgs, "rt") as f:
@@ -406,6 +409,7 @@ def cli():
         args.config_dir,
         args.results_dir,
         args.logs_dir,
+        args.run_final_backtest,
     ]
 
 
@@ -515,6 +519,7 @@ def main():
         config_dir,
         results_dir,
         logs_dir,
+        run_final_backtest
     ) = cli()
 
     coinfiles = split_logs_into_coins(logfile, cfgs)
@@ -558,7 +563,8 @@ def main():
         os.remove("log/backtesting.log")
 
     gather_strategies_best_runs(top_results_per_run)
-    run_tuned_config(cfgs["STRATEGIES"])
+    if run_final_backtest:
+        run_tuned_config(cfgs["STRATEGIES"])
     cleanup()
 
 

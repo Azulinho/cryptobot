@@ -110,7 +110,7 @@ def run_prove_backtesting(config):
 def run_automated_backtesting(config, min, sortby):
     subprocess.run(
         f"python -u utils/automated-backtesting.py -l log/lastfewdays.log.gz "
-        + f"-c configs/{config} -m {min} -f '' -s {sortby}",
+        + f"-c configs/{config} -m {min} -f '' -s {sortby} --run-final-backtest=False",
         shell=True,
     )
 
