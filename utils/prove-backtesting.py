@@ -181,6 +181,7 @@ def main():
 
     pairing = cfg["DEFAULTS"]["PAIRING"]
     balances = {}
+    percent_results = {}
     strategies = cfg["STRATEGIES"].keys()
     for strategy in strategies:
         balances[strategy] = float(cfg["DEFAULTS"]["INITIAL_INVESTMENT"])
@@ -246,6 +247,7 @@ def main():
                 c.write(json.dumps(cfg))
 
             log_msg(f"calling backtesting with {_config}")
+            start_bal = float(balances[strategy])
             log_msg(f"starting balance for {strategy}: {balances[strategy]}")
             run_prove_backtesting(f"{_config}")
             with open(f"results/{_config}.txt") as results_txt:
@@ -255,10 +257,20 @@ def main():
                     )[0]
                 )
                 balances[strategy] = balances[strategy] + final_balance
-                log_msg(f"final balance for {strategy}: {balances[strategy]}")
+                end_bal = float(balances[strategy])
+                diff = str(int(100 - ((start_bal / end_bal) * 100)))
+                percent_results[strategy] = diff
+                if int(diff) > 0:
+                    diff = f"+{diff}"
+                log_msg(
+                    f"final balance for {strategy}: {str(end_bal)} {diff}%"
+                )
         log_msg("COMPLETED WITH RESULTS:")
         for strategy in strategies:
-            log_msg(f"{strategy}: {balances[strategy]}")
+            diff = percent_results[strategy]
+            if int(diff) > 0:
+                diff = f"+{diff}"
+            log_msg(f"{strategy}: {balances[strategy]} {diff}%")
     log_msg("PROVE-BACKTESTING: FINISHED")
 
 
