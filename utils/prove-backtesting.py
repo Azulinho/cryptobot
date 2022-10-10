@@ -1,18 +1,20 @@
+""" prove-backtesting """
 import argparse
 import json
 import os
 import re
 import shutil
 import subprocess
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from itertools import islice
 
-import pandas
-import yaml
-from isal import igzip
+import pandas  # pylint: disable=E0401
+import yaml  # pylint: disable=E0401
+from isal import igzip  # pylint: disable=E0401
 
 
 def cli():
+    """parse arguments"""
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--date", help="test from this date forward")
     parser.add_argument(
@@ -32,10 +34,10 @@ def cli():
 
     # TODO: the args below are not currently consumed
     parser.add_argument(
-        "-cd", "--config-dir", help="configs directory", default="configs/"
+        "-cd", "--config-dir", help="configs directory", default="configs"
     )
     parser.add_argument(
-        "-rd", "--results-dir", help="results directory", default="results/"
+        "-rd", "--results-dir", help="results directory", default="results"
     )
     parser.add_argument(
         "-ld", "--logs-dir", help="logs directory", default="logs/"
@@ -57,6 +59,7 @@ def cli():
 
 
 def generate_start_dates(start_date, end_date, jump=7):
+    """returns a list of dates, with a gap in 'jump' days"""
     start_date = datetime.strptime(str(start_date), "%Y%m%d")
     end_date = datetime.strptime(str(end_date), "%Y%m%d")
     dates = pandas.date_range(start_date, end_date, freq="d").strftime(
@@ -68,8 +71,8 @@ def generate_start_dates(start_date, end_date, jump=7):
 
 
 def backtesting_dates(end_date, days=31):
+    """returns a list of dates, up to 'days' before the 'end_date'"""
     start_date = datetime.strptime(str(end_date), "%Y%m%d")
-    days = days  # 31
     dates = (
         pandas.date_range(
             start_date - timedelta(days=days - 1), start_date, freq="d"
@@ -81,11 +84,11 @@ def backtesting_dates(end_date, days=31):
 
 
 def prove_backtesting_dates(end_date, days=7):
+    """returns a list of dates, up to 'days' past the 'end_date'"""
     start_date = datetime.strptime(str(end_date), "%Y%m%d") + timedelta(days=1)
     end_date = datetime.strptime(str(end_date), "%Y%m%d") + timedelta(
         days=days
     )
-    days = days
     dates = (
         pandas.date_range(start_date, end_date, freq="d")
         .strftime("%Y%m%d")
@@ -94,33 +97,44 @@ def prove_backtesting_dates(end_date, days=7):
     return dates
 
 
-def run_prove_backtesting(config):
+def run_prove_backtesting(config, results_dir):
+    """calls backtesting"""
     subprocess.run(
-        f"python -u app.py -s secrets/binance.prod.yaml "
+        "python -u app.py -s secrets/binance.prod.yaml "
         + f"-c configs/{config}  -m  backtesting"
-        + f"> results/{config}.txt 2>&1",
+        + f"> {results_dir}/{config}.txt 2>&1",
         shell=True,
+        check=False,
     )
     subprocess.run(
-        f"grep -E '\[HOLD\]|\[SOLD_BY_' results/{config}.txt ",
+        f"grep -E '\[HOLD\]|\[SOLD_BY_' {results_dir}/{config}.txt ",  # pylint: disable=W1401
         shell=True,
+        check=False,
     )
 
 
-def run_automated_backtesting(config, min, sortby):
+def run_automated_backtesting(config, min_profit, sortby, logs_dir="log"):
+    """calls automated-backtesting"""
     subprocess.run(
-        f"python -u utils/automated-backtesting.py -l log/lastfewdays.log.gz "
-        + f"-c configs/{config} -m {min} -f '' -s {sortby} --run-final-backtest=False",
+        f"python -u utils/automated-backtesting.py -l {logs_dir}/lastfewdays.log.gz "
+        + f"-c configs/{config} -m {min_profit} -f '' -s {sortby} --run-final-backtest=False",
         shell=True,
+        check=False,
     )
 
 
-def create_zipped_logfile(dates, pairing, symbols=[]):
-    log_msg(f"creating gzip lastfewdays.log.gz")
+def create_zipped_logfile(dates, pairing, logs_dir, symbols):
+    """
+    generates lastfewdays.log.gz from the provided list of price.log files
+    excluding any symbol in the excluded list, and not matching pairing
+    also if symbols[] is provided, then only symbols in that list is used
+    to generate the lastfewdays.log.gz
+    """
+    log_msg("creating gzip lastfewdays.log.gz")
 
-    with open("log/lastfewdays.log", "wt") as w:
+    with open(f"{logs_dir}/lastfewdays.log", "wt") as w:
         for day in dates:
-            log = f"log/{day}.log.gz"
+            log = f"{logs_dir}/{day}.log.gz"
             if not os.path.exists(log):
                 log_msg(f"WARNING: {log} does not exist")
                 continue
@@ -142,8 +156,8 @@ def create_zipped_logfile(dates, pairing, symbols=[]):
                         if not any(symbol in line for symbol in symbols):
                             continue
                     w.write(line)
-    with igzip.open("log/lastfewdays.log.gz", "wt") as compressed:
-        with open("log/lastfewdays.log", "rt") as uncompressed:
+    with igzip.open(f"{logs_dir}/lastfewdays.log.gz", "wt") as compressed:
+        with open(f"{logs_dir}/lastfewdays.log", "rt") as uncompressed:
             shutil.copyfileobj(uncompressed, compressed)
 
 
@@ -155,7 +169,7 @@ def main():
         from_date,
         backtrack_days,
         forward_days,
-        min,
+        min_profit,
         end_date,
         sortby,
         config_dir,
@@ -176,7 +190,7 @@ def main():
 
     start_dates = generate_start_dates(from_date, end_date, forward_days)
 
-    with open(f"configs/{config_file}") as f:
+    with open(f"{config_dir}/{config_file}") as f:
         cfg = yaml.safe_load(f)
 
     pairing = cfg["DEFAULTS"]["PAIRING"]
@@ -194,18 +208,18 @@ def main():
         )
         dates = backtesting_dates(end_date=start_date, days=backtrack_days)
         log_msg(dates)
-        create_zipped_logfile(dates, pairing)
+        create_zipped_logfile(dates, pairing, logs_dir, [])
         log_msg(
-            f"starting automated_backtesting using {config_file} for {min}"
+            f"starting automated_backtesting using {config_file} for {min_profit}"
         )
         # runs automated_backtesting on all strategies
-        run_automated_backtesting(config_file, min, sortby)
+        run_automated_backtesting(config_file, min_profit, sortby)
 
         dates = prove_backtesting_dates(
             end_date=start_date, days=int(forward_days)
         )
 
-        with open(f"configs/{config_file}") as f:
+        with open(f"{config_dir}/{config_file}") as f:
             cfg = yaml.safe_load(f)
             strategies = cfg["STRATEGIES"].keys()
 
@@ -214,7 +228,7 @@ def main():
         # create a log zipped file with only the coins we will be testing
         symbols = set()
         for strategy in strategies:
-            with open(f"configs/{strategy}.yaml") as f:
+            with open(f"{config_dir}/{strategy}.yaml") as f:
                 cfg = yaml.safe_load(f)
                 tickers = cfg["TICKERS"].keys()
             symbols = symbols | tickers
@@ -222,7 +236,7 @@ def main():
         # if our backtesting gave us no tickers,
         # we'll skip this forward testing run
         if not symbols:
-            log_msg(f"forwardtesting config contains no tickers, skipping run")
+            log_msg("forwardtesting config contains no tickers, skipping run")
             continue
 
         log_msg(
@@ -230,30 +244,30 @@ def main():
         )
         log_msg(dates)
 
-        create_zipped_logfile(dates, pairing, symbols)
+        create_zipped_logfile(dates, pairing, logs_dir, symbols)
 
         for strategy in strategies:
-            with open(f"configs/{strategy}.yaml") as f:
+            with open(f"{config_dir}/{strategy}.yaml") as f:
                 cfg = yaml.safe_load(f)
             cfg["INITIAL_INVESTMENT"] = balances[strategy]
 
             _config = "".join(
                 [
                     f"{strategy}.{start_date}.f{forward_days}d.",
-                    f"b{backtrack_days}d.m{min}.yaml",
+                    f"b{backtrack_days}d.m{min_profit}.yaml",
                 ]
             )
-            with open(f"configs/{_config}", "wt") as c:
+            with open(f"{config_dir}/{_config}", "wt") as c:
                 c.write(json.dumps(cfg))
 
             log_msg(f"calling backtesting with {_config}")
             start_bal = float(balances[strategy])
             log_msg(f"starting balance for {strategy}: {balances[strategy]}")
-            run_prove_backtesting(f"{_config}")
-            with open(f"results/{_config}.txt") as results_txt:
+            run_prove_backtesting(f"{_config}", results_dir)
+            with open(f"{results_dir}/{_config}.txt") as results_txt:
                 final_balance = float(
                     re.findall(
-                        "final balance: (-?\d+\.\d+)", results_txt.read()
+                        r"final balance: (-?\d+\.\d+)", results_txt.read()
                     )[0]
                 )
                 balances[strategy] = balances[strategy] + final_balance
@@ -275,6 +289,7 @@ def main():
 
 
 def log_msg(msg):
+    """logs out message prefixed with timestamp"""
     now = datetime.now().strftime("%H:%M:%S")
     print(f"{now} PROVE-BACKTESTING: {msg}")
 

@@ -7,16 +7,19 @@ import shutil
 import subprocess
 from collections import OrderedDict
 from datetime import datetime
-from multiprocessing import Pool, get_context
+from multiprocessing import get_context
 from string import Template
-from isal import igzip
+from typing import Optional
 
 import yaml
+from isal import igzip
 
 
-def backup_backtesting_log():
+def backup_backtesting_log(logs_dir):
     """makes a backup of backtesting.log"""
-    shutil.copyfile("log/backtesting.log", "log/backtesting.log.backup")
+    shutil.copyfile(
+        f"{logs_dir}/backtesting.log", f"{logs_dir}/backtesting.log.backup"
+    )
 
 
 def compress_file(filename):
@@ -27,7 +30,7 @@ def compress_file(filename):
     os.remove(filename)
 
 
-def split_logs_into_coins(filename, cfg):
+def split_logs_into_coins(filename, cfg, logs_dir):
     """splits one price.log into individual coin price.log files"""
     coinfiles = set()
     coinfh = {}
@@ -52,17 +55,19 @@ def split_logs_into_coins(filename, cfg):
             ]:
                 continue
 
-            coinfilename = f"log/coin.{symbol}.log"
+            coinfilename = f"{logs_dir}/coin.{symbol}.log"
             if symbol not in coinfh:
-                coinfh[symbol] = open(coinfilename, "wt")
+                coinfh[symbol] = open(  # pylint: disable=R1732
+                    coinfilename, "wt"
+                )  # pylint: disable=R1732
                 coinfiles.add(coinfilename)
 
             coinfh[symbol].write(line)
 
-    for symbol in coinfh:
+    for symbol in coinfh:  # pylint: disable=C0206
         coinfh[symbol].close()
 
-    log_msg(f"compressing logfiles....")
+    log_msg("compressing logfiles....")
     tasks = []
     with get_context("spawn").Pool(processes=N_TASKS) as pool:
         for coin_filename in coinfiles:
@@ -73,13 +78,14 @@ def split_logs_into_coins(filename, cfg):
     return coinfiles
 
 
-def wrap_subprocessing(config, timeout=None):
+def wrap_subprocessing(config, config_dir, results_dir, timeout=None):
     """wraps subprocess call"""
     subprocess.run(
         "python app.py -m backtesting -s tests/fake.yaml "
-        + f"-c configs/{config} >results/{config}.txt 2>&1",
+        + f"-c {config_dir}/{config} >{results_dir}/{config}.txt 2>&1",
         shell=True,
         timeout=timeout,
+        check=False,
     )
 
 
@@ -108,7 +114,7 @@ def gather_best_results_from_backtesting_log(log, minimum, kind, word, sortby):
                     if l != 0 or s != 0 or h != 0 or w == 0:
                         continue
 
-                coincfg = eval(_cfg)["TICKERS"][coin]
+                coincfg = eval(_cfg)["TICKERS"][coin]  # pylint: disable=W0123
                 if coin not in coins:
                     coins[coin] = {
                         "profit": profit,
@@ -164,7 +170,7 @@ def gather_best_results_from_backtesting_log(log, minimum, kind, word, sortby):
     return results
 
 
-def generate_coin_template_config_file(coin, strategy, cfg):
+def generate_coin_template_config_file(coin, strategy, cfg, config_dir):
     """generates a config.yaml for a coin"""
 
     tmpl = Template(
@@ -200,7 +206,7 @@ def generate_coin_template_config_file(coin, strategy, cfg):
     }"""
     )
 
-    with open(f"configs/coin.{coin}.yaml", "wt") as f:
+    with open(f"{config_dir}/coin.{coin}.yaml", "wt") as f:
         f.write(
             tmpl.substitute(
                 {
@@ -291,14 +297,15 @@ def generate_config_for_tuned_strategy(strategy, cfg, results, logfile):
         )
 
 
-def run_tuned_config(strategies):
+def run_tuned_config(strategies, config_dir, results_dir):
+    """run final tuned config"""
     # run_tuned_config
     with get_context("spawn").Pool(processes=N_TASKS) as pool:
         tasks = []
         for strategy in strategies:
             # first check if our config to test actually contain any tickers
             # if not we will skip this round
-            with open(f"configs/{strategy}.yaml") as cf:
+            with open(f"{config_dir}/{strategy}.yaml") as cf:
                 tickers = yaml.safe_load(cf.read())["TICKERS"]
             if not tickers:
                 log_msg(
@@ -306,22 +313,29 @@ def run_tuned_config(strategies):
                 )
                 continue
 
-            job = pool.apply_async(wrap_subprocessing, (f"{strategy}.yaml",))
+            job = pool.apply_async(
+                wrap_subprocessing,
+                (f"{strategy}.yaml", config_dir, results_dir),
+            )
             tasks.append(job)
         for t in tasks:
             t.get()
 
 
-def cleanup():
-    for item in glob.glob("configs/coin.*.yaml"):
+def cleanup(config_dir, results_dir, logs_dir):
+    """clean files"""
+    for item in glob.glob(f"{config_dir}/coin.*.yaml"):
         os.remove(item)
-    for item in glob.glob("results/coin.*.txt"):
+    for item in glob.glob(f"{results_dir}/coin.*.txt"):
         os.remove(item)
-    for item in glob.glob("log/coin.*.log.gz"):
+    for item in glob.glob(f"{logs_dir}/coin.*.log.gz"):
         os.remove(item)
 
 
-def generate_all_coin_config_files(coinfiles, config, sortby, strategy):
+def generate_all_coin_config_files(
+    coinfiles, config, sortby, strategy, config_dir
+):
+    """generate coin config backtesting files"""
     for coin in coinfiles:
         symbol = coin.split(".")[1]
         # on 'wins' we don't want to keep on processing our logfiles
@@ -331,10 +345,13 @@ def generate_all_coin_config_files(coinfiles, config, sortby, strategy):
             config["STOP_BOT_ON_STALE"] = True
 
         # and we generate a specific coin config file for that strategy
-        generate_coin_template_config_file(symbol, strategy, config)
+        generate_coin_template_config_file(
+            symbol, strategy, config, config_dir
+        )
 
 
 def process_all_coin_files(coinfiles):
+    """process all coin files"""
     tasks = []
     with get_context("spawn").Pool(processes=N_TASKS) as pool:
         for coin in coinfiles:
@@ -354,11 +371,17 @@ def process_all_coin_files(coinfiles):
                 log_msg(f"timeout while running: {excp}")
 
 
-def process_strategy_run(run, strategy, min, sortby, cfgs, coinfiles):
+def process_strategy_run(
+    run, strategy, min_profit, sortby, cfgs, coinfiles, config_dir
+):
+    """run strategy"""
     # in each strategy we will have multiple runs
     log_msg(
         " ".join(
-            [f"backtesting {run} on {strategy} for {min}", f"on {sortby} mode"]
+            [
+                f"backtesting {run} on {strategy} for {min_profit}",
+                f"on {sortby} mode",
+            ]
         )
     )
 
@@ -367,16 +390,20 @@ def process_strategy_run(run, strategy, min, sortby, cfgs, coinfiles):
         **cfgs["DEFAULTS"],
         **cfgs["STRATEGIES"][strategy][run],
     }
-    generate_all_coin_config_files(coinfiles, config, sortby, strategy)
+    generate_all_coin_config_files(
+        coinfiles, config, sortby, strategy, config_dir
+    )
     process_all_coin_files(coinfiles)
 
 
 def log_msg(msg):
+    """prefix message with timestamp"""
     now = datetime.now().strftime("%H:%M:%S")
     print(f"{now} AUTOMATED-BACKTESTING: {msg}")
 
 
 def cli():
+    """parse arguments"""
     parser = argparse.ArgumentParser()
     parser.add_argument("-l", "--log", help="logfile")
     parser.add_argument("-c", "--cfgs", help="backtesting cfg")
@@ -384,16 +411,19 @@ def cli():
     parser.add_argument("-f", "--filter", help="filter by")
     parser.add_argument("-s", "--sortby", help="sort by 'profit' or 'wins'")
     parser.add_argument(
-        "-cd", "--config-dir", help="configs directory", default="configs/"
+        "-cd", "--config-dir", help="configs directory", default="configs"
     )
     parser.add_argument(
-        "-rd", "--results-dir", help="results directory", default="results/"
+        "-rd", "--results-dir", help="results directory", default="results"
     )
     parser.add_argument(
-        "-ld", "--logs-dir", help="logs directory", default="logs/"
+        "-ld", "--logs-dir", help="logs directory", default="logs"
     )
     parser.add_argument(
-        "-rfbt", "--run-final-backtest", help="run final backtesting?", default=True
+        "-rfbt",
+        "--run-final-backtest",
+        help="run final backtesting?",
+        default=True,
     )
     args = parser.parse_args()
 
@@ -413,10 +443,10 @@ def cli():
     ]
 
 
-def gather_best_results_from_run(coinfiles, sortby):
-    wins_re = ".*INFO.*\swins:([0-9]+)\slosses:([0-9]+)\sstales:([0-9]+)\sholds:([0-9]+)"
-    invest_re = ".*INFO.*\sinvestment:\sstart:\s([0-9]+)\send:\s([0-9]+)"
-    balance_re = ".*INFO.*final\sbalance:\s(-?[0-9]+\.[0-9]+)"
+def gather_best_results_from_run(coinfiles, sortby, results_dir):
+    """finds the best results from run"""
+    wins_re = r".*INFO.*\swins:([0-9]+)\slosses:([0-9]+)\sstales:([0-9]+)\sholds:([0-9]+)"
+    balance_re = r".*INFO.*final\sbalance:\s(-?[0-9]+\.[0-9]+)"
 
     highest_profit = 0
     coin_with_highest_profit = ""
@@ -431,7 +461,7 @@ def gather_best_results_from_run(coinfiles, sortby):
     # TODO: parsing logfiles is not nice, rework this in app.py
     for coinfile in coinfiles:
         symbol = coinfile.split(".")[1]
-        results_txt = f"results/coin.{symbol}.yaml.txt"
+        results_txt = f"{results_dir}/coin.{symbol}.yaml.txt"
         with open(results_txt) as f:
             run_results = f.read()
 
@@ -466,13 +496,14 @@ def gather_best_results_from_run(coinfiles, sortby):
         f"sum of all coins profit:{run['total_profit']:.3f}|"
         + f"w:{run['total_wins']},l:{run['total_losses']},"
         + f"s:{run['total_stales']},h:{run['total_holds']}|"
-        + f"coin with highest profit:"
+        + "coin with highest profit:"
         + f"{coin_with_highest_profit}:{highest_profit:.3f}"
     )
     return run
 
 
 def gather_best_results_per_strategy(strategy, this):
+    """finds the best results in the strategy"""
     best_run = ""
     best_profit_in_runs = 0
     for run in this.keys():
@@ -485,10 +516,8 @@ def gather_best_results_per_strategy(strategy, this):
 
 
 def gather_strategies_best_runs(this):
+    """iterates over strategies and finds the best run in each"""
     log_msg("STRATEGIES BEST RUNS:")
-    best_strategy = ""
-    best_run = ""
-    best_profit_in_runs = 0
     best = {}
     for strategy in this.keys():
         best[strategy] = {"best_run": "", "best_profit": 0}
@@ -501,7 +530,7 @@ def gather_strategies_best_runs(this):
                     "total_profit"
                 ]
                 best[strategy]["best_run"] = run
-    for strategy in best.keys():
+    for strategy in best.keys():  # pylint: disable=C0201,C0206
         log_msg(
             f"{strategy} best run {best[strategy]['best_run']} "
             + f"with profit: {best[strategy]['best_profit']:.3f}"
@@ -513,16 +542,16 @@ def main():
     (
         cfgs,
         logfile,
-        min,
-        filter,
+        min_profit,
+        filterby,
         sortby,
         config_dir,
         results_dir,
         logs_dir,
-        run_final_backtest
+        run_final_backtest,
     ) = cli()
 
-    coinfiles = split_logs_into_coins(logfile, cfgs)
+    coinfiles = split_logs_into_coins(logfile, cfgs, logs_dir)
 
     if os.path.exists("cache/binance.client"):
         os.remove("cache/binance.client")
@@ -531,15 +560,17 @@ def main():
 
     for strategy in cfgs["STRATEGIES"]:
 
-        if os.path.exists("log/backtesting.log"):
-            os.remove("log/backtesting.log")
+        if os.path.exists(f"{logs_dir}/backtesting.log"):
+            os.remove(f"{logs_dir}/backtesting.log")
 
         top_results_per_run[strategy] = {}
 
         for run in cfgs["STRATEGIES"][strategy]:
-            process_strategy_run(run, strategy, min, sortby, cfgs, coinfiles)
+            process_strategy_run(
+                run, strategy, min, sortby, cfgs, coinfiles, config_dir
+            )
             top_results_per_run[strategy][run] = gather_best_results_from_run(
-                coinfiles, sortby
+                coinfiles, sortby, results_dir
             )
 
         gather_best_results_per_strategy(
@@ -549,27 +580,29 @@ def main():
         # finally we soak up the backtesting.log and generate the best
         # config from all the runs in this strategy
         results = gather_best_results_from_backtesting_log(
-            "log/backtesting.log",
-            min,
+            f"{logs_dir}/backtesting.log",
+            min_profit,
             "coincfg",
-            filter,
+            filterby,
             sortby,
         )
         generate_config_for_tuned_strategy(
             strategy, cfgs["DEFAULTS"], results, logfile
         )
     # cleanup backtesting.log
-    if os.path.exists("log/backtesting.log"):
-        os.remove("log/backtesting.log")
+    if os.path.exists(f"{logs_dir}/backtesting.log"):
+        os.remove(f"{logs_dir}/backtesting.log")
 
     gather_strategies_best_runs(top_results_per_run)
     if run_final_backtest:
-        run_tuned_config(cfgs["STRATEGIES"])
-    cleanup()
+        run_tuned_config(cfgs["STRATEGIES"], config_dir, results_dir)
+    cleanup(config_dir, results_dir, logs_dir)
 
 
 if __name__ == "__main__":
     # max number of parallel tasks we will run
-    N_TASKS = int(os.cpu_count() * float(os.getenv("SMP_MULTIPLIER", "1")))
+    n_cpus: Optional[int] = os.cpu_count()
+    smp_multiplier = float(os.getenv("SMP_MULTIPLIER", str(1)))
+    N_TASKS = int(n_cpus if n_cpus is not None else 1 * smp_multiplier)
 
     main()
