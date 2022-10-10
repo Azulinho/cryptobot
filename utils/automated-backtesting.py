@@ -15,7 +15,7 @@ import yaml
 from isal import igzip
 
 
-def backup_backtesting_log(logs_dir):
+def backup_backtesting_log(logs_dir="log"):
     """makes a backup of backtesting.log"""
     shutil.copyfile(
         f"{logs_dir}/backtesting.log", f"{logs_dir}/backtesting.log.backup"
@@ -30,7 +30,7 @@ def compress_file(filename):
     os.remove(filename)
 
 
-def split_logs_into_coins(filename, cfg, logs_dir):
+def split_logs_into_coins(filename, cfg, logs_dir="log"):
     """splits one price.log into individual coin price.log files"""
     coinfiles = set()
     coinfh = {}
@@ -322,7 +322,7 @@ def run_tuned_config(strategies, config_dir, results_dir):
             t.get()
 
 
-def cleanup(config_dir, results_dir, logs_dir):
+def cleanup(config_dir="configs", results_dir="results", logs_dir="log"):
     """clean files"""
     for item in glob.glob(f"{config_dir}/coin.*.yaml"):
         os.remove(item)
@@ -333,7 +333,7 @@ def cleanup(config_dir, results_dir, logs_dir):
 
 
 def generate_all_coin_config_files(
-    coinfiles, config, sortby, strategy, config_dir
+    coinfiles, config, sortby, strategy, config_dir="configs"
 ):
     """generate coin config backtesting files"""
     for coin in coinfiles:
@@ -350,7 +350,7 @@ def generate_all_coin_config_files(
         )
 
 
-def process_all_coin_files(coinfiles):
+def process_all_coin_files(coinfiles, config_dir="configs", results_dir="results"):
     """process all coin files"""
     tasks = []
     with get_context("spawn").Pool(processes=N_TASKS) as pool:
@@ -360,7 +360,7 @@ def process_all_coin_files(coinfiles):
             # ocasionally we get stuck runs, so we timeout a coin run
             # to a maximum of 15 minutes
             job = pool.apply_async(
-                wrap_subprocessing, (f"coin.{symbol}.yaml", 900)
+                wrap_subprocessing, (f"coin.{symbol}.yaml", config_dir, results_dir, 900)
             )
             tasks.append(job)
 
@@ -417,7 +417,7 @@ def cli():
         "-rd", "--results-dir", help="results directory", default="results"
     )
     parser.add_argument(
-        "-ld", "--logs-dir", help="logs directory", default="logs"
+        "-ld", "--logs-dir", help="logs directory", default="log"
     )
     parser.add_argument(
         "-rfbt",
@@ -551,7 +551,7 @@ def main():
         run_final_backtest,
     ) = cli()
 
-    coinfiles = split_logs_into_coins(logfile, cfgs, logs_dir)
+    coinfiles = split_logs_into_coins(logfile, cfgs, logs_dir="log")
 
     if os.path.exists("cache/binance.client"):
         os.remove("cache/binance.client")
@@ -567,7 +567,7 @@ def main():
 
         for run in cfgs["STRATEGIES"][strategy]:
             process_strategy_run(
-                run, strategy, min, sortby, cfgs, coinfiles, config_dir
+                run, strategy, min_profit, sortby, cfgs, coinfiles, config_dir
             )
             top_results_per_run[strategy][run] = gather_best_results_from_run(
                 coinfiles, sortby, results_dir

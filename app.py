@@ -1894,16 +1894,16 @@ if __name__ == "__main__":
         )
         # TODO: the args below are not currently consumed
         parser.add_argument(
-            "-cd", "--config-dir", help="configs directory", default="configs/"
+            "-cd", "--config-dir", help="configs directory", default="configs"
         )
         parser.add_argument(
             "-rd",
             "--results-dir",
             help="results directory",
-            default="results/",
+            default="results",
         )
         parser.add_argument(
-            "-ld", "--logs-dir", help="logs directory", default="logs/"
+            "-ld", "--logs-dir", help="logs directory", default="log"
         )
         args = parser.parse_args()
 

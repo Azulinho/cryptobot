@@ -40,7 +40,7 @@ def cli():
         "-rd", "--results-dir", help="results directory", default="results"
     )
     parser.add_argument(
-        "-ld", "--logs-dir", help="logs directory", default="logs/"
+        "-ld", "--logs-dir", help="logs directory", default="log"
     )
     args = parser.parse_args()
 
@@ -123,7 +123,7 @@ def run_automated_backtesting(config, min_profit, sortby, logs_dir="log"):
     )
 
 
-def create_zipped_logfile(dates, pairing, logs_dir, symbols):
+def create_zipped_logfile(dates, pairing, logs_dir="log", symbols=[]):
     """
     generates lastfewdays.log.gz from the provided list of price.log files
     excluding any symbol in the excluded list, and not matching pairing
@@ -208,7 +208,7 @@ def main():
         )
         dates = backtesting_dates(end_date=start_date, days=backtrack_days)
         log_msg(dates)
-        create_zipped_logfile(dates, pairing, logs_dir, [])
+        create_zipped_logfile(dates, pairing, logs_dir)
         log_msg(
             f"starting automated_backtesting using {config_file} for {min_profit}"
         )
