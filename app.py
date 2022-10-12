@@ -383,6 +383,10 @@ class Bot:
         self.initial_investment: float = float(config["INITIAL_INVESTMENT"])
         # current investment amount
         self.investment: float = float(config["INITIAL_INVESTMENT"])
+        # re-investment percentage
+        self.re_invest_percentage: float = float(
+            config.get("RE_INVEST_PERCENTAGE", 100.0)
+        )
         # number of seconds to pause between price checks
         self.pause: float = float(config["PAUSE_FOR"])
         # list of price.logs to use during backtesting
@@ -473,7 +477,9 @@ class Bot:
         self.order_type: str = config.get("ORDER_TYPE", "MARKET")
         self.binance_lock = SoftFileLock("state/binance.lock", timeout=90)
 
-    def extract_order_data(self, order_details, coin) -> Dict[str, Any]:
+    def extract_order_data(  # pylint: disable=no-self-use
+        self, order_details, coin
+    ) -> Dict[str, Any]:
         """calculate average price and volume for a buy order"""
 
         # Each order will be fullfilled by different traders, and made of
@@ -928,10 +934,10 @@ class Bot:
         # of decimal points used, the share of the investment and the price
         step_size = self.get_step_size(coin.symbol)
 
+        investment = percent(self.investment, self.re_invest_percentage)
+
         volume = float(
-            floor_value(
-                (self.investment / self.max_coins) / coin.price, step_size
-            )
+            floor_value((investment / self.max_coins) / coin.price, step_size)
         )
         if self.debug:
             logging.debug(

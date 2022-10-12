@@ -255,6 +255,7 @@ def generate_config_for_tuned_strategy(strategy, cfg, results, logfile):
     "STRATEGY": "$STRATEGY",
     "PAUSE_FOR": $PAUSE_FOR,
     "INITIAL_INVESTMENT": $INITIAL_INVESTMENT,
+    "RE_INVEST_PERCENTAGE": $RE_INVEST_PERCENTAGE,
     "MAX_COINS": $MAX_COINS,
     "PAIRING": "$PAIRING",
     "CLEAR_COIN_STATS_AT_BOOT": $CLEAR_COIN_STATS_AT_BOOT,
@@ -274,6 +275,7 @@ def generate_config_for_tuned_strategy(strategy, cfg, results, logfile):
                 {
                     "PAUSE_FOR": cfg["PAUSE_FOR"],
                     "INITIAL_INVESTMENT": cfg["INITIAL_INVESTMENT"],
+                    "RE_INVEST_PERCENTAGE": cfg.get("RE_INVEST_PERCENTAGE", 100),
                     "MAX_COINS": cfg["MAX_COINS"],
                     "PAIRING": cfg["PAIRING"],
                     "CLEAR_COIN_STATS_AT_BOOT": cfg[
