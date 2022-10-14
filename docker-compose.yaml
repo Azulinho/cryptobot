@@ -1,8 +1,6 @@
 version: '3'
 services:
   cryptobot:
-    networks:
-      - cryptobot-network
     image: ${IMAGE:-ghcr.io/azulinho/cryptobot}:${TAG:-latest}
     user: "${U}:${G}"
     build: ./
@@ -13,7 +11,7 @@ services:
       - klines
 
     ports:
-      - "5555"
+      - "127.0.0.1:${PORT1}:5555"
 
     volumes:
       - /etc/timezone:/etc/timezone:ro
@@ -27,8 +25,6 @@ services:
       - ./tests:/cryptobot/tests:rw
 
   klines:
-    networks:
-      - cryptobot-network
     image: ${IMAGE:-ghcr.io/azulinho/cryptobot}:${TAG:-latest}
     user: "${U}:${G}"
     build: ./
@@ -36,19 +32,10 @@ services:
     privileged: false
 
     ports:
-      - "8999"
+      - "127.0.0.1:${PORT2}:8999"
 
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
       - ./log:/cryptobot/log:rw
       - ./cache:/cryptobot/cache:rw
-
-
-networks:
-  cryptobot-network:
-    driver_opts:
-      com.docker.network.bridge.host_binding_ipv4: "${IP:-172.20.0.1}"
-    ipam:
-      config:
-        - subnet: "${NET:-172.20.0.0/16}"

@@ -3,6 +3,12 @@ default: help ;
 
 WHOAMI := $$(whoami)
 SMP_MULTIPLIER := 1
+DCOMPOSE_ID := $$( cat state/dcompose.id )
+PORT1 := $$(  comm -23 <(seq 49152 65535) <(ss -tan | awk '{print $4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+PORT2 := $$(  comm -23 <(seq 49152 65535) <(ss -tan | awk '{print $4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+
+dcompose_id:
+	test -e state/dcompose.id || echo "cryptobot-network-`pwd|md5sum|cut -c1-8`" > state/dcompose.id
 
 checks:
 	@if [ "`docker --version | cut -d " " -f3 | tr -d 'v'| cut -c1`" -lt 2 ]; \
@@ -13,26 +19,26 @@ checks:
 latest: checks
 	docker pull ghcr.io/azulinho/cryptobot:latest
 
-logmode: checks latest
-	U="$$(id -u)" G="$$(id -g)" docker compose run \
+logmode: checks latest dcompose_id
+	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose -p $(DCOMPOSE_ID) run \
 		--name cryptobot.logmode.$(WHOAMI).$(CONFIG) --rm \
 		--service-ports cryptobot -s secrets/binance.prod.yaml \
 		-c configs/$(CONFIG)  -m  logmode > log/logmode.$(CONFIG).txt 2>&1
 
-testnet: checks latest
-	U="$$(id -u)" G="$$(id -g)" docker compose run --rm \
-		--name cryptobot.testnet.$(WHOAMI).$(CONFIG) --service-ports cryptobot \
+testnet: checks latest dcompose_id
+	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose -p $(DCOMPOSE_ID) run \
+		--name cryptobot.testnet.$(WHOAMI).$(CONFIG) --rm --service-ports cryptobot \
 		-s secrets/binance.testnet.yaml -c configs/$(CONFIG)  \
 		-m  testnet  > log/testnet.$(CONFIG).txt 2>&1
 
-live: checks latest
-	U="$$(id -u)" G="$$(id -g)" docker compose run --rm \
-		--name cryptobot.live.$(WHOAMI).$(CONFIG) --service-ports cryptobot \
+live: checks latest dcompose_id
+	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose -p $(DCOMPOSE_ID) run \
+		--name cryptobot.live.$(WHOAMI).$(CONFIG) --rm --service-ports cryptobot \
 		-s secrets/binance.prod.yaml -c configs/$(CONFIG)  \
 		-m  live  >> log/live.$(CONFIG).txt 2>&1
 
-backtesting: checks
-	U="$$(id -u)" G="$$(id -g)" docker compose run \
+backtesting: checks dcompose_id
+	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose -p $(DCOMPOSE_ID) run \
 		--name cryptobot.backtesting.$(WHOAMI).$(CONFIG) --rm --service-ports \
 		cryptobot -s secrets/binance.prod.yaml -c configs/$(CONFIG)  \
 		-m  backtesting  > results/$(CONFIG).txt 2>&1
@@ -50,8 +56,8 @@ lastfewdays:
 		| grep -vEa 'DOWN$(PAIR)|UP$(PAIR)|BULL$(PAIR)|BEAR$(PAIR)' \
 		| gzip -3 >> lastfewdays.log.gz; done
 
-automated-backtesting: checks
-	U="$$(id -u)" G="$$(id -g)" docker compose run \
+automated-backtesting: checks dcompose_id
+	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose -p $(DCOMPOSE_ID) run \
 		--name cryptobot.automated-backtesting.$(WHOAMI) --rm \
 		--entrypoint="/cryptobot/utils/automated-backtesting.sh" \
 		-e LOGFILE=/cryptobot/log/$(LOGFILE) \
@@ -61,17 +67,20 @@ automated-backtesting: checks
 		cryptobot \
 		> results/automated-backtesting.$(CONFIG).min$(MIN).$(SORTBY).txt
 
-build: checks
-	U="$$(id -u)" G="$$(id -g)" docker compose build
+build: checks dcompose_id
+	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose -p $(DCOMPOSE_ID) build
 
-download-price-logs: checks
-	U="$$(id -u)" G="$$(id -g)" docker compose run \
+down: checks dcompose_id
+	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose -p $(DCOMPOSE_ID) down
+
+download-price-logs: checks dcompose_id
+	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose run \
 		--name cryptobot.download-price-logs.$(WHOAMI) --rm \
 		--entrypoint="/cryptobot/.venv/bin/python /cryptobot/utils/pull_klines.py \
 		-s $(FROM) -e $(TO)" cryptobot
 
-prove-backtesting: checks
-	U="$$(id -u)" G="$$(id -g)" docker compose run \
+prove-backtesting: checks dcompose_id
+	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose -p $(DCOMPOSE_ID) run \
 		--name cryptobot.prove-backtesting.$(WHOAMI) --rm \
 		--entrypoint="/cryptobot/utils/prove-backtesting.sh" \
 		-e FROM=$(FROM) -e BACKTRACK=$(BACKTRACK) -e CONFIG=$(CONFIG) -e MIN=$(MIN) \
