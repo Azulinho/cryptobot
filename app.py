@@ -11,7 +11,7 @@ import traceback
 from datetime import datetime
 from functools import lru_cache
 from itertools import islice
-from os import fsync, getpid
+from os import fsync, getpid, unlink
 from os.path import basename, exists
 from time import sleep
 from typing import Any, Dict, List, Tuple
@@ -468,7 +468,7 @@ class Bot:
         # coins, those remain in our wallet.
         # Mostly used for quitting a backtesting session early
         self.stop_bot_on_stale: bool = config.get("STOP_BOT_ON_STALE", False)
-        # indicates where we found a .stop flag file
+        # indicates where we found a control/STOP flag file
         self.stop_flag: bool = False
         # set by the bot so to quit safely as soon as possible.
         # used by STOP_BOT_ON_LOSS checks
@@ -1635,9 +1635,19 @@ class Bot:
             # saves all coin and wallet data to disk
             self.save_coins()
             self.wait()
-            if exists(".stop") or self.quit:
-                logging.warning(".stop flag found. Stopping bot.")
+            if exists("control/STOP") or self.quit:
+                logging.warning("control/STOP flag found. Stopping bot.")
                 return
+            if exists("control/SELL"):
+                logging.warning("control/SELL flag found")
+                with open("control/SELL") as f:
+                    for line in f:
+                        symbol = line.strip()
+                        if symbol in self.wallet:
+                            logging.warning(f"control/SELL contains {symbol}")
+                            self.coins[symbol].status = "CONTROL_FLAG"
+                            self.sell_coin(self.coins[symbol])
+                unlink("control/SELL")
 
     def logmode(self) -> None:
         """the bot LogMode main loop"""
@@ -1789,8 +1799,8 @@ class Bot:
         else:
             for price_log in self.price_logs:
                 self.backtest_logfile(price_log)
-                if exists(".stop") or self.quit:
-                    logging.warning(".stop flag found. Stopping bot.")
+                if exists("control/STOP") or self.quit:
+                    logging.warning("control/STOP flag found. Stopping bot.")
                     break
 
         # now that we are done, lets record our results
@@ -1974,6 +1984,10 @@ if __name__ == "__main__":
             f"running in {bot.mode} mode with "
             + f"{json.dumps(args.config, indent=4)}"
         )
+
+        # clean up any stale control/STOP files
+        if exists("control/STOP"):
+            unlink("control/STOP")
 
         if bot.mode in ["testnet", "live"]:
             # start command-control-center (ipdb on port 5555)

@@ -23,6 +23,7 @@ services:
       - ./cache:/cryptobot/cache:rw
       - ./results:/cryptobot/results:rw
       - ./tests:/cryptobot/tests:rw
+      - ./control:/cryptobot/control:rw
 
   klines:
     image: ${IMAGE:-ghcr.io/azulinho/cryptobot}:${TAG:-latest}
