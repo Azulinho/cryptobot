@@ -12,7 +12,6 @@ from unittest import mock
 import pytest
 import requests
 import udatetime
-import requests
 import yaml
 from binance.client import Client
 
@@ -131,14 +130,6 @@ class TestCoin:
         coin.volume = 2
         coin.update(float(udatetime.now().timestamp()), 100.0)
         assert coin.value == 200
-
-    def test_update_coin_change_status_from_hold_to_target_sell(self, coin):
-        coin.status = "HOLD"
-        coin.sell_at_percentage = 3
-        coin.bought_at = 100
-        coin.bought_date = float(udatetime.now().timestamp() - 3600)
-        coin.update(float(udatetime.now().timestamp()), 120.00)
-        assert coin.status == "TARGET_SELL"
 
     def test_update_coin_updates_state_dip(self, coin):
         coin.status = "TARGET_DIP"
@@ -495,44 +486,45 @@ class TestBot:
         date = float(
             datetime.fromisoformat(
                 "2021-12-04 05:23:05.693516",
-            ).timestamp() / 1000
+            ).timestamp()
+            / 1000
         )
         r = requests.models.Response()
         r.status_code = 200
         r.headers["Content-Type"] = "application/json"
         response = {}
-        for metric in ['lowest', 'averages', 'highest']:
+        for metric in ["lowest", "averages", "highest"]:
             response[metric] = {}
-            for unit in ['s', 'm', 'h', 'd']:
+            for unit in ["s", "m", "h", "d"]:
                 response[metric][unit] = []
 
         price = 1
         seconds = 0
-        unit = 'm'
+        unit = "m"
         for _ in range(60):
-            response['lowest'][unit].append( (date + seconds, price -1 ))
-            response['averages'][unit].append(( date + seconds, price))
-            response['highest'][unit].append(( date + seconds, price + 1))
+            response["lowest"][unit].append((date + seconds, price - 1))
+            response["averages"][unit].append((date + seconds, price))
+            response["highest"][unit].append((date + seconds, price + 1))
             price = price + 1
             seconds = seconds + 60
 
         price = 1
         seconds = 0
-        unit = 'h'
+        unit = "h"
         for _ in range(24):
-            response['lowest'][unit].append( (date + seconds, price -1 ))
-            response['averages'][unit].append(( date + seconds, price))
-            response['highest'][unit].append(( date + seconds, price + 1))
+            response["lowest"][unit].append((date + seconds, price - 1))
+            response["averages"][unit].append((date + seconds, price))
+            response["highest"][unit].append((date + seconds, price + 1))
             price = price + 1
             seconds = seconds + 3600
 
         price = 1
         seconds = 0
-        unit = 'd'
+        unit = "d"
         for _ in range(60):
-            response['lowest'][unit].append( (date + seconds, price -1 ))
-            response['averages'][unit].append(( date + seconds, price))
-            response['highest'][unit].append(( date + seconds, price + 1))
+            response["lowest"][unit].append((date + seconds, price - 1))
+            response["averages"][unit].append((date + seconds, price))
+            response["highest"][unit].append((date + seconds, price + 1))
             price = price + 1
             seconds = seconds + 86400
 
@@ -558,7 +550,6 @@ class TestBot:
         assert len(coin.highest["h"]) == 24
         assert len(coin.highest["m"]) == 60
 
-
         assert coin.lowest["m"][0] == [1638595.3856935161, 0]
         assert coin.lowest["m"][59] == [1642135.3856935161, 59.0]
 
@@ -567,7 +558,6 @@ class TestBot:
 
         assert coin.highest["m"][0] == [1638595.3856935161, 2]
         assert coin.highest["m"][59] == [1642135.3856935161, 61.0]
-
 
         assert coin.lowest["h"][0] == [1638595.3856935161, 0]
         assert coin.lowest["h"][23] == [1721395.3856935161, 23]
@@ -1013,6 +1003,17 @@ class TestCoinStatus:
         assert coin.min == float(100)
         assert coin.min == coin.price
         assert coin.max == coin.price
+
+    def test_target_sell_coin_change_status_from_hold_to_target_sell(
+        self, bot, coin
+    ):
+        coin.status = "HOLD"
+        coin.sell_at_percentage = 3
+        coin.bought_at = 100
+        coin.bought_date = float(udatetime.now().timestamp() - 3600)
+        coin.update(float(udatetime.now().timestamp()), 120.00)
+        bot.target_sell(coin)
+        assert coin.status == "TARGET_SELL"
 
 
 class TestBotProfit:

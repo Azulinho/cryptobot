@@ -1,15 +1,29 @@
+"""
+parses prove-backtesting result files and returns:
+ profit, Strategy, config, min, wins|profit, start, end, forward, backtrack
+
+223 BuyDropSellRecoveryStrategy backtesting.9029.yaml min:7 wins 20211108 20220919 f:7 b:7
+
+"""
+
 import re
 from os import listdir
 from os.path import isfile, join
+from typing import Dict, List
 
-mypath = "./results/"
-results_txt = [f for f in listdir(mypath) if isfile(join(mypath, f))]
+mypath: str = "./results/"
+results_txt: List = [f for f in listdir(mypath) if isfile(join(mypath, f))]
 
-filename_regex_str = "^prove-backtesting\.(.*\.*\.yaml)\.min(\d+)\.([wins|profit]+)\.(\d+)_(\d+)\.f(\d+)d\.b(\d+)d\.txt"
+filename_regex_str: str = (
+    r"^prove-backtesting\.(.*\.*\.yaml)\.min(\d+)"
+    + r"\.([wins|profit]+)\.(\d+)_(\d+)\.f(\d+)d\.b(\d+)d\.txt"
+)
 
-final_balance_regex = ".* PROVE-BACKTESTING: final balance for (.*): (\d+)"
+final_balance_regex: str = (
+    r".* PROVE-BACKTESTING: final balance for (.*): (\d+)"
+)
 
-proves_backtesting_files = {}
+proves_backtesting_files: Dict[str, Dict] = {}
 
 for result_txt in results_txt:
     matches = re.search(filename_regex_str, result_txt)
@@ -25,7 +39,7 @@ for result_txt in results_txt:
         proves_backtesting_files[result_txt]["backward"] = matches.group(7)
 
         with open(f"./results/{result_txt}") as f:
-            lines = f.readlines()
+            lines: List = f.readlines()
 
             if len(lines[-1:]):
                 if "PROVE-BACKTESTING: FINISHED" not in lines[-1:][0]:
@@ -33,19 +47,18 @@ for result_txt in results_txt:
             else:
                 continue
 
-
         with open(f"./results/{result_txt}") as f:
             for line in f:
                 matches = re.search(final_balance_regex, line)
                 if matches:
-                    strategy = matches.group(1)
-                    balance = matches.group(2)
+                    strategy: str = matches.group(1)
+                    balance: str = matches.group(2)
                     proves_backtesting_files[result_txt]["strats"][
                         strategy
                     ] = balance
 
-        top_balance = float(0)
-        best_strat = ""
+        top_balance: float = float(0)
+        best_strat: str = ""
         for strat in proves_backtesting_files[result_txt]["strats"].keys():
             if (
                 float(proves_backtesting_files[result_txt]["strats"][strat])
@@ -60,5 +73,7 @@ for result_txt in results_txt:
         if proves_backtesting_files[result_txt]["best"] != "":
             run = proves_backtesting_files[result_txt]
             print(
-                f"{run['strats'][best_strat]} {run['best']} {run['config']} min:{run['min']} {run['wins_profit']} {run['start_date']} {run['end_date']} f:{run['forward']} b:{run['backward']}"
+                f"{run['strats'][best_strat]} {run['best']} {run['config']} "
+                + f"min:{run['min']} {run['wins_profit']} {run['start_date']} "
+                + f"{run['end_date']} f:{run['forward']} b:{run['backward']}"
             )

@@ -1,12 +1,12 @@
 """ retrieves klines for binance suitable for cryptoBot """
 
 import argparse
+import gzip
 import os
 import time
 from datetime import datetime, timedelta
 
-from binance.client import Client
-from xopen import xopen
+from binance.client import Client  # pylint: disable=E0401
 
 client = Client("FAKE", "FAKE")
 
@@ -155,7 +155,7 @@ if __name__ == "__main__":
 
         # and finally we compression our price.log for this day and discard
         # and temporary work files.
-        with xopen(f"log/{day}.log.gz", "wt") as z:
+        with gzip.open(f"log/{day}.log.gz", "wt") as z:
             with open(f"log/{day}.log", encoding="utf-8") as f:
                 z.write(f.read())
         if os.path.exists(f"log/{day}.log"):

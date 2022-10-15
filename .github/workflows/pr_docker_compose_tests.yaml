@@ -36,7 +36,7 @@ jobs:
             cryptobot \
             -c tests/BuyMoonSellRecoveryStrategy.yaml \
             -m backtesting -s tests/fake.yaml |tail | tee result.txt
-          grep ' wins:385 losses:97 stales:107 holds:1' result.txt
+          grep 'wins:366 losses:98 stales:104 holds:1' result.txt
 
       - name: run backtesting strategies BuyOnGrowthTrendAfterDropStrategy.yaml
         run: |
@@ -48,7 +48,7 @@ jobs:
             cryptobot \
             -c tests/BuyOnGrowthTrendAfterDropStrategy.yaml \
             -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:19 losses:1 stales:77 holds:2' result.txt
+          grep 'wins:19 losses:1 stales:75 holds:2' result.txt
 
 
       - name: run backtesting strategies BuyDropSellRecoveryStrategy.yaml
@@ -73,7 +73,7 @@ jobs:
             cryptobot \
             -c tests/BuyDropSellRecoveryStrategyWhenBTCisUp.yaml \
             -m backtesting -s tests/fake.yaml | tail |tee result.txt
-          grep 'wins:207 losses:1 stales:648 holds:0' result.txt
+          grep 'wins:199 losses:2 stales:637 holds:0' result.txt
 
       - name: run backtesting strategies BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
         run: |
@@ -97,7 +97,7 @@ jobs:
             cryptobot \
             -c tests/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml \
             -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:116 losses:0 stales:358 holds:0' result.txt
+          grep 'wins:112 losses:0 stales:351 holds:0' result.txt
 
       - name: run backtesting strategies BuyOnRecoveryAfterDropFromAverageStrategy.yaml
         run: |
@@ -109,7 +109,7 @@ jobs:
             cryptobot \
             -c tests/BuyOnRecoveryAfterDropFromAverageStrategy.yaml \
             -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:187 losses:4 stales:598 holds:0' result.txt
+          grep 'wins:184 losses:4 stales:596 holds:0' result.txt
 
 
       - name: run automated-backtesting

@@ -1,15 +1,16 @@
-import logging
+""" load_klines_for_coin: manages the cache/ directory """
 import json
-from datetime import datetime
-from hashlib import md5
-from flask import Flask, request
-from os.path import basename, exists
-import threading
-
+import logging
 import sys
-from os import fsync, getpid
+import threading
+from hashlib import md5
+from os import getpid
+from os.path import exists
+
+import colorlog  # pylint: disable=E0401
+from flask import Flask, request  # pylint: disable=E0401
+
 from lib.helpers import c_from_timestamp, requests_with_backoff
-import colorlog
 
 DEBUG = False
 PID = getpid()
@@ -59,26 +60,10 @@ app = Flask(__name__)
 
 
 def process_klines_line(kline):
-    (
-        _,
-        _,
-        high,
-        low,
-        _,
-        _,
-        closetime,
-        _,
-        _,
-        _,
-        _,
-        _
-    ) = kline
+    """returns date, low, avg, high from a kline"""
+    (_, _, high, low, _, _, closetime, _, _, _, _, _) = kline
 
-    date = float(
-        datetime.fromtimestamp(
-            closetime / 1000
-        ).timestamp()
-    )
+    date = float(c_from_timestamp(closetime / 1000).timestamp())
     low = float(low)
     high = float(high)
     avg = (low + high) / 2
@@ -86,7 +71,8 @@ def process_klines_line(kline):
     return date, low, avg, high
 
 
-def read_from_local_cache(f_path ):
+def read_from_local_cache(f_path):
+    """reads kline from local cache if it exists"""
 
     logging.info(f"using path {f_path}")
     # wrap results in a try call, in case our cached files are corrupt
@@ -100,7 +86,7 @@ def read_from_local_cache(f_path ):
     try:
         with open(f_path, "r") as f:
             results = json.load(f)
-    except Exception as err:
+    except Exception as err:  # pylint: disable=W0703
         logging.critical(err)
         return (False, [])
 
@@ -112,8 +98,22 @@ def read_from_local_cache(f_path ):
 
     # check for valid values by reading one line
     try:
-        _, _, high, low, _, _, closetime, _, _, _, _, _ = results[0]
-    except Exception as err:
+        # pylint: disable=W0612
+        (
+            _,
+            _,
+            high,
+            low,
+            _,
+            _,
+            closetime,
+            _,
+            _,
+            _,
+            _,
+            _,
+        ) = results[0]
+    except Exception as err:  # pylint: disable=W0703
         logging.critical(err)
         return (False, [])
 
@@ -121,6 +121,7 @@ def read_from_local_cache(f_path ):
 
 
 def populate_values(klines, unit):
+    """builds averages[], lowest[], highest[] out of klines"""
     _lowest = []
     _averages = []
     _highest = []
@@ -137,14 +138,14 @@ def populate_values(klines, unit):
 
     # finally, populate all the data coin buckets
     values = {}
-    for metric in ['lowest', 'averages', 'highest']:
+    for metric in ["lowest", "averages", "highest"]:
         values[metric] = []
 
     unit_values = {
         "m": 60,
         "h": 24,
         # for 'Days' we retrieve 1000 days, binance API default
-        "d": 1000
+        "d": 1000,
     }
 
     timeslice = unit_values[unit]
@@ -153,18 +154,19 @@ def populate_values(klines, unit):
     # this could possibly be optimized, but at the same time
     # this only runs the once when we initialise a coin
     for d, v in _lowest[-timeslice:]:
-        values['lowest'].append((d, v))
+        values["lowest"].append((d, v))
 
     for d, v in _averages[-timeslice:]:
-        values['averages'].append((d, v))
+        values["averages"].append((d, v))
 
     for d, v in _highest[-timeslice:]:
-        values['highest'].append((d, v))
+        values["highest"].append((d, v))
 
     return (True, values)
 
 
 def call_binance_for_klines(query):
+    """calls upstream binance and retrieves the klines for a coin"""
     logging.info(f"calling binance on {query}")
     with LOCK:
         response = requests_with_backoff(query)
@@ -174,21 +176,22 @@ def call_binance_for_klines(query):
         return (True, [])
     return (True, response.json())
 
+
 def save_binance_klines(query, f_path, klines, mode):
+    """saves binance klines for a coin locally"""
     logging.info(f"caching binance {query} on {f_path}")
     if mode == "backtesting":
         with open(f_path, "w") as f:
             f.write(json.dumps(klines))
 
 
-@app.route('/')
+@app.route("/")
 def load_klines_for_coin():
     """fetches from binance or a local cache klines for a coin"""
 
-    symbol = request.args.get('symbol')
-    date = int(float(request.args.get('date')))
-    mode = request.args.get('mode')
-    debug = bool(request.args.get('debug'))
+    symbol = request.args.get("symbol")
+    date = int(float(request.args.get("date")))
+    mode = request.args.get("mode")
 
     # when we initialise a coin, we pull a bunch of klines from binance
     # for that coin and save it to disk, so that if we need to fetch the
@@ -221,7 +224,7 @@ def load_klines_for_coin():
         unit_url_fpath.append((unit, query, f_path))
 
     values = {}
-    for metric in ['lowest', 'averages', 'highest']:
+    for metric in ["lowest", "averages", "highest"]:
         values[metric] = {}
         for unit in ["m", "h", "d", "s"]:
             values[metric][unit] = []
@@ -238,7 +241,7 @@ def load_klines_for_coin():
             ok, low_avg_high = populate_values(klines, unit)
 
         if ok:
-            for metric in low_avg_high.keys():
+            for metric in low_avg_high.keys():  # pylint: disable=C0201,C0206
                 values[metric][unit] = low_avg_high[metric]
                 # make sure we don't keep more values that we should
                 timeslice, _ = unit_values[unit]
@@ -248,4 +251,4 @@ def load_klines_for_coin():
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=8999, threaded=True)
+    app.run(host="0.0.0.0", port=8999, threaded=True)

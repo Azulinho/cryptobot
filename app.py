@@ -28,8 +28,15 @@ from isal import igzip
 from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 
-from lib.helpers import (add_100, c_date_from, c_from_timestamp,
-                         cached_binance_client, floor_value, mean, percent)
+from lib.helpers import (
+    add_100,
+    c_date_from,
+    c_from_timestamp,
+    cached_binance_client,
+    floor_value,
+    mean,
+    percent,
+)
 
 
 def control_center() -> None:
@@ -173,30 +180,6 @@ class Coin:  # pylint: disable=too-few-public-methods
             self.value = self.volume * self.price
             self.cost = self.bought_at * self.volume
             self.profit = self.value - self.cost
-
-        # Check for a coin we HOLD if we reached the SELL_AT_PERCENTAGE
-        # and mark that coin as TARGET_SELL if we have.
-        if self.status == "HOLD":
-            if market_price > percent(self.sell_at_percentage, self.bought_at):
-                self.status = "TARGET_SELL"
-                s_value = (
-                    percent(
-                        self.trail_target_sell_percentage,
-                        self.sell_at_percentage,
-                    )
-                    - 100
-                )
-                logging.info(
-                    f"{c_from_timestamp(self.date)}: {self.symbol} [HOLD] "
-                    + f"-> [TARGET_SELL] ({self.price}) "
-                    + f"A:{self.holding_time}s "
-                    + f"U:{self.volume} P:{self.price} T:{self.value} "
-                    + f"BP:{self.bought_at} "
-                    + f"SP:{self.bought_at * self.sell_at_percentage /100} "
-                    + f"S:+{s_value:.3f}% "
-                    + f"TTS:-{(100 - self.trail_target_sell_percentage):.2f}% "
-                    + f"LP:{self.min}(-{100 - ((self.min/self.max) * 100):.3f}%) "
-                )
 
         # monitors for the highest price recorded for a coin we are looking
         # to sell soon.
@@ -400,6 +383,10 @@ class Bot:
         self.initial_investment: float = float(config["INITIAL_INVESTMENT"])
         # current investment amount
         self.investment: float = float(config["INITIAL_INVESTMENT"])
+        # re-investment percentage
+        self.re_invest_percentage: float = float(
+            config.get("RE_INVEST_PERCENTAGE", 100.0)
+        )
         # number of seconds to pause between price checks
         self.pause: float = float(config["PAUSE_FOR"])
         # list of price.logs to use during backtesting
@@ -490,7 +477,9 @@ class Bot:
         self.order_type: str = config.get("ORDER_TYPE", "MARKET")
         self.binance_lock = SoftFileLock("state/binance.lock", timeout=90)
 
-    def extract_order_data(self, order_details, coin) -> Dict[str, Any]:
+    def extract_order_data(  # pylint: disable=no-self-use
+        self, order_details, coin
+    ) -> Dict[str, Any]:
         """calculate average price and volume for a buy order"""
 
         # Each order will be fullfilled by different traders, and made of
@@ -511,7 +500,7 @@ class Bot:
 
         avg = total / qty
 
-        volume = float(self.calculate_volume_size(coin))
+        volume = qty
         logging.debug(f"{coin.symbol} -> volume:{volume} avgPrice:{avg}")
 
         return {
@@ -537,6 +526,7 @@ class Bot:
         # first attempt to sell the coin, in order to free the wallet for the
         # next coin run_strategy run.
         if self.wallet:
+            self.target_sell(coin)
             self.check_for_sale_conditions(coin)
 
         # is this a new coin?
@@ -944,10 +934,10 @@ class Bot:
         # of decimal points used, the share of the investment and the price
         step_size = self.get_step_size(coin.symbol)
 
+        investment = percent(self.investment, self.re_invest_percentage)
+
         volume = float(
-            floor_value(
-                (self.investment / self.max_coins) / coin.price, step_size
-            )
+            floor_value((investment / self.max_coins) / coin.price, step_size)
         )
         if self.debug:
             logging.debug(
@@ -1090,6 +1080,38 @@ class Bot:
 
             if coin_symbol in self.wallet:
                 self.log_debug_coin(self.coins[coin_symbol])
+
+    def target_sell(self, coin: Coin) -> bool:  # pylint: disable=R0201
+        """
+        Check for a coin we HOLD if we reached the SELL_AT_PERCENTAGE
+        and mark that coin as TARGET_SELL if we have.
+        """
+        if coin.status == "TARGET_SELL":
+            return True
+
+        if coin.status == "HOLD":
+            if coin.price > percent(coin.sell_at_percentage, coin.bought_at):
+                coin.status = "TARGET_SELL"
+                s_value = (
+                    percent(
+                        coin.trail_target_sell_percentage,
+                        coin.sell_at_percentage,
+                    )
+                    - 100
+                )
+                logging.info(
+                    f"{c_from_timestamp(coin.date)}: {coin.symbol} [HOLD] "
+                    + f"-> [TARGET_SELL] ({coin.price}) "
+                    + f"A:{coin.holding_time}s "
+                    + f"U:{coin.volume} P:{coin.price} T:{coin.value} "
+                    + f"BP:{coin.bought_at} "
+                    + f"SP:{coin.bought_at * coin.sell_at_percentage /100} "
+                    + f"S:+{s_value:.3f}% "
+                    + f"TTS:-{(100 - coin.trail_target_sell_percentage):.2f}% "
+                    + f"LP:{coin.min}(-{100 - ((coin.min/coin.max) * 100):.3f}%) "
+                )
+                return True
+        return False
 
     def stop_loss(self, coin: Coin) -> bool:
         """checks for possible loss on a coin"""
@@ -1878,16 +1900,16 @@ if __name__ == "__main__":
         )
         # TODO: the args below are not currently consumed
         parser.add_argument(
-            "-cd", "--config-dir", help="configs directory", default="configs/"
+            "-cd", "--config-dir", help="configs directory", default="configs"
         )
         parser.add_argument(
             "-rd",
             "--results-dir",
             help="results directory",
-            default="results/",
+            default="results",
         )
         parser.add_argument(
-            "-ld", "--logs-dir", help="logs directory", default="logs/"
+            "-ld", "--logs-dir", help="logs directory", default="log"
         )
         args = parser.parse_args()
 
