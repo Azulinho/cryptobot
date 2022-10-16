@@ -3,41 +3,45 @@
 A python based trading bot for Binance, which relies heavily on backtesting.
 
 
-1. [Overview](#overview)
-2. [Discord](#discord)
-3. [Getting started](#getting-started)
-4. [Usage](#usage)
-5. [Config settings](#config-settings)
-   * [PAIRING](#pairing)
-   * [INITIAL_INVESTMENT](#initial_investment)
-   * [RE_INVEST_PERCENTAGE](#re_invest_percentage)
-   * [PAUSE_FOR](#pause_for)
-   * [STRATEGY](#strategy)
-   * [BUY_AT_PERCENTAGE](#buy_at_percentage)
-   * [SELL_AT_PERCENTAGE](#sell_at_percentage)
-   * [STOP_LOSS_AT_PERCENTAGE](#stop_loss_at_percentage)
-   * [TRAIL_TARGET_SELL_PERCENTAGE](#trail_target_sell_percentage)
-   * [TRAIL_RECOVERY_PERCENTAGE](#trail_recovery_percentage)
-   * [HARD_LIMIT_HOLDING_TIME](#hard_limit_holding_time)
-   * [SOFT_LIMIT_HOLDING_TIME](#soft_limit_holding_time)
-   * [KLINES_TREND_PERIOD](#klines_trend_period)
-   * [KLINES_SLICE_PERCENTAGE_CHANGE](#klines_slice_percentage_change)
-   * [CLEAR_COIN_STATS_AT_BOOT](#clear_coin_stats_at_boot)
-   * [NAUGHTY_TIMEOUT](#naughty_timeout)
-   * [CLEAR_COIN_STATS_AT_SALE](#clear_coin_stats_at_sale)
-   * [SELL_AS_SOON_AS_IT_DROPS](#sell_as_soon_as_it_drops)
-   * [DEBUG](#debug)
-   * [MAX_COINS](#max_coins)
-   * [TICKERS](#tickers)
-   * [TRADING_FEE](#trading_fee)
-   * [PRICE_LOGS](#price_logs)
-   * [ENABLE_PUMP_AND_DUMP_CHECKS](#enable_pump_and_dump_checks)
-   * [ENABLE_NEW_LISTING_CHECKS](#enable_new_listing_checks)
-   * [ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS](#enable_new_listing_checks_age_in_days)
-   * [STOP_BOT_ON_LOSS](#stop_bot_on_loss)
-   * [ORDER_TYPE](#order_type)
-   *
-6. [Bot command center](#bot-command-center)
+ 1. [Overview](#overview)
+ 2. [Discord](#discord)
+ 3. [Getting started](#getting-started)
+ 4. [Usage](#usage)
+ 5. [Config settings](#config-settings)
+    * [PAIRING](#pairing)
+    * [INITIAL_INVESTMENT](#initial_investment)
+    * [RE_INVEST_PERCENTAGE](#re_invest_percentage)
+    * [PAUSE_FOR](#pause_for)
+    * [STRATEGY](#strategy)
+    * [BUY_AT_PERCENTAGE](#buy_at_percentage)
+    * [SELL_AT_PERCENTAGE](#sell_at_percentage)
+    * [STOP_LOSS_AT_PERCENTAGE](#stop_loss_at_percentage)
+    * [TRAIL_TARGET_SELL_PERCENTAGE](#trail_target_sell_percentage)
+    * [TRAIL_RECOVERY_PERCENTAGE](#trail_recovery_percentage)
+    * [HARD_LIMIT_HOLDING_TIME](#hard_limit_holding_time)
+    * [SOFT_LIMIT_HOLDING_TIME](#soft_limit_holding_time)
+    * [KLINES_TREND_PERIOD](#klines_trend_period)
+    * [KLINES_SLICE_PERCENTAGE_CHANGE](#klines_slice_percentage_change)
+    * [CLEAR_COIN_STATS_AT_BOOT](#clear_coin_stats_at_boot)
+    * [NAUGHTY_TIMEOUT](#naughty_timeout)
+    * [CLEAR_COIN_STATS_AT_SALE](#clear_coin_stats_at_sale)
+    * [SELL_AS_SOON_AS_IT_DROPS](#sell_as_soon_as_it_drops)
+    * [DEBUG](#debug)
+    * [MAX_COINS](#max_coins)
+    * [TICKERS](#tickers)
+    * [TRADING_FEE](#trading_fee)
+    * [PRICE_LOGS](#price_logs)
+    * [ENABLE_PUMP_AND_DUMP_CHECKS](#enable_pump_and_dump_checks)
+    * [ENABLE_NEW_LISTING_CHECKS](#enable_new_listing_checks)
+    * [ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS](#enable_new_listing_checks_age_in_days)
+    * [STOP_BOT_ON_LOSS](#stop_bot_on_loss)
+    * [ORDER_TYPE](#order_type)
+ 6. [Bot command center](#bot-command-center)
+ 7. [Control Flags](#control-flags)
+ 8. [Automated Backtesting](#automated-backtesting)
+ 9. [Prove automated-backtesting results](#prove-automated-backtesting-results)
+10. [Obtaining old price log files](#obtaining-old-price-log-files)
+11. [Development/New features](#development/new-features)
 
 ## Overview
 
@@ -750,10 +754,28 @@ to see all available methods
 
 To exit the debugger, type
 
-```close```
+```
+close
+```
 
 Do not Control-D as it will hang the debugger and you won't be able to
 reconnect (To be fixed).
+
+
+## Control Flags
+
+The *control/* directory is monitored by the Bot for files, directing the Bot
+to take certain actions.
+
+*control/STOP* causes the bot to quit.
+
+*control/SELL* causes the bot to sell all coins listed in the SELL file.
+
+```
+cat control/SELL
+BTCUSDT
+ETHUSDT
+```
 
 
 ## Automated Backtesting

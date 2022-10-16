@@ -21,3 +21,4 @@ strategies/Local*
 *.~
 *~
 *.prof
+control/*

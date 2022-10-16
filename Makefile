@@ -1,11 +1,12 @@
 .PHONY: default
 default: help ;
+SHELL := /usr/bin/env bash
 
 WHOAMI := $$(whoami)
 SMP_MULTIPLIER := 1
 DCOMPOSE_ID := $$( cat state/dcompose.id )
-PORT1 := $$(  comm -23 <(seq 49152 65535) <(ss -tan | awk '{print $4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
-PORT2 := $$(  comm -23 <(seq 49152 65535) <(ss -tan | awk '{print $4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+PORT1 := $$(  comm -23 <(seq 49152 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+PORT2 := $$(  comm -23 <(seq 49152 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
 
 dcompose_id:
 	test -e state/dcompose.id || echo "cryptobot-network-`pwd|md5sum|cut -c1-8`" > state/dcompose.id
