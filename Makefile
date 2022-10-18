@@ -88,6 +88,12 @@ prove-backtesting: checks dcompose_id
 		cryptobot \
 		> results/prove-backtesting.$(CONFIG).min$(MIN).$(SORTBY).$(FROM)_$(TO).f$(FORWARD)d.b$(BACKTRACK)d.txt
 
+config-endpoint-service: checks dcompose_id
+	$(PREFIX_VARS) docker compose --profile config-endpoint-service -p $(DCOMPOSE_ID) run --rm \
+		--service-ports \
+		-e CONFIG=$(CONFIG) -e BACKTRACK=$(BACKTRACK) -e SORTBY=$(SORTBY) -e RUN_AT=$(RUN_AT) -e PAIRING=$(PAIRING) -e MIN=$(MIN) -e TUNED_CONFIG=$(TUNED_CONFIG) \
+		config-endpoint-service
+
 help:
 	@echo "USAGE:"
 	@echo "make logmode CONFIG=< config.yaml >"
@@ -103,6 +109,7 @@ help:
 	@echo "make download-price-logs FROM=20210101 TO=20211231"
 	@echo "make prove-backtesting CONFIG=myconfig.yaml \
 		FROM=20220101 BACKTRACK=90 MIN=20 FORWARD=30 TO=20220901 SORTBY=profit|wins"
+	@echo "make config-endpoint-service BIND=0.0.0.0 CONFIG=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=wins|profit"
 
 
 support:

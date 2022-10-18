@@ -68,6 +68,23 @@ services:
       - automated-backtesting
     volumes: *FULL_VOL_LIST
 
+  config-endpoint-service:
+    container_name: config-endpoint-service-${DCOMPOSE_ID}-${WHOAMI}
+    image: ${IMAGE:-ghcr.io/azulinho/cryptobot}:${TAG:-latest}
+    user: "${U}:${G}"
+    build: ./
+    privileged: false
+    ports:
+      - ${BIND}:${PORT2}:5883
+    environment:
+      SMP_MULTIPLIER: "${SMP_MULTIPLIER:-1}"
+    depends_on:
+      - klines
+    profiles:
+      - config-endpoint-service
+    volumes: *FULL_VOL_LIST
+    entrypoint: ["/cryptobot/utils/config-endpoint-service.sh"]
+
   prove-backtesting:
     container_name: prove-backtesting-${DCOMPOSE_ID}-${WHOAMI}
     image: ${IMAGE:-ghcr.io/azulinho/cryptobot}:${TAG:-latest}
