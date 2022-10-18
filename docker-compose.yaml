@@ -1,19 +1,24 @@
 version: '3'
 services:
+
   cryptobot:
+    container_name: cryptobot-${DCOMPOSE_ID}-${WHOAMI}
     image: ${IMAGE:-ghcr.io/azulinho/cryptobot}:${TAG:-latest}
     user: "${U}:${G}"
     build: ./
     privileged: false
-    environment:
-      SMP_MULTIPLIER: "${SMP_MULTIPLIER:-1}"
+    entrypoint: ["/cryptobot/.venv/bin/python", "-u",  "app.py"]
     depends_on:
       - klines
-
+    profiles:
+      - backtesting
+      - testnet
+      - live
+      - logmode
+      - download-price-logs
     ports:
-      - "127.0.0.1:${PORT1}:5555"
-
-    volumes:
+      - ${BIND}:${PORT1}:5555
+    volumes: &FULL_VOL_LIST
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
       - ./configs:/cryptobot/configs
@@ -26,17 +31,65 @@ services:
       - ./control:/cryptobot/control:rw
 
   klines:
+    container_name: klines-${DCOMPOSE_ID}-${WHOAMI}
     image: ${IMAGE:-ghcr.io/azulinho/cryptobot}:${TAG:-latest}
     user: "${U}:${G}"
     build: ./
     entrypoint: ["/cryptobot/.venv/bin/python", "-u",  "klines_caching_service.py"]
     privileged: false
-
     ports:
-      - "127.0.0.1:${PORT2}:8999"
-
+      - ${BIND}:${PORT3}:8999
+    profiles:
+      - backtesting
+      - testnet
+      - live
+      - automated-backtesting
+      - config-endpoint-service
+      - prove-backtesting
+      - build
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
       - ./log:/cryptobot/log:rw
       - ./cache:/cryptobot/cache:rw
+
+  automated-backtesting:
+    container_name: automated-backtesting-${DCOMPOSE_ID}-${WHOAMI}
+    image: ${IMAGE:-ghcr.io/azulinho/cryptobot}:${TAG:-latest}
+    user: "${U}:${G}"
+    build: ./
+    privileged: false
+    entrypoint: ["/cryptobot/utils/automated-backtesting.sh"]
+    environment:
+      SMP_MULTIPLIER: "${SMP_MULTIPLIER:-1}"
+    depends_on:
+      - klines
+    profiles:
+      - automated-backtesting
+    volumes: *FULL_VOL_LIST
+
+  prove-backtesting:
+    container_name: prove-backtesting-${DCOMPOSE_ID}-${WHOAMI}
+    image: ${IMAGE:-ghcr.io/azulinho/cryptobot}:${TAG:-latest}
+    user: "${U}:${G}"
+    build: ./
+    privileged: false
+    environment:
+      SMP_MULTIPLIER: "${SMP_MULTIPLIER:-1}"
+    depends_on:
+      - klines
+    profiles:
+      - prove-backtesting
+    entrypoint: ["/cryptobot/utils/prove-backtesting.sh"]
+    volumes: *FULL_VOL_LIST
+
+  download-price-logs:
+    container_name: download-price-logs-${DCOMPOSE_ID}-${WHOAMI}
+    image: ${IMAGE:-ghcr.io/azulinho/cryptobot}:${TAG:-latest}
+    user: "${U}:${G}"
+    build: ./
+    privileged: false
+    entrypoint: ["/cryptobot/.venv/bin/python", "-u",  "/cryptobot/utils/pull_klines.py"]
+    profiles:
+      - download-price-logs
+    volumes: *FULL_VOL_LIST
