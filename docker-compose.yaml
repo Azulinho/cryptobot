@@ -29,7 +29,7 @@ services:
     image: ${IMAGE:-ghcr.io/azulinho/cryptobot}:${TAG:-latest}
     user: "${U}:${G}"
     build: ./
-    entrypoint: ["/cryptobot/.venv/bin/python", "-u",  "load_klines_for_coin.py"]
+    entrypoint: ["/cryptobot/.venv/bin/python", "-u",  "klines_caching_service.py"]
     privileged: false
 
     ports:
