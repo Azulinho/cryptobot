@@ -77,7 +77,7 @@ down: checks dcompose_id
 
 download-price-logs: checks dcompose_id
 	$(PREFIX_VARS) docker compose --profile download-price-logs -p $(DCOMPOSE_ID) run --rm \
-		-s $(FROM) -e $(TO) download-price-logs
+		download-price-logs -s $(FROM) -e $(TO)
 
 prove-backtesting: checks dcompose_id
 	$(PREFIX_VARS) docker compose --profile prove-backtesting -p $(DCOMPOSE_ID) run --rm \
@@ -85,7 +85,7 @@ prove-backtesting: checks dcompose_id
 		-e FROM=$(FROM) -e BACKTRACK=$(BACKTRACK) -e CONFIG=$(CONFIG) -e MIN=$(MIN) \
 		-e FORWARD=$(FORWARD) -e TO=$(TO) -e SORTBY=$(SORTBY) \
 		-e SMP_MULTIPLIER=$(SMP_MULTIPLIER) \
-		cryptobot \
+		prove-backtesting \
 		> results/prove-backtesting.$(CONFIG).min$(MIN).$(SORTBY).$(FROM)_$(TO).f$(FORWARD)d.b$(BACKTRACK)d.txt
 
 config-endpoint-service: checks dcompose_id
