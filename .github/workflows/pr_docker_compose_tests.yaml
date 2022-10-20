@@ -13,11 +13,11 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v2
 
-      - name: local docker-compose build
+      - name: make build
         run: |
           set -e
           pip install docker-compose
-          docker-compose build --no-cache
+          make build
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
