@@ -5,6 +5,7 @@ import importlib
 import json
 import logging
 import pickle  # nosec
+import pprint
 import sys
 import threading
 import traceback
@@ -28,15 +29,8 @@ from isal import igzip
 from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 
-from lib.helpers import (
-    add_100,
-    c_date_from,
-    c_from_timestamp,
-    cached_binance_client,
-    floor_value,
-    mean,
-    percent,
-)
+from lib.helpers import (add_100, c_date_from, c_from_timestamp,
+                         cached_binance_client, floor_value, mean, percent)
 
 
 def control_center() -> None:
@@ -1913,18 +1907,22 @@ class Bot:
 
                 old_tickers_in_use.update(r["TICKERS"])
                 self.tickers = old_tickers_in_use
-                print(
+                logging.info(
                     "updating tickers: had: "
                     + f"{self.pull_config_md5} now: {r['md5']}"
                 )
-                print(f"tickers: {self.tickers}")
+                logging.info("new tickers:")
+                pp = pprint.PrettyPrinter(indent=4)
+                pp.pprint(self.tickers)
                 self.pull_config_md5 = r["md5"]
-        except Exception as e:
-            print(f"Failed to pull config from {self.pull_config_address}")
-            print(e)
-            pass
+        except Exception as error_msg:  # pylint: disable=broad-except
+            logging.warning(
+                f"Failed to pull config from {self.pull_config_address}"
+            )
+            logging.warning(error_msg)
 
     def process_control_flags(self):
+        """ process control/flags """
         if exists("control/SELL"):
             logging.warning("control/SELL flag found")
             with open("control/SELL") as f:
