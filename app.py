@@ -5,6 +5,7 @@ import importlib
 import json
 import logging
 import pickle  # nosec
+import pprint
 import sys
 import threading
 import traceback
@@ -28,15 +29,8 @@ from isal import igzip
 from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 
-from lib.helpers import (
-    add_100,
-    c_date_from,
-    c_from_timestamp,
-    cached_binance_client,
-    floor_value,
-    mean,
-    percent,
-)
+from lib.helpers import (add_100, c_date_from, c_from_timestamp,
+                         cached_binance_client, floor_value, mean, percent)
 
 
 def control_center() -> None:
@@ -476,6 +470,11 @@ class Bot:
         # define if we want to use MARKET or LIMIT orders
         self.order_type: str = config.get("ORDER_TYPE", "MARKET")
         self.binance_lock = SoftFileLock("state/binance.lock", timeout=90)
+        self.pull_config_md5: str = ""
+        self.pull_config_address: str = config.get("PULL_CONFIG_ADDRESS", "")
+        self.sell_all_on_pull_config_change: bool = config.get(
+            "SELL_ALL_ON_PULL_CONFIG_CHANGE", False
+        )
 
     def extract_order_data(  # pylint: disable=no-self-use
         self, order_details, coin
@@ -1634,20 +1633,13 @@ class Bot:
             self.process_coins()
             # saves all coin and wallet data to disk
             self.save_coins()
-            self.wait()
-            if exists("control/STOP") or self.quit:
-                logging.warning("control/STOP flag found. Stopping bot.")
+            self.process_control_flags()
+            if self.quit:
                 return
-            if exists("control/SELL"):
-                logging.warning("control/SELL flag found")
-                with open("control/SELL") as f:
-                    for line in f:
-                        symbol = line.strip()
-                        if symbol in self.wallet:
-                            logging.warning(f"control/SELL contains {symbol}")
-                            self.coins[symbol].status = "CONTROL_FLAG"
-                            self.sell_coin(self.coins[symbol])
-                unlink("control/SELL")
+            if self.pull_config_address:
+                self.refresh_config_from_config_endpoint_service()
+
+            self.wait()
 
     def logmode(self) -> None:
         """the bot LogMode main loop"""
@@ -1799,8 +1791,8 @@ class Bot:
         else:
             for price_log in self.price_logs:
                 self.backtest_logfile(price_log)
-                if exists("control/STOP") or self.quit:
-                    logging.warning("control/STOP flag found. Stopping bot.")
+                self.process_control_flags()
+                if self.quit:
                     break
 
         # now that we are done, lets record our results
@@ -1899,6 +1891,54 @@ class Bot:
 
         return exposure
 
+    def refresh_config_from_config_endpoint_service(self):
+        """updates the bot config (ticker list) from the config endpoint"""
+        old_tickers_in_use = {}
+        try:
+            r = requests.get(self.pull_config_address).json()
+            if r["md5"] != self.pull_config_md5:
+                for symbol in self.wallet:
+                    # if SELL_ALL_ON_PULL_CONFIG_CHANGE is set, we will
+                    # simply sell all tokens and start from an empty wallet
+                    if self.sell_all_on_pull_config_change:
+                        self.sell_coin(self.coins[symbol])
+                    else:
+                        old_tickers_in_use[symbol] = self.tickers[symbol]
+
+                old_tickers_in_use.update(r["TICKERS"])
+                self.tickers = old_tickers_in_use
+                logging.info(
+                    "updating tickers: had: "
+                    + f"{self.pull_config_md5} now: {r['md5']}"
+                )
+                logging.info("new tickers:")
+                pp = pprint.PrettyPrinter(indent=4)
+                pp.pprint(self.tickers)
+                self.pull_config_md5 = r["md5"]
+        except Exception as error_msg:  # pylint: disable=broad-except
+            logging.warning(
+                f"Failed to pull config from {self.pull_config_address}"
+            )
+            logging.warning(error_msg)
+
+    def process_control_flags(self):
+        """ process control/flags """
+        if exists("control/SELL"):
+            logging.warning("control/SELL flag found")
+            with open("control/SELL") as f:
+                for line in f:
+                    symbol = line.strip()
+                    if symbol in self.wallet:
+                        logging.warning(f"control/SELL contains {symbol}")
+                        self.coins[symbol].status = "CONTROL_FLAG"
+                        self.sell_coin(self.coins[symbol])
+            unlink("control/SELL")
+        if exists("control/STOP"):
+            logging.warning("control/STOP flag found. Stopping bot.")
+            self.quit = True
+            unlink("control/STOP")
+            return
+
 
 if __name__ == "__main__":
     try:
@@ -1920,6 +1960,9 @@ if __name__ == "__main__":
         )
         parser.add_argument(
             "-ld", "--logs-dir", help="logs directory", default="log"
+        )
+        parser.add_argument(
+            "-pc", "--pull-config", help="Pull config", default=None
         )
         args = parser.parse_args()
 

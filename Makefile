@@ -5,8 +5,11 @@ SHELL := /usr/bin/env bash
 WHOAMI := $$(whoami)
 SMP_MULTIPLIER := 1
 DCOMPOSE_ID := $$( cat state/dcompose.id )
-PORT1 := $$(  comm -23 <(seq 49152 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
-PORT2 := $$(  comm -23 <(seq 49152 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+PORT1 := $$(  comm -23 <(seq 50000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+PORT2 := $$(  comm -23 <(seq 50000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+PORT3 := $$(  comm -23 <(seq 50000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+BIND := "127.0.0.1"
+PREFIX_VARS := U=`id -u` G=`id -g` BIND=$(BIND) PORT1=$(PORT1) PORT2=$(PORT2) PORT3=$(PORT3) WHOAMI=`whoami` DCOMPOSE_ID=`cat state/dcompose.id`
 
 dcompose_id:
 	test -e state/dcompose.id || echo "cryptobot-network-`pwd|md5sum|cut -c1-8`" > state/dcompose.id
@@ -21,26 +24,25 @@ latest: checks
 	docker pull ghcr.io/azulinho/cryptobot:latest
 
 logmode: checks latest dcompose_id
-	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose -p $(DCOMPOSE_ID) run \
-		--name cryptobot.logmode.$(WHOAMI).$(CONFIG) --rm \
+	$(PREFIX_VARS) docker compose --profile logmode -p $(DCOMPOSE_ID) run --rm \
 		--service-ports cryptobot -s secrets/binance.prod.yaml \
 		-c configs/$(CONFIG)  -m  logmode > log/logmode.$(CONFIG).txt 2>&1
 
 testnet: checks latest dcompose_id
-	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose -p $(DCOMPOSE_ID) run \
-		--name cryptobot.testnet.$(WHOAMI).$(CONFIG) --rm --service-ports cryptobot \
+	$(PREFIX_VARS) docker compose --profile testnet -p $(DCOMPOSE_ID) run --rm \
+		--service-ports cryptobot \
 		-s secrets/binance.testnet.yaml -c configs/$(CONFIG)  \
 		-m  testnet  > log/testnet.$(CONFIG).txt 2>&1
 
 live: checks latest dcompose_id
-	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose -p $(DCOMPOSE_ID) run \
-		--name cryptobot.live.$(WHOAMI).$(CONFIG) --rm --service-ports cryptobot \
+	$(PREFIX_VARS) docker compose --profile live -p $(DCOMPOSE_ID) run \
+		--rm --service-ports cryptobot \
 		-s secrets/binance.prod.yaml -c configs/$(CONFIG)  \
 		-m  live  >> log/live.$(CONFIG).txt 2>&1
 
 backtesting: checks dcompose_id
-	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose -p $(DCOMPOSE_ID) run \
-		--name cryptobot.backtesting.$(WHOAMI).$(CONFIG) --rm --service-ports \
+	$(PREFIX_VARS) docker compose --profile backtesting -p $(DCOMPOSE_ID) run \
+		--rm --service-ports \
 		cryptobot -s secrets/binance.prod.yaml -c configs/$(CONFIG)  \
 		-m  backtesting  > results/$(CONFIG).txt 2>&1
 
@@ -58,37 +60,39 @@ lastfewdays:
 		| gzip -3 >> lastfewdays.log.gz; done
 
 automated-backtesting: checks dcompose_id
-	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose -p $(DCOMPOSE_ID) run \
-		--name cryptobot.automated-backtesting.$(WHOAMI) --rm \
-		--entrypoint="/cryptobot/utils/automated-backtesting.sh" \
+	$(PREFIX_VARS) docker compose --profile automated-backtesting -p $(DCOMPOSE_ID) run \
+		--rm --service-ports \
 		-e LOGFILE=/cryptobot/log/$(LOGFILE) \
 		-e CONFIG=configs/$(CONFIG) -e MIN=$(MIN) -e FILTER='$(FILTER)' \
 		-e SORTBY=$(SORTBY) \
 		-e SMP_MULTIPLIER=$(SMP_MULTIPLIER) \
-		cryptobot \
+		automated-backtesting \
 		> results/automated-backtesting.$(CONFIG).min$(MIN).$(SORTBY).txt
 
 build: checks dcompose_id
-	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose -p $(DCOMPOSE_ID) build
+	$(PREFIX_VARS) docker compose --profile build -p $(DCOMPOSE_ID) build
 
 down: checks dcompose_id
-	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose -p $(DCOMPOSE_ID) down
+	$(PREFIX_VARS) docker compose -p $(DCOMPOSE_ID) down
 
 download-price-logs: checks dcompose_id
-	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose run \
-		--name cryptobot.download-price-logs.$(WHOAMI) --rm \
-		--entrypoint="/cryptobot/.venv/bin/python /cryptobot/utils/pull_klines.py \
-		-s $(FROM) -e $(TO)" cryptobot
+	$(PREFIX_VARS) docker compose --profile download-price-logs -p $(DCOMPOSE_ID) run --rm \
+		download-price-logs -s $(FROM) -e $(TO)
 
 prove-backtesting: checks dcompose_id
-	U="$$(id -u)" G="$$(id -g)" PORT1=$(PORT1) PORT2=$(PORT2) docker compose -p $(DCOMPOSE_ID) run \
-		--name cryptobot.prove-backtesting.$(WHOAMI) --rm \
-		--entrypoint="/cryptobot/utils/prove-backtesting.sh" \
+	$(PREFIX_VARS) docker compose --profile prove-backtesting -p $(DCOMPOSE_ID) run --rm \
+		--service-ports \
 		-e FROM=$(FROM) -e BACKTRACK=$(BACKTRACK) -e CONFIG=$(CONFIG) -e MIN=$(MIN) \
 		-e FORWARD=$(FORWARD) -e TO=$(TO) -e SORTBY=$(SORTBY) \
 		-e SMP_MULTIPLIER=$(SMP_MULTIPLIER) \
-		cryptobot \
+		prove-backtesting \
 		> results/prove-backtesting.$(CONFIG).min$(MIN).$(SORTBY).$(FROM)_$(TO).f$(FORWARD)d.b$(BACKTRACK)d.txt
+
+config-endpoint-service: checks dcompose_id
+	$(PREFIX_VARS) docker compose --profile config-endpoint-service -p $(DCOMPOSE_ID) run --rm \
+		--service-ports \
+		-e CONFIG=$(CONFIG) -e BACKTRACK=$(BACKTRACK) -e SORTBY=$(SORTBY) -e RUN_AT=$(RUN_AT) -e PAIRING=$(PAIRING) -e MIN=$(MIN) -e TUNED_CONFIG=$(TUNED_CONFIG) \
+		config-endpoint-service
 
 help:
 	@echo "USAGE:"
@@ -105,6 +109,7 @@ help:
 	@echo "make download-price-logs FROM=20210101 TO=20211231"
 	@echo "make prove-backtesting CONFIG=myconfig.yaml \
 		FROM=20220101 BACKTRACK=90 MIN=20 FORWARD=30 TO=20220901 SORTBY=profit|wins"
+	@echo "make config-endpoint-service BIND=0.0.0.0 CONFIG=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=wins|profit"
 
 
 support:

@@ -68,7 +68,6 @@ ADD utils/automated-backtesting.sh utils/automated-backtesting.sh
 ADD utils/prove-backtesting.py utils/prove-backtesting.py
 ADD utils/prove-backtesting.sh utils/prove-backtesting.sh
 ADD utils/pull_klines.py utils/pull_klines.py
-
-ADD load_klines_for_coin.py .
-EXPOSE 5555
-ENTRYPOINT ["/cryptobot/.venv/bin/python", "-u",  "app.py"]
+ADD utils/config-endpoint-service.py utils/config-endpoint-service.py
+ADD utils/config-endpoint-service.sh utils/config-endpoint-service.sh
+ADD klines_caching_service.py .

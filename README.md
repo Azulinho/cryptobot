@@ -2,7 +2,6 @@
 
 A python based trading bot for Binance, which relies heavily on backtesting.
 
-
  1. [Overview](#overview)
  2. [Discord](#discord)
  3. [Getting started](#getting-started)
@@ -36,12 +35,16 @@ A python based trading bot for Binance, which relies heavily on backtesting.
     * [ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS](#enable_new_listing_checks_age_in_days)
     * [STOP_BOT_ON_LOSS](#stop_bot_on_loss)
     * [ORDER_TYPE](#order_type)
+    * [PULL_CONFIG_ADDRESS](#pull_config_address)
+    * [SELL_ALL_ON_PULL_CONFIG_CHANGE](#sell_all_on_pull_config_change)
  6. [Bot command center](#bot-command-center)
  7. [Control Flags](#control-flags)
  8. [Automated Backtesting](#automated-backtesting)
  9. [Prove automated-backtesting results](#prove-automated-backtesting-results)
-10. [Obtaining old price log files](#obtaining-old-price-log-files)
-11. [Development/New features](#development/new-features)
+10. [config-endpoint-service](#config-endpoint-service)
+11. [Obtaining old price log files](#obtaining-old-price-log-files)
+12. [Development/New features](#development/new-features)
+
 
 ## Overview
 
@@ -719,6 +722,26 @@ defaults to MARKET, available options are *MARKET* or *LIMIT*.
 Tells the BOT if it should use MARKET order or a LIMIT [FOK](https://academy.binance.com/en/articles/understanding-the-different-order-types) order.
 
 
+### PULL_CONFIG_ADDRESS
+
+When set, it tells the bot to pull a new list of tickers from the *config-endpoint-service*,
+this should be set to the ip/port running the config-endpoint-service.
+
+```
+PULL_CONFIG_ADDRESS: "http://172.20.0.1:53891"
+```
+
+### SELL_ALL_ON_PULL_CONFIG_CHANGE
+
+Tells the bot to sell all coins when it retrieves a new set of tickers from the
+*config-endpoint-service*.
+
+```
+SELL_ALL_ON_PULL_CONFIG_CHANGE: True
+```
+
+Defaults to False
+
 ## Bot command center
 
 The bot is running a *pdb* endpoint on container port 5555.
@@ -726,7 +749,6 @@ The bot is running a *pdb* endpoint on container port 5555.
 Run the bot as listed above and find the port mapped to 5555
 
 ```
-
  docker ps
  CONTAINER ID   IMAGE                        COMMAND                  CREATED          STATUS          PORTS                                                NAMES
  e6348c68072f   ghcr.io/azulinho/cryptobot   "python -u app.py -s…"   50 seconds ago   Up 49 seconds   0.0.0.0:49153->5555/tcp, :::49153->5555/tcp cryptobot_cryptobot_run_21cc0b86d73d
@@ -776,7 +798,6 @@ cat control/SELL
 BTCUSDT
 ETHUSDT
 ```
-
 
 ## Automated Backtesting
 
@@ -841,6 +862,26 @@ backtested through the tuned config, all the way until the end date provided.
  make prove-backtesting FROM=20220801 BACKTRACK=90 MIN=9 CONFIG=backtesting.yaml TO=20220831 FORWARD=7 SORTBY=wins
 ```
 
+## config-endpoint-service
+
+Use this tool/service to provide fresh ticker configs to a LIVE bot by running
+automated-backtesting periodically, and having the LIVE bot pull that optimized
+config as soon automated-backtesting completes.
+
+```
+make config-endpoint-service BIND=0.0.0.0 CONFIG=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=wins|profit
+```
+
+see PULL_CONFIG_ADDRESS and SELL_ALL_ON_PULL_CONFIG_CHANGE
+
+trigger the execution of the automated-backtesting run by creating a *RUN* file
+in the control/ folder.
+
+```
+touch control/RUN
+```
+
+
 ## Obtaining old price log files
 
 In the utils/ directory there's a python script that pulls klines from binance
@@ -856,7 +897,6 @@ And wait, as this will take a while to run.
 If it fails, you can restart it from the day that failed.
 
 All logs will be downloaded to the logs/ directory.
-
 
 
 ## Development/New features
