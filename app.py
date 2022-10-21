@@ -1915,6 +1915,11 @@ class Bot:
                 pp = pprint.PrettyPrinter(indent=4)
                 pp.pprint(self.tickers)
                 self.pull_config_md5 = r["md5"]
+                # clean old coins data, or we will get errors later on
+                symbols = self.coins.keys()
+                for symbol in symbols:
+                    if symbol not in self.tickers.keys():
+                        del self.coins[symbol]
         except Exception as error_msg:  # pylint: disable=broad-except
             logging.warning(
                 f"Failed to pull config from {self.pull_config_address}"
@@ -1922,7 +1927,7 @@ class Bot:
             logging.warning(error_msg)
 
     def process_control_flags(self):
-        """ process control/flags """
+        """process control/flags"""
         if exists("control/SELL"):
             logging.warning("control/SELL flag found")
             with open("control/SELL") as f:
