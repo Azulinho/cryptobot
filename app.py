@@ -1918,7 +1918,7 @@ class Bot:
             pp.pprint(self.tickers)
             self.pull_config_md5 = r["md5"]
             # clean old coins data, or we will get errors later on
-            symbols = self.coins.keys()
+            symbols = list(self.coins.keys())
             for symbol in symbols:
                 if symbol not in self.tickers.keys():
                     del self.coins[symbol]
