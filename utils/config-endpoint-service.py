@@ -121,7 +121,6 @@ if __name__ == "__main__":
         "-b", "--backtrack", help="number of days to backtrack"
     )
     parser.add_argument("-s", "--sortby", help="wins|profit")
-    parser.add_argument("-r", "--run-at", help="01:10")
     parser.add_argument(
         "-t",
         "--tuned-config",
@@ -135,7 +134,6 @@ if __name__ == "__main__":
     config = args.config
     backtrack = args.backtrack
     sortby = args.sortby
-    run_at = args.run_at
     tuned_config = args.tuned_config
     pairing = args.pairing
     min_profit = args.min

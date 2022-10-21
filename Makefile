@@ -91,7 +91,7 @@ prove-backtesting: checks dcompose_id
 config-endpoint-service: checks dcompose_id
 	$(PREFIX_VARS) docker compose --profile config-endpoint-service -p $(DCOMPOSE_ID) run --rm \
 		--service-ports \
-		-e CONFIG=$(CONFIG) -e BACKTRACK=$(BACKTRACK) -e SORTBY=$(SORTBY) -e RUN_AT=$(RUN_AT) -e PAIRING=$(PAIRING) -e MIN=$(MIN) -e TUNED_CONFIG=$(TUNED_CONFIG) \
+		-e CONFIG=$(CONFIG) -e BACKTRACK=$(BACKTRACK) -e SORTBY=$(SORTBY) -e PAIRING=$(PAIRING) -e MIN=$(MIN) -e TUNED_CONFIG=$(TUNED_CONFIG) \
 		config-endpoint-service
 
 help:
