@@ -1920,6 +1920,15 @@ class Bot:
                 for symbol in symbols:
                     if symbol not in self.tickers.keys():
                         del self.coins[symbol]
+                # we now need to update the config file, so that when we restart
+                # the bot will have access to all the ticker info on any coins
+                # it might be holding
+                with open(self.config_file, encoding="utf-8") as f:
+                    cfg = yaml.safe_load(f.read())
+                    cfg["TICKERS"] = self.tickers
+                with open(self.config_file, "wt", encoding="utf-8") as f:
+                    yaml.dump(cfg, f, default_flow_style=False)
+
         except Exception as error_msg:  # pylint: disable=broad-except
             logging.warning(
                 f"Failed to pull config from {self.pull_config_address}"
