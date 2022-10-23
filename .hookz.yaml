@@ -1,39 +1,16 @@
 # run with:
+# mkdir .git/hooks
+# hookz initialize --verbose-output
 # hookz reset --verbose-output
-version: 2.4.2
+#
 hooks:
   - type: pre-commit
     actions:
-      - name: black
-        script: |
-          #!/bin/bash
-          set -e
-          black --check app.py
-          black --check load_klines_for_coin.py
-          black --check strategies/
-          black --check lib/
-          black --check tests/
-
-      - name: pylint
-        script: |
-          #!/bin/bash
-          set -e
-          pylint app.py
-          pylint load_klines_for_coin.py
-          ls strategies/*.py |grep -v Local | xargs pylint
-          pylint lib/*.py
-
-      - name: mypy
-        script: |
-          #!/bin/bash
-          set -e
-          mypy app.py
-          mypy load_klines_for_coin.py
-          ls strategies/*.py |grep -v Local | xargs mypy
-          mypy lib/*.py
-
-      - name: pytest
-        script: |
-          #!/bin/bash
-          set -e
-          pytest tests/
+      - name: "make pre-commit-checks"
+        exec: "make"
+        args: ["checks"]
+  - type: pre-rebase
+    actions:
+      - name: "make pre-commit-checks"
+        exec: "make"
+        args: ["checks"]

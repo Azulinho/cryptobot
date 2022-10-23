@@ -29,8 +29,15 @@ from isal import igzip
 from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 
-from lib.helpers import (add_100, c_date_from, c_from_timestamp,
-                         cached_binance_client, floor_value, mean, percent)
+from lib.helpers import (
+    add_100,
+    c_date_from,
+    c_from_timestamp,
+    cached_binance_client,
+    floor_value,
+    mean,
+    percent,
+)
 
 
 def control_center() -> None:
@@ -1630,14 +1637,14 @@ class Bot:
             self.clear_all_coins_stats()
 
         while True:
+            if self.pull_config_address:
+                self.refresh_config_from_config_endpoint_service()
             self.process_coins()
             # saves all coin and wallet data to disk
             self.save_coins()
             self.process_control_flags()
             if self.quit:
                 return
-            if self.pull_config_address:
-                self.refresh_config_from_config_endpoint_service()
 
             self.wait()
 
@@ -1893,38 +1900,49 @@ class Bot:
 
     def refresh_config_from_config_endpoint_service(self):
         """updates the bot config (ticker list) from the config endpoint"""
-        old_tickers_in_use = {}
         try:
             r = requests.get(self.pull_config_address).json()
-            if r["md5"] != self.pull_config_md5:
-                for symbol in self.wallet:
-                    # if SELL_ALL_ON_PULL_CONFIG_CHANGE is set, we will
-                    # simply sell all tokens and start from an empty wallet
-                    if self.sell_all_on_pull_config_change:
-                        self.sell_coin(self.coins[symbol])
-                    else:
-                        old_tickers_in_use[symbol] = self.tickers[symbol]
+            if r["md5"] == self.pull_config_md5:
+                return
 
-                old_tickers_in_use.update(r["TICKERS"])
-                self.tickers = old_tickers_in_use
-                logging.info(
-                    "updating tickers: had: "
-                    + f"{self.pull_config_md5} now: {r['md5']}"
-                )
-                logging.info("new tickers:")
-                pp = pprint.PrettyPrinter(indent=4)
-                pp.pprint(self.tickers)
-                self.pull_config_md5 = r["md5"]
-                # clean old coins data, or we will get errors later on
-                symbols = self.coins.keys()
-                for symbol in symbols:
-                    if symbol not in self.tickers.keys():
-                        del self.coins[symbol]
+            old_tickers_in_use = {}
+            for symbol in self.wallet:
+                # if SELL_ALL_ON_PULL_CONFIG_CHANGE is set, we will
+                # simply sell all tokens and start from an empty wallet
+                if self.sell_all_on_pull_config_change:
+                    self.sell_coin(self.coins[symbol])
+                else:
+                    old_tickers_in_use[symbol] = self.tickers[symbol]
+
+            old_tickers_in_use.update(r["TICKERS"])
+            self.tickers = old_tickers_in_use
+            logging.info(
+                "updating tickers: had: "
+                + f"{self.pull_config_md5} now: {r['md5']}"
+            )
+            logging.info("new tickers:")
+            pp = pprint.PrettyPrinter(indent=4)
+            pp.pprint(self.tickers)
+            self.pull_config_md5 = r["md5"]
+            # clean old coins data, or we will get errors later on
+            symbols = list(self.coins.keys())
+            for symbol in symbols:
+                if symbol not in self.tickers.keys():
+                    del self.coins[symbol]
+            # we now need to update the config file, so that when we restart
+            # the bot will have access to all the ticker info on any coins
+            # it might be holding
+            with open(self.config_file, encoding="utf-8") as f:
+                _cfg = yaml.safe_load(f.read())
+                _cfg["TICKERS"] = self.tickers
+            with open(self.config_file, "wt", encoding="utf-8") as f:
+                yaml.dump(_cfg, f, default_flow_style=False)
+
         except Exception as error_msg:  # pylint: disable=broad-except
             logging.warning(
                 f"Failed to pull config from {self.pull_config_address}"
             )
-            logging.warning(error_msg)
+            logging.error(error_msg)
 
     def process_control_flags(self):
         """process control/flags"""
