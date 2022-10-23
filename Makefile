@@ -1,5 +1,6 @@
 .PHONY: default
 default: help ;
+PATH  := $(PWD)/.venv/bin:$(PATH)
 SHELL := /usr/bin/env bash
 
 WHOAMI := $$(whoami)
@@ -93,6 +94,28 @@ config-endpoint-service: checks dcompose_id
 		--service-ports \
 		-e CONFIG=$(CONFIG) -e BACKTRACK=$(BACKTRACK) -e SORTBY=$(SORTBY) -e PAIRING=$(PAIRING) -e MIN=$(MIN) -e TUNED_CONFIG=$(TUNED_CONFIG) \
 		config-endpoint-service
+
+pre-commit-checks:
+	# needs virtualenv
+	# black
+	black --check app.py
+	black --check klines_caching_service.py
+	black --check strategies/
+	black --check lib/
+	black --check tests/
+	# pylint
+	pylint app.py
+	pylint klines_caching_service.py
+	ls strategies/*.py |grep -v Local | xargs pylint
+	pylint lib/*.py
+	# mypy
+	mypy app.py
+	mypy klines_caching_service.py
+	ls strategies/*.py |grep -v Local | xargs mypy
+	mypy lib/*.py
+	# pytests
+	pytest tests/
+
 
 help:
 	@echo "USAGE:"

@@ -29,8 +29,15 @@ from isal import igzip
 from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 
-from lib.helpers import (add_100, c_date_from, c_from_timestamp,
-                         cached_binance_client, floor_value, mean, percent)
+from lib.helpers import (
+    add_100,
+    c_date_from,
+    c_from_timestamp,
+    cached_binance_client,
+    floor_value,
+    mean,
+    percent,
+)
 
 
 def control_center() -> None:
@@ -1926,16 +1933,16 @@ class Bot:
             # the bot will have access to all the ticker info on any coins
             # it might be holding
             with open(self.config_file, encoding="utf-8") as f:
-                cfg = yaml.safe_load(f.read())
-                cfg["TICKERS"] = self.tickers
+                _cfg = yaml.safe_load(f.read())
+                _cfg["TICKERS"] = self.tickers
             with open(self.config_file, "wt", encoding="utf-8") as f:
-                yaml.dump(cfg, f, default_flow_style=False)
+                yaml.dump(_cfg, f, default_flow_style=False)
 
         except Exception as error_msg:  # pylint: disable=broad-except
             logging.warning(
                 f"Failed to pull config from {self.pull_config_address}"
             )
-            logging.error(traceback.format_exc())
+            logging.error(error_msg)
 
     def process_control_flags(self):
         """process control/flags"""
