@@ -13,6 +13,11 @@ from binance.client import Client
 from filelock import SoftFileLock
 from tenacity import retry, wait_exponential
 
+from pyrate_limiter import Duration, RequestRate, Limiter
+
+rate = RequestRate(600, Duration.MINUTE)  # 600 requests per minute
+limiter = Limiter(rate)
+
 
 def mean(values: list) -> float:
     """returns the mean value of an array of integers"""
@@ -46,6 +51,7 @@ def c_from_timestamp(date: float) -> datetime:
 
 @lru_cache(512)
 @retry(wait=wait_exponential(multiplier=1, max=3))
+@limiter.ratelimit("binance", delay=True)
 def requests_with_backoff(query: str):
     """retry wrapper for requests calls"""
     response = requests.get(query)

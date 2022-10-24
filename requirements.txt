@@ -53,3 +53,4 @@ websockets==9.1
 Werkzeug==2.2.2
 yarl==1.7.2
 zipp==3.8.1
+pyrate_limiter==2.8.3
