@@ -1156,14 +1156,10 @@ class Bot:
         # when we have reached the TARGET_SELL and a coin drops in price
         # below the SELL_AT_PERCENTAGE price we sell the coin immediately
         # if SELL_AS_SOON_IT_DROPS is set
-        if (
-            coin.status
-            in [
-                "TARGET_SELL",
-                "GONE_UP_AND_DROPPED",
-            ]
-            and coin.price < percent(coin.sell_at_percentage, coin.bought_at)
-        ):
+        if coin.status in [
+            "TARGET_SELL",
+            "GONE_UP_AND_DROPPED",
+        ] and coin.price < percent(coin.sell_at_percentage, coin.bought_at):
             coin.status = "GONE_UP_AND_DROPPED"
             logging.info(
                 f"{c_from_timestamp(coin.date)}: {coin.symbol} "
@@ -1889,6 +1885,27 @@ class Bot:
             + f"stales:{self.stales} holds:{len(self.wallet)}"
         )
 
+    def print_current_balance_report(self):
+        """calculates and current balance"""
+
+        current_exposure = float(0)
+        for item in self.wallet:
+            holding = self.coins[item]
+            cost = holding.volume * holding.bought_at
+            value = holding.volume * holding.price
+            age = holding.holding_time
+
+            logging.info(
+                " ".join(
+                    [
+                        f"WALLET: {item} age:{age}",
+                        f"bought_at:{holding.bought_at}",
+                        f"current_price:{holding.price}",
+                        f"cost:{cost} value:{value}",
+                    ]
+                )
+            )
+
     def calculates_exposure(self):
         """calculates current balance"""
 
@@ -1946,6 +1963,9 @@ class Bot:
 
     def process_control_flags(self):
         """process control/flags"""
+        if exists("control/BALANCE"):
+            self.print_current_balance_report()
+            unlink("control/BALANCE")
         if exists("control/SELL"):
             logging.warning("control/SELL flag found")
             with open("control/SELL") as f:
