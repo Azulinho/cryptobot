@@ -116,6 +116,7 @@ pre-commit-checks:
 	# pytests
 	pytest tests/
 
+tests: pre-commit-checks
 
 help:
 	@echo "USAGE:"
