@@ -20,6 +20,7 @@ RUN apt-get update &&  \
   liblzma-dev \
   git \
   ca-certificates \
+  cargo \
   gzip \
   pigz \
   bzip2 \
