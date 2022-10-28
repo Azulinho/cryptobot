@@ -32,10 +32,15 @@ jobs:
       - name: pip install
         run: |
           set -e
+          python -m venv .venv
+          source .venv/bin/activate
           pip install --upgrade pip
           pip install wheel
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
       - name: run tests
-        run: make tests
+        run: |
+          set -e
+          source .venv/bin/activate
+          make tests
