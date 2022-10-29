@@ -11,9 +11,8 @@ import requests
 import udatetime
 from binance.client import Client
 from filelock import SoftFileLock
+from pyrate_limiter import Duration, Limiter, RequestRate
 from tenacity import retry, wait_exponential
-
-from pyrate_limiter import Duration, RequestRate, Limiter
 
 rate = RequestRate(600, Duration.MINUTE)  # 600 requests per minute
 limiter = Limiter(rate)
@@ -49,7 +48,6 @@ def c_from_timestamp(date: float) -> datetime:
     return datetime.fromtimestamp(date)
 
 
-@lru_cache(512)
 @retry(wait=wait_exponential(multiplier=1, max=3))
 @limiter.ratelimit("binance", delay=True)
 def requests_with_backoff(query: str):

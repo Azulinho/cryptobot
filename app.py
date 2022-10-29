@@ -10,7 +10,6 @@ import sys
 import threading
 import traceback
 from datetime import datetime
-from functools import lru_cache
 from itertools import islice
 from os import fsync, getpid, unlink
 from os.path import basename, exists
@@ -900,8 +899,6 @@ class Bot:
         )
         return True
 
-    @lru_cache()
-    @retry(wait=wait_exponential(multiplier=1, max=10))
     def get_step_size(self, symbol: str) -> str:
         """retrieves and caches the decimal step size for a coin in binance"""
 
@@ -952,7 +949,7 @@ class Bot:
             )
         return volume
 
-    @retry(wait=wait_exponential(multiplier=1, max=90))
+    @retry(wait=wait_exponential(multiplier=1, max=3))
     def get_binance_prices(self) -> List[Dict[str, str]]:
         """gets the list of all binance coin prices"""
         return self.client.get_all_tickers()
