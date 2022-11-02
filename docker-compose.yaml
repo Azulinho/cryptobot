@@ -12,10 +12,10 @@ services:
       - klines
     profiles:
       - backtesting
-      - testnet
+      - download-price-logs
       - live
       - logmode
-      - download-price-logs
+      - testnet
     ports:
       - ${BIND}:${PORT1}:5555
     volumes: &FULL_VOL_LIST
@@ -40,13 +40,13 @@ services:
     ports:
       - ${BIND}:${PORT3}:8999
     profiles:
-      - backtesting
-      - testnet
-      - live
       - automated-backtesting
-      - config-endpoint-service
-      - prove-backtesting
+      - backtesting
       - build
+      - config-endpoint-service
+      - live
+      - prove-backtesting
+      - testnet
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro

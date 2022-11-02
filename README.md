@@ -3,6 +3,7 @@
 A python based trading bot for Binance, which relies heavily on backtesting.
 
  1. [Overview](#overview)
+    * [How does it work](#how-does-it-work)
  2. [Discord](#discord)
  3. [Getting started](#getting-started)
  4. [Usage](#usage)
@@ -12,6 +13,10 @@ A python based trading bot for Binance, which relies heavily on backtesting.
     * [RE_INVEST_PERCENTAGE](#re_invest_percentage)
     * [PAUSE_FOR](#pause_for)
     * [STRATEGY](#strategy)
+      * [BuyMoonSellRecoveryStrategy](#buymoonsellrecoverystrategy)
+      * [BuyDropSellRecoveryStrategy](#buydropsellrecoverystrategy)
+      * [BuyOnGrowthTrendAfterDropStrategy](#buyongrowthtrendafterdropstrategy)
+      * [RSA/EMA](#rsa/ema)
     * [BUY_AT_PERCENTAGE](#buy_at_percentage)
     * [SELL_AT_PERCENTAGE](#sell_at_percentage)
     * [STOP_LOSS_AT_PERCENTAGE](#stop_loss_at_percentage)
@@ -45,10 +50,32 @@ A python based trading bot for Binance, which relies heavily on backtesting.
 11. [Obtaining old price log files](#obtaining-old-price-log-files)
 12. [Development/New features](#development/new-features)
 
-
 ## Overview
 
-A cryptobot for the Bear market.
+A cryptobot designed to work across different trends of the market.
+
+This bot along with the tooling provided allows for different strategies to
+be backtested against different trading pairs.
+
+There are multiple tools in this repo, for example:
+* Downloading old klines price log files
+* Automating backtesting multiple strategies against a number of kline
+    *price.logs*, and producing an optimized strategy to use going forward.
+* Reviewing how well our strategy works over a backtested period by re-running
+  an automated-backtesting over and over a rolling-window, for example all the
+  way back from 2017 to today, simulating a real live scenario.
+* A caching proxy for binance klines calls, during automated-backtesting
+    sessions, the bot can easily hammer the binance Api and be blocked due to
+    rate limits. This caching proxy, keeps track of the number of requests/min
+    avoiding going over the Binance Api rate limits.
+* A config service, which listens on a particular http port and runs
+    automated-backtesting periodically or on-demand, providing the tuned config
+    through HTTP. The bot can be configured to replace its existing config with
+    the provided by this service as soon as it becomes available. We can for
+    example trigger a run of the automated-backtesting just after 00:00 and the
+    bot will then consume a config that is optimized up to the last few minutes.
+
+### How does it work
 
 This bot looks to buy coins that at have gone down in price recently and are
 now recovering from that downtrend. It relies on us specifying different
@@ -62,11 +89,11 @@ and then sell it at 5% profit.
 In order to understand what are the best percentages on when to buy and sell for
 each one of the coins available in binance, we use backtesting strategies
 against a number of logfiles containing dated coin prices. Let's call them
-price.logs.
-These price.logs can be generated while the bot is running in a *logmode* mode
+klines price.logs.
+These *price.logs* can be generated while the bot is running in a *logmode* mode
 where it records prices for all the available binance coins every 1 second or
 any other chosen interval.
-Or we can obtain 1min interval klines from binance using a
+Or we can obtain 1 min interval klines from binance using a
 [tool available in this repository](#obtaining-old-price-log-files).
 
 With these price.log files we can run the bot in *backtesting* mode
@@ -112,8 +139,8 @@ logfiles, the bot will only act to buy or sell coins for coins listed
 specifically on its configuration.
 
 Each coin is defined in the configuration with a set of values for when to
-buy and sell. This allows us to tell the Bot how it handles different coins in
-regards to their current state. For example, a high volatile coin that drops 10%
+buy and sell. This allows us to tell the Bot how it handles different coins
+regarding their current state. For example, a high volatile coin that drops 10%
 in price is likely to continue dropping further, versus a coin like BTCUSDT that
 is relatively stable in price.
 
@@ -124,7 +151,7 @@ We could also let the bot do the opposite, for coins that are going on through
 an uptrend, we can tell the bot to as soon a coin increases in value by % over a
 period of time, we tell the bot to buy them.
 
-For these different settings we apply to each coin, lets call them profiles for
+For these different settings we apply to each coin, let's call them profiles for
 now. These profile is essentially how the bot makes decisions on which coins to
 buy and sell.
 
@@ -133,7 +160,7 @@ So for example for the *BuyDropSellRecoveryStrategy*:
 I specify that I want the bot to buy *BTCUSDT* when the price initially drops
 by at least 10%, followed by a recovery of at least 1%.
 
-It should then look into selling that coin at at a 6% profit upwards,
+It should then look into selling that coin at a 6% profit upwards,
 and that when it reaches 6% profit, the bot will sell the coin when the price
 then drops by at least 1%.
 
@@ -147,7 +174,7 @@ start looking at buying this coin again.
 Some coins might be slow recovering from the price we paid, and take some time
 for their price to raise all the way to the 6% profit we aim for.
 
-To avoid having a bot coin slot locked forever, we set set a kind of TimeToLive
+To avoid having a bot coin slot locked forever, we set a kind of TimeToLive
 on the coins the bot buys. We call this limit *HARD_LIMIT_HOLDING_TIME*.
 The bot will forcefully sell the coin regardless of its price when this period expires.
 
@@ -177,20 +204,22 @@ TICKERS:
       KLINES_SLICE_PERCENTAGE_CHANGE: +0 # unused in this strategy
 ```
 
-In order to test the different 'profiles' for different coins, this bot is
-designed to rely mainly on backtesting.
+In order to test the different 'profiles' for different coins, we would then
+run this bot in backtesting mode.
 
-For backtesting, this bot provides two modes of operation:
+There are 4 modes of execution: live, testnet, backtesting, logmode.
+
+For backtesting, we use two modes of operation:
 
 * logmode
 * backtesting
 
 In the *logmode* it records **the current price** for all available binance coins
-in daily price.logs and stores them in the log directory.
+in daily *price.logs* and stores them in the log directory.
 These logs can then be consumed in *backtesting* mode.
 
 The bot doesn't retrieve historic klines from binance, which are limited to a
-minimum of 1min granularity. If you want to pull historic klines from binance,
+minimum of 1 min granularity. If you want to pull historic klines from binance,
 use the [tool available in this repo](#obtaining-old-price-log-files)
 
 Just to get started, here is a
@@ -201,8 +230,7 @@ Don't bother decompressing these files, as the bot consumes them compressed
 in the .gz format.
 
 Processing each daily logfile on a 1sec interval, takes around 30 seconds,
-so for a large number of price log files this can take a long time to run
-backtesting simulations.
+so for numerous price log files this can take a long time to run backtesting simulations.
 A workaround is to test out each coin individually by generating a price.log
 file containing just the coins we care about.
 
@@ -232,7 +260,7 @@ If you need help, bring snacks and pop over at:
 Join on: https://discord.gg/MaMP3gVBdk
 
 
-DO NOT USE github issues to ask for help. I have no time for you. You'll be told off.
+DO NOT USE GitHub issues to ask for help. I have no time for you. You'll be told off.
 
 Also: *NO TORIES, NO BREXITERS, NO WINDOWS USERS, NO TWATS*, this is not negotiable.
 
@@ -359,14 +387,14 @@ Full list of config settings and their use described below:
 If using TESTNET generate a set of keys at https://testnet.binance.vision/
 
 Note that TESTNET is only suitable for bot development and nothing else.
-Otherwise use your Binance production keys.
+Otherwise, use your Binance production keys.
 
 ### PAIRING
 
 ```
 PAIRING: "USDT"
 ```
-The pairing use use to buy crypto with. Available options in Binance are,
+The pairing use to buy crypto with. Available options in Binance are,
 *USDT*, *BTC*, *ETH*, *BNB*, *TRX*, *XRP*, *DOGE*
 
 
@@ -383,7 +411,12 @@ the pairing set in *PAIRING*.
 ```
 RE_INVEST_PERCENTAGE: 100
 ```
-This sets the percentage to invest out of the current balance.
+This sets the percentage to invest out of the current balance. Think of this as
+we have started our Bot with $100 dolar in the INITIAL_INVESTMENT setting, and
+configured the RE_INVEST_PERCENTAGE as 50. The bot will invest a maximum of $50
+on their first trades, and any profit or loss added to the balance will also
+be re-invested at 50% of the total balance. This is a way to allow the balance
+to grow by only investing a portion of the total available balance to invest.
 
 
 ### PAUSE_FOR
@@ -403,6 +436,8 @@ Describes which strategy to use when buying/selling coins, available options are
 *BuyMoonSellRecoveryStrategy*, *BuyDropSellRecoveryStrategy*,
 *BuyOnGrowthTrendAfterDropStrategy*
 
+#### BuyMoonSellRecoveryStrategy
+
 In the *BuyMoonSellRecoveryStrategy*, the bot monitors coin prices and will
 buy coins that raised their price over a percentage since the last check.
 
@@ -421,6 +456,8 @@ TICKERS:
       KLINES_TREND_PERIOD: 0d # unused in this strategy
       KLINES_SLICE_PERCENTAGE_CHANGE: +0 # unused in this strategy
 ```
+
+#### BuyDropSellRecoveryStrategy
 
 In the *BuyDropSellRecoveryStrategy*, the bot monitors coin prices and will
 buy coins that dropped their price over a percentage against their maximum price.
@@ -455,16 +492,18 @@ TICKERS:
       KLINES_SLICE_PERCENTAGE_CHANGE: +0 # unused in this strategy
 ```
 
+#### BuyOnGrowthTrendAfterDropStrategy
+
 The *BuyOnGrowthTrendAfterDropStrategy* relies on averaged prices
 from the last *KLINES_TREND_PERIOD*. It will look to buy a coin which price has
 gone down in price according to the *BUY_AT_PERCENTAGE*, and its price has
 increased at least *KLINES_SLICE_PERCENTAGE_CHANGE* % in each slice of the
 *KLINES_TREND_PERIOD*.
 
-The bot currently records the last 60 seconds, 60 minutes, 24 hours, and
-multiple days price averages for evvery coin. The bot requires some additional
+The Bot currently records the last 60 seconds, 60 minutes, 24 hours, and
+multiple days price averages for evvery coin. The Bot requires some additional
 development in order for the stored averages to work with *PAUSE_FOR* values
-different than 1 second.
+different from 1 second.
 
 Example:
 
@@ -483,18 +522,28 @@ TICKERS:
       KLINES_SLICE_PERCENTAGE_CHANGE: +1
 ```
 
+#### RSA/EMA
+
+There are no included strategies that consume RSA or EMA calculations, however
+the python modules *pandas*, *numpy*, *ta* are baked in the docker image, so
+new strategies can be created using those.
+Klines data is available in a dictionary for the last 1000 days, 24 hours, 60 minutes.
+
+
 ### BUY_AT_PERCENTAGE
 
 ```
 BUY_AT_PERCENTAGE: -20
 ```
-The percentage at which we look into start buying a coin.
+The percentage of the drop in price at which we would consider buying a coin.
 
 In the *buy_drop_recovery_strategy* this is the percentage drop in price over
-the maximum recorded.
+the maximum recorded. Note that this is not the ATH of the coin, but the highest
+recorded price since the Bot is running, or since the last sale.
+Strategies can be modified to use the ATH over a number of days if desired.
 
 In the *BuyMoonSellRecoveryStrategy* this is the price percentage difference
-between two periods (PAUSE_FOR). When a coin goes over, lets say +1 in a
+between two periods (PAUSE_FOR). When a coin goes over, let's say +1 in a
 PAUSE_FOR of 3600 seconds, then the bot will buy it.
 
 
@@ -545,7 +594,7 @@ essentially is the *recovery* phase of a coin after a large drop in price.
 ```
 HARD_LIMIT_HOLDING_TIME: 604800
 ```
-This settings sets the maximum *age* in seconds that we will hold a coin. At the
+This setting sets the maximum *age* in seconds that we will hold a coin. At the
 end of this period the bot will sell a coin regardless of its value.
 
 
@@ -561,11 +610,11 @@ This setting deals with those scenarios by reducing both the
 *TRAIL_RECOVERY_PERCENTAGE* and the *SELL_AT_PERCENTAGE* values slowly over
 time, until it reaches the *HARD_LIMIT_HOLDING_TIME*.
 
-Therefore increasing the chances of a possible sale at profit.
+Therefore, increasing the chances of a possible sale at profit.
 
 ### KLINES_TREND_PERIOD
 
-Sets the number of seconds, minutes, hours or days where the bot looks for a
+Sets the number of seconds, minutes, hours or days when the bot looks for a
 downtrend/uptrend in prices, before buying a coin.
 
 ### KLINES_SLICE_PERCENTAGE_CHANGE
@@ -697,8 +746,8 @@ ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS: 31
 
 defaults to 31
 
-Checks that we have at least 31 days of price data on a coin, if we don't we
-skip buying this coin.
+Checks that we have at least 31 days of price data on a coin, if we don't, the
+Bot skips buying this coin.
 
 
 ### STOP_BOT_ON_LOSS
@@ -717,7 +766,7 @@ Stops the bot immediately after a STOP_LOSS
 ORDER_TYPE: "MARKET"
 ```
 
-defaults to MARKET, available options are *MARKET* or *LIMIT*.
+Defaults to MARKET, available options are *MARKET* or *LIMIT*.
 
 Tells the BOT if it should use MARKET order or a LIMIT [FOK](https://academy.binance.com/en/articles/understanding-the-different-order-types) order.
 
@@ -780,8 +829,8 @@ To exit the debugger, type
 close
 ```
 
-Do not Control-D as it will hang the debugger and you won't be able to
-reconnect (To be fixed).
+Do not Control-D as it will hang the debugger, and you won't be able to
+reconnect.
 
 
 ## Control Flags
@@ -872,9 +921,10 @@ config as soon automated-backtesting completes.
 make config-endpoint-service BIND=0.0.0.0 CONFIG=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=wins|profit
 ```
 
-see PULL_CONFIG_ADDRESS and SELL_ALL_ON_PULL_CONFIG_CHANGE
+see [PULL_CONFIG_ADDRESS]#pull_config_address and
+[SELL_ALL_ON_PULL_CONFIG_CHANGE]#sell_all_on_pull_config_change
 
-trigger the execution of the automated-backtesting run by creating a *RUN* file
+Trigger the execution of the automated-backtesting run by creating a *RUN* file
 in the control/ folder.
 
 ```
@@ -904,3 +954,22 @@ All logs will be downloaded to the logs/ directory.
 Want this bot to do something it doesn't do today?
 
 Easy, fork it, make the changes you need, add tests, raise a PR.
+
+There are a few Makefile targets that help in getting started,
+
+Run:
+
+```
+make pip_packages
+```
+To create a Python virtualenv .venv and install all required python packages for
+normal execution and development.
+
+
+Run:
+```
+make tests
+```
+
+To run all local tests, formatters, and linters
+

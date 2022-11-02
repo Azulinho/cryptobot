@@ -32,23 +32,15 @@ jobs:
       - name: pip install
         run: |
           set -e
+          python -m venv .venv
+          source .venv/bin/activate
           pip install --upgrade pip
           pip install wheel
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
-      - name: pytest
+      - name: run tests
         run: |
-          pytest tests/
-
-      - name: mypy
-        run: |
-          mypy app.py
-          mypy strategies/*.py
-          mypy lib/*.py
-
-      - name: pylint
-        run: |
-          pylint app.py
-          pylint lib/*.py
-          pylint strategies/*.py
+          set -e
+          source .venv/bin/activate
+          make tests

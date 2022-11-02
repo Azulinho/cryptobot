@@ -1,7 +1,7 @@
 .PHONY: default
 default: help ;
 PATH  := $(PWD)/.venv/bin:$(PATH)
-SHELL := /usr/bin/env bash
+SHELL := /bin/bash
 
 WHOAMI := $$(whoami)
 SMP_MULTIPLIER := 1
@@ -95,9 +95,20 @@ config-endpoint-service: checks dcompose_id
 		-e CONFIG=$(CONFIG) -e BACKTRACK=$(BACKTRACK) -e SORTBY=$(SORTBY) -e PAIRING=$(PAIRING) -e MIN=$(MIN) -e TUNED_CONFIG=$(TUNED_CONFIG) \
 		config-endpoint-service
 
-pre-commit-checks:
-	# needs virtualenv
-	# black
+
+.venv:
+	python -m venv .venv
+
+.ONESHELL:
+pip_packages: .venv
+	source .venv/bin/activate
+	pip install wheel
+	pip install -r requirements.txt
+	pip install -r requirements-dev.txt
+
+.ONESHELL:
+pre-commit-checks: pip_packages
+	source .venv/bin/activate
 	black --check app.py
 	black --check klines_caching_service.py
 	black --check strategies/
@@ -116,6 +127,7 @@ pre-commit-checks:
 	# pytests
 	pytest tests/
 
+tests: pre-commit-checks
 
 help:
 	@echo "USAGE:"
@@ -133,6 +145,7 @@ help:
 	@echo "make prove-backtesting CONFIG=myconfig.yaml \
 		FROM=20220101 BACKTRACK=90 MIN=20 FORWARD=30 TO=20220901 SORTBY=profit|wins"
 	@echo "make config-endpoint-service BIND=0.0.0.0 CONFIG=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=wins|profit"
+
 
 
 support:

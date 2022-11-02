@@ -83,17 +83,22 @@ def create_zipped_logfile(
 def run_automated_backtesting(config, min_profit, sortby, logs_dir="log"):
     """calls automated-backtesting"""
     subprocess.run(
-        f"python -u utils/automated-backtesting.py -l {logs_dir}/lastfewdays.log.gz "
-        + f"-c configs/{config} -m {min_profit} -f '' -s {sortby} --run-final-backtest=False",
+        "python -u utils/automated-backtesting.py "
+        + f"-l {logs_dir}/lastfewdays.log.gz "
+        + f"-c configs/{config} "
+        + f"-m {min_profit} "
+        + "-f '' "
+        + f"-s {sortby} "
+        + "--run-final-backtest=False",
         shell=True,
         check=False,
     )
 
 
-def run(backtrack, pairing, min, config, sortby):
+def run(backtrack, pairing, min_profit, config, sortby):
     dates = backtesting_dates(backtrack)
     create_zipped_logfile(dates, pairing, logs_dir="log", symbols=[])
-    run_automated_backtesting(config, min, sortby, logs_dir="log")
+    run_automated_backtesting(config, min_profit, sortby, logs_dir="log")
 
 
 @app.route("/")
@@ -149,4 +154,4 @@ if __name__ == "__main__":
         if os.path.exists("control/RUN"):
             log_msg("control/RUN flag found")
             os.unlink("control/RUN")
-            run(backtrack, pairing, min, config, sortby)
+            run(backtrack, pairing, min_profit, config, sortby)

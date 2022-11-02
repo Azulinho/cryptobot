@@ -10,7 +10,6 @@ import sys
 import threading
 import traceback
 from datetime import datetime
-from functools import lru_cache
 from itertools import islice
 from os import fsync, getpid, unlink
 from os.path import basename, exists
@@ -900,8 +899,6 @@ class Bot:
         )
         return True
 
-    @lru_cache()
-    @retry(wait=wait_exponential(multiplier=1, max=10))
     def get_step_size(self, symbol: str) -> str:
         """retrieves and caches the decimal step size for a coin in binance"""
 
@@ -952,7 +949,7 @@ class Bot:
             )
         return volume
 
-    @retry(wait=wait_exponential(multiplier=1, max=90))
+    @retry(wait=wait_exponential(multiplier=1, max=3))
     def get_binance_prices(self) -> List[Dict[str, str]]:
         """gets the list of all binance coin prices"""
         return self.client.get_all_tickers()
@@ -1889,6 +1886,26 @@ class Bot:
             + f"stales:{self.stales} holds:{len(self.wallet)}"
         )
 
+    def print_current_balance_report(self):
+        """calculates and current balance"""
+
+        for item in self.wallet:
+            holding = self.coins[item]
+            cost = holding.volume * holding.bought_at
+            value = holding.volume * holding.price
+            age = holding.holding_time
+
+            logging.info(
+                " ".join(
+                    [
+                        f"WALLET: {item} age:{age}",
+                        f"bought_at:{holding.bought_at}",
+                        f"current_price:{holding.price}",
+                        f"cost:{cost} value:{value}",
+                    ]
+                )
+            )
+
     def calculates_exposure(self):
         """calculates current balance"""
 
@@ -1946,6 +1963,9 @@ class Bot:
 
     def process_control_flags(self):
         """process control/flags"""
+        if exists("control/BALANCE"):
+            self.print_current_balance_report()
+            unlink("control/BALANCE")
         if exists("control/SELL"):
             logging.warning("control/SELL flag found")
             with open("control/SELL") as f:
