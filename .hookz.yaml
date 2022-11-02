@@ -8,9 +8,9 @@ hooks:
     actions:
       - name: "make pre-commit-checks"
         exec: "make"
-        args: ["checks"]
+        args: ["tests"]
   - type: pre-rebase
     actions:
       - name: "make pre-commit-checks"
         exec: "make"
-        args: ["checks"]
+        args: ["tests"]
