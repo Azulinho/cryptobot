@@ -108,6 +108,7 @@ pip_packages: .venv
 
 .ONESHELL:
 pre-commit-checks: pip_packages
+	set -e
 	source .venv/bin/activate
 	black --check app.py
 	black --check klines_caching_service.py
