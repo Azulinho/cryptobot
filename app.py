@@ -506,7 +506,7 @@ class Bot:
 
         avg = total / qty
 
-        volume = qty
+        volume = float(self.calculate_volume_size(coin))
         logging.debug(f"{coin.symbol} -> volume:{volume} avgPrice:{avg}")
 
         return {
