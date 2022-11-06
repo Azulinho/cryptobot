@@ -374,7 +374,7 @@ class Coin:  # pylint: disable=too-few-public-methods
 class Bot:
     """Bot Class"""
 
-    def __init__(self, conn, config_file, config) -> None:
+    def __init__(self, conn, config_file, config, logs_dir="log") -> None:
         """Bot object"""
 
         # Binance API handler
@@ -481,6 +481,7 @@ class Bot:
         self.sell_all_on_pull_config_change: bool = config.get(
             "SELL_ALL_ON_PULL_CONFIG_CHANGE", False
         )
+        self.logs_dir = logs_dir
 
     def extract_order_data(  # pylint: disable=no-self-use
         self, order_details, coin
@@ -505,7 +506,7 @@ class Bot:
 
         avg = total / qty
 
-        volume = qty
+        volume = float(self.calculate_volume_size(coin))
         logging.debug(f"{coin.symbol} -> volume:{volume} avgPrice:{avg}")
 
         return {
@@ -971,9 +972,11 @@ class Bot:
         self.oldprice[symbol] = float(price)
 
         if self.mode == "testnet":
-            price_log = "log/testnet.log"
+            price_log = f"{self.logs_dir}/testnet.log"
         else:
-            price_log = f"log/{datetime.now().strftime('%Y%m%d')}.log"
+            price_log = (
+                f"{self.logs_dir}/{datetime.now().strftime('%Y%m%d')}.log"
+            )
         with open(price_log, "a", encoding="utf-8") as f:
             f.write(f"{datetime.now()} {symbol} {price}\n")
 
@@ -1278,8 +1281,9 @@ class Bot:
             )
 
             # make sure we never set the SELL_AT_PERCENTAGE below what we've
-            # had to pay in fees. It's quite likely however that if we didn't
-            # sell our coin by now, we are likely to hit HARD_LIMIT_HOLDING_TIME
+            # had to pay in fees.
+            # However, It's quite likely that if we didn't sell our coin by
+            # now, we are likely to hit HARD_LIMIT_HOLDING_TIME
             if coin.sell_at_percentage < add_100(2 * self.trading_fee):
                 coin.sell_at_percentage = add_100(2 * self.trading_fee)
 
@@ -1610,8 +1614,11 @@ class Bot:
 
         return (False, "HOLD")
 
-    def buy_strategy(self, coin: Coin) -> bool:
+    def buy_strategy(
+        self, coin: Coin  # pylint: disable=unused-argument,R0201
+    ) -> bool:
         """buy strategy"""
+        return False
 
     def wait(self) -> None:
         """implements a pause"""
@@ -1800,7 +1807,9 @@ class Bot:
                     break
 
         # now that we are done, lets record our results
-        with open("log/backtesting.log", "a", encoding="utf-8") as f:
+        with open(
+            f"{self.logs_dir}/backtesting.log", "a", encoding="utf-8"
+        ) as f:
             current_exposure = float(0)
             for symbol in self.wallet:
                 current_exposure = current_exposure + self.coins[symbol].profit
@@ -1991,16 +2000,6 @@ if __name__ == "__main__":
         parser.add_argument(
             "-m", "--mode", help='bot mode ["live", "backtesting", "testnet"]'
         )
-        # TODO: the args below are not currently consumed
-        parser.add_argument(
-            "-cd", "--config-dir", help="configs directory", default="configs"
-        )
-        parser.add_argument(
-            "-rd",
-            "--results-dir",
-            help="results directory",
-            default="results",
-        )
         parser.add_argument(
             "-ld", "--logs-dir", help="logs directory", default="log"
         )
@@ -2030,7 +2029,7 @@ if __name__ == "__main__":
         c_handler.setLevel(logging.INFO)
 
         if cfg["DEBUG"]:
-            f_handler = logging.FileHandler("log/debug.log")
+            f_handler = logging.FileHandler(f"{args.logs_dir}/debug.log")
             f_handler.setLevel(logging.DEBUG)
 
             logging.basicConfig(

@@ -42,6 +42,9 @@ def cli():
     parser.add_argument(
         "-ld", "--logs-dir", help="logs directory", default="log"
     )
+    parser.add_argument(
+        "-x", "--concurrency", help="SMP_MULTIPLIER value", default="1.0"
+    )
     args = parser.parse_args()
 
     return [
@@ -55,6 +58,7 @@ def cli():
         args.config_dir,
         args.results_dir,
         args.logs_dir,
+        args.concurrency,
     ]
 
 
@@ -113,13 +117,16 @@ def run_prove_backtesting(config, results_dir):
     )
 
 
-def run_automated_backtesting(config, min_profit, sortby, logs_dir="log"):
+def run_automated_backtesting(
+    config, min_profit, sortby, logs_dir="log", env={}
+):
     """calls automated-backtesting"""
     subprocess.run(
         f"python -u utils/automated-backtesting.py -l {logs_dir}/lastfewdays.log.gz "
         + f"-c configs/{config} -m {min_profit} -f '' -s {sortby} --run-final-backtest=False",
         shell=True,
         check=False,
+        env=env,
     )
 
 
@@ -175,6 +182,7 @@ def main():
         config_dir,
         results_dir,
         logs_dir,
+        concurrency,
     ) = cli()
 
     log_msg(
@@ -212,8 +220,22 @@ def main():
         log_msg(
             f"starting automated_backtesting using {config_file} for {min_profit}"
         )
+        # check for new values for SMP_MULTIPLIER and adjust as needed
+        # use this setting in cron jobs to increase/decrease the number of
+        # parallel backtesting processes based on the time of the day.
+        if os.path.exists("control/SMP_MULTIPLIER"):
+            with open("control/SMP_MULTIPLIER") as f:
+                concurrency = f.read().strip()
+                log_msg(f"control/SMP_MULTIPLIER contains {concurrency}")
+            os.unlink("control/SMP_MULTIPLIER")
+
         # runs automated_backtesting on all strategies
-        run_automated_backtesting(config_file, min_profit, sortby)
+        run_automated_backtesting(
+            config=config_file,
+            min_profit=min_profit,
+            sortby=sortby,
+            env={**os.environ, "SMP_MULTIPLIER": concurrency},
+        )
 
         dates = prove_backtesting_dates(
             end_date=start_date, days=int(forward_days)
