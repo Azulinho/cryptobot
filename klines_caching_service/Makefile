@@ -41,7 +41,7 @@ pip_packages: .venv
 	source .venv/bin/activate
 	pip install wheel
 	pip install -r requirements.txt
-	pip install -r requirements-dev.txt
+	pip install -r ../requirements-dev.txt
 
 .ONESHELL:
 pre-commit-checks: pip_packages

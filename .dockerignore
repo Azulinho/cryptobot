@@ -13,3 +13,4 @@ tags
 log/*
 cache/*
 state/*
+klines_caching_service
