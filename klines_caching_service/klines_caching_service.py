@@ -16,7 +16,9 @@ from tenacity import retry, wait_exponential
 import colorlog  # pylint: disable=E0401
 from flask import Flask, request  # pylint: disable=E0401
 
-rate: RequestRate = RequestRate(600, Duration.MINUTE)  # 600 requests per minute
+rate: RequestRate = RequestRate(
+    600, Duration.MINUTE
+)  # 600 requests per minute
 limiter: Limiter = Limiter(rate)
 
 DEBUG = False
@@ -71,6 +73,7 @@ def c_from_timestamp(date: float) -> datetime:
     """returns a cached datetime.fromtimestamp()"""
     return datetime.fromtimestamp(date)
 
+
 @retry(wait=wait_exponential(multiplier=1, max=3))
 @limiter.ratelimit("binance", delay=True)
 def requests_with_backoff(query: str):
@@ -87,6 +90,7 @@ def requests_with_backoff(query: str):
         sleep(backoff)
         response.raise_for_status()
     return response
+
 
 def process_klines_line(kline):
     """returns date, low, avg, high from a kline"""
