@@ -1924,34 +1924,43 @@ class Bot:
 
         return exposure
 
-    def refresh_config_from_config_endpoint_service(self):
+    def refresh_config_from_config_endpoint_service(self) -> None:
         """updates the bot config (ticker list) from the config endpoint"""
         try:
             r = requests.get(self.pull_config_address).json()
             if r["md5"] == self.pull_config_md5:
                 return
 
+            # create a placeholder for us to add old and new tickers
             old_tickers_in_use = {}
-            for symbol in self.wallet:
-                # if SELL_ALL_ON_PULL_CONFIG_CHANGE is set, we will
-                # simply sell all tokens and start from an empty wallet
-                if self.sell_all_on_pull_config_change:
-                    self.sell_coin(self.coins[symbol])
-                else:
+            # if SELL_ALL_ON_PULL_CONFIG_CHANGE is set, we will
+            # simply sell all tokens and start from an empty wallet
+            if self.sell_all_on_pull_config_change:
+                for symbol in self.wallet:
+                    sale: bool = self.sell_coin(self.coins[symbol])
+                    if not sale:
+                        logging.warning("Failed to sell {symbol}")
+                self.clear_all_coins_stats()
+
+            else:
+                for symbol in self.wallet:
                     old_tickers_in_use[symbol] = self.tickers[symbol]
 
+            # we need to make sure we maintain any tickers for coins we may
+            # have in our wallet.
             old_tickers_in_use.update(r["TICKERS"])
             self.tickers = old_tickers_in_use
+            now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
             logging.info(
-                "updating tickers: had: "
+                f"{now}: updating tickers: had: "
                 + f"{self.pull_config_md5} now: {r['md5']}"
             )
             logging.info("new tickers:")
-            pp = pprint.PrettyPrinter(indent=4)
+            pp: pprint.PrettyPrinter = pprint.PrettyPrinter(indent=4)
             pp.pprint(self.tickers)
             self.pull_config_md5 = r["md5"]
             # clean old coins data, or we will get errors later on
-            symbols = list(self.coins.keys())
+            symbols: List[str] = list(self.coins.keys())
             for symbol in symbols:
                 if symbol not in self.tickers.keys():
                     del self.coins[symbol]
