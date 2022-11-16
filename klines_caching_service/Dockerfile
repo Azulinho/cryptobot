@@ -18,4 +18,4 @@ RUN /cryptobot/.venv/bin/pip install wheel
 RUN /cryptobot/.venv/bin/pip install -r requirements.txt
 EXPOSE 8999
 ADD klines_caching_service.py .
-CMD ["/cryptobot/.venv/bin/gunicorn", "--workers=2", "--worker-class=egg:meinheld#gunicorn_worker", "--bind", "0.0.0.0:8999", "klines_caching_service:app"]
+CMD ["/cryptobot/.venv/bin/gunicorn", "--preload", "--workers=4", "--worker-class=egg:meinheld#gunicorn_worker", "--bind", "0.0.0.0:8999", "klines_caching_service:app"]
