@@ -5,12 +5,13 @@ SHELL := /bin/bash
 
 WHOAMI := $$(whoami)
 SMP_MULTIPLIER := 1
-DCOMPOSE_ID := $$( cat state/dcompose.id )
-PORT1 := $$(  comm -23 <(seq 50000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
-PORT2 := $$(  comm -23 <(seq 50000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
-PORT3 := $$(  comm -23 <(seq 50000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+DCOMPOSE_ID := $$( cat state/dcompose.id 2>/dev/null )
+PORT1 := $$( comm -23 <(seq 50000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+PORT2 := $$( comm -23 <(seq 50000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+PORT3 := $$( comm -23 <(seq 50000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+PORT4 := $$( comm -23 <(seq 50000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
 BIND := "127.0.0.1"
-PREFIX_VARS := U=`id -u` G=`id -g` BIND=$(BIND) PORT1=$(PORT1) PORT2=$(PORT2) PORT3=$(PORT3) WHOAMI=`whoami` DCOMPOSE_ID=`cat state/dcompose.id`
+PREFIX_VARS := U=`id -u` G=`id -g` BIND=$(BIND) PORT1=$(PORT1) PORT2=$(PORT2) PORT3=$(PORT3) PORT4=$(PORT4) WHOAMI=`whoami` DCOMPOSE_ID=`cat state/dcompose.id 2>/dev/null`
 
 dcompose_id:
 	test -e state/dcompose.id || echo "cryptobot-network-`pwd|md5sum|cut -c1-8`" > state/dcompose.id
@@ -74,7 +75,9 @@ build: checks dcompose_id
 	$(PREFIX_VARS) docker compose --profile build -p $(DCOMPOSE_ID) build
 
 down: checks dcompose_id
-	$(PREFIX_VARS) docker compose -p $(DCOMPOSE_ID) down
+	$(PREFIX_VARS) docker compose -p $(DCOMPOSE_ID) down ; \
+		cd klines_caching_service && \
+	$(PREFIX_VARS) docker compose down
 
 download-price-logs: checks dcompose_id
 	$(PREFIX_VARS) docker compose --profile download-price-logs -p $(DCOMPOSE_ID) run --rm \
@@ -89,44 +92,44 @@ prove-backtesting: checks dcompose_id
 		prove-backtesting \
 		> results/prove-backtesting.$(CONFIG).min$(MIN).$(SORTBY).$(FROM)_$(TO).f$(FORWARD)d.b$(BACKTRACK)d.txt
 
-config-endpoint-service: checks dcompose_id
+config-endpoint-service: checks
 	$(PREFIX_VARS) docker compose --profile config-endpoint-service -p $(DCOMPOSE_ID) run --rm \
 		--service-ports \
 		-e CONFIG=$(CONFIG) -e BACKTRACK=$(BACKTRACK) -e SORTBY=$(SORTBY) -e PAIRING=$(PAIRING) -e MIN=$(MIN) -e TUNED_CONFIG=$(TUNED_CONFIG) \
 		config-endpoint-service
 
+klines-caching-service: checks
+	cd klines_caching_service \
+		&& $(PREFIX_VARS) docker compose up -d
 
 .venv:
 	python -m venv .venv
+	cd klines_caching_service && python -m venv .venv
 
-.ONESHELL:
 pip_packages: .venv
-	source .venv/bin/activate
-	pip install wheel
-	pip install -r requirements.txt
-	pip install -r requirements-dev.txt
+	.venv/bin/pip install wheel
+	.venv/bin/pip install -r requirements.txt
+	.venv/bin/pip install -r requirements-dev.txt
+	klines_caching_service/.venv/bin/pip install wheel
+	klines_caching_service/.venv/bin/pip install -r klines_caching_service/requirements.txt
+	klines_caching_service/.venv/bin/pip install -r requirements-dev.txt
 
-.ONESHELL:
 pre-commit-checks: pip_packages
-	set -e
-	source .venv/bin/activate
-	black --check app.py
-	black --check klines_caching_service.py
-	black --check strategies/
-	black --check lib/
-	black --check tests/
-	# pylint
-	pylint app.py
-	pylint klines_caching_service.py
-	ls strategies/*.py |grep -v Local | xargs pylint
-	pylint lib/*.py
-	# mypy
-	mypy app.py
-	mypy klines_caching_service.py
-	ls strategies/*.py |grep -v Local | xargs mypy
-	mypy lib/*.py
-	# pytests
-	pytest tests/
+	.venv/bin/black --check app.py
+	.venv/bin/black --check strategies/
+	.venv/bin/black --check lib/
+	.venv/bin/black --check tests/
+	.venv/bin/pylint app.py
+	.venv/bin/pylint lib/*.py
+	ls strategies/*.py |grep -v Local | xargs .venv/bin/pylint
+	.venv/bin/mypy app.py
+	.venv/bin/mypy lib/*.py
+	ls strategies/*.py |grep -v Local | xargs .venv/bin/mypy
+	.venv/bin/pytest tests/
+	cd klines_caching_service; .venv/bin/black --check klines_caching_service.py
+	cd klines_caching_service; .venv/bin/pylint klines_caching_service.py
+	cd klines_caching_service; .venv/bin/mypy klines_caching_service.py
+	cd klines_caching_service; .venv/bin/pytest tests/
 
 tests: pre-commit-checks
 
@@ -146,8 +149,7 @@ help:
 	@echo "make prove-backtesting CONFIG=myconfig.yaml \
 		FROM=20220101 BACKTRACK=90 MIN=20 FORWARD=30 TO=20220901 SORTBY=profit|wins"
 	@echo "make config-endpoint-service BIND=0.0.0.0 CONFIG=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=wins|profit"
-
-
+	@echo "make klines_caching_service BIND=0.0.0.0 CONFIG=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=wins|profit"
 
 support:
 	echo > support.txt

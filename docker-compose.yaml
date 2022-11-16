@@ -16,6 +16,7 @@ services:
       - live
       - logmode
       - testnet
+      - build
     ports:
       - ${BIND}:${PORT1}:5555
     volumes: &FULL_VOL_LIST
@@ -37,7 +38,7 @@ services:
     build: ./klines_caching_service/
     privileged: false
     ports:
-      - ${BIND}:${PORT3}:8999
+      - ${BIND}:${PORT4}:8999
     profiles:
       - automated-backtesting
       - backtesting

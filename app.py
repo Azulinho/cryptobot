@@ -374,7 +374,13 @@ class Coin:  # pylint: disable=too-few-public-methods
 class Bot:
     """Bot Class"""
 
-    def __init__(self, conn, config_file, config, logs_dir="log") -> None:
+    def __init__(
+        self,
+        conn,
+        config_file,
+        config,
+        logs_dir="log",
+    ) -> None:
         """Bot object"""
 
         # Binance API handler
@@ -482,6 +488,9 @@ class Bot:
             "SELL_ALL_ON_PULL_CONFIG_CHANGE", False
         )
         self.logs_dir = logs_dir
+        self.klines_caching_service_url: str = config.get(
+            "KLINES_CACHING_SERVICE_URL", "http://klines:8999"
+        )
 
     def extract_order_data(  # pylint: disable=no-self-use
         self, order_details, coin
@@ -1833,10 +1842,12 @@ class Bot:
 
         # fetch all the available klines for this coin, for the last
         # 60min, 24h, and 1000 days
-        ok = False
+        ok: bool = False
+        # TODO: only run this in backtesting mode, not live or testnet
+        # in live/testnet, go directly to binance.
         response = requests.get(
-            "http://klines:8999?"
-            + f"symbol={coin.symbol}"
+            self.klines_caching_service_url
+            + f"?symbol={coin.symbol}"
             + f"&date={coin.date}"
             + f"&mode={self.mode}"
             + f"&debug={self.debug}"
@@ -2012,9 +2023,6 @@ if __name__ == "__main__":
         )
         parser.add_argument(
             "-ld", "--logs-dir", help="logs directory", default="log"
-        )
-        parser.add_argument(
-            "-pc", "--pull-config", help="Pull config", default=None
         )
         args = parser.parse_args()
 
