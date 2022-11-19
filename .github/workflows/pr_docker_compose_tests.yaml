@@ -7,7 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-      IMAGE: ghcr.io/azulinho/cryptobot
       TAG: pr
     steps:
       - name: Check out the repo
@@ -61,7 +60,7 @@ jobs:
           echo BuyOnGrowthTrendAfterDropStrategy.yaml
           cp tests/BuyOnGrowthTrendAfterDropStrategy.yaml configs/
           TAG=pr make backtesting CONFIG=BuyOnGrowthTrendAfterDropStrategy.yaml
-          grep 'wins:19 losses:1 stales:75 holds:2' result/BuyOnGrowthTrendAfterDropStrategy.yaml.txt
+          grep 'wins:19 losses:1 stales:75 holds:2' results/BuyOnGrowthTrendAfterDropStrategy.yaml.txt
 
       - name: run backtesting strategies BuyDropSellRecoveryStrategy.yaml
         run: |

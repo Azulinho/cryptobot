@@ -72,7 +72,8 @@ automated-backtesting: checks dcompose_id
 		> results/automated-backtesting.$(CONFIG).min$(MIN).$(SORTBY).txt
 
 build: checks dcompose_id
-	$(PREFIX_VARS) docker compose --profile build -p $(DCOMPOSE_ID) build
+	$(PREFIX_VARS) docker compose build klines
+	$(PREFIX_VARS) docker compose build cryptobot
 
 down: checks dcompose_id
 	$(PREFIX_VARS) docker compose -p $(DCOMPOSE_ID) down ; \
