@@ -107,29 +107,29 @@ klines-caching-service: checks
 	cd klines_caching_service && python -m venv .venv
 
 pip_packages: .venv
-	.venv/bin/pip install wheel
-	.venv/bin/pip install -r requirements.txt
-	.venv/bin/pip install -r requirements-dev.txt
-	klines_caching_service/.venv/bin/pip install wheel
-	klines_caching_service/.venv/bin/pip install -r klines_caching_service/requirements.txt
-	klines_caching_service/.venv/bin/pip install -r requirements-dev.txt
+	.venv/bin/pip --disable-pip-version-check install -q wheel
+	.venv/bin/pip --disable-pip-version-check install -q -r requirements.txt
+	.venv/bin/pip --disable-pip-version-check install -q -r requirements-dev.txt
+	klines_caching_service/.venv/bin/pip --disable-pip-version-check install -q wheel
+	klines_caching_service/.venv/bin/pip --disable-pip-version-check install -q -r klines_caching_service/requirements.txt
+	klines_caching_service/.venv/bin/pip --disable-pip-version-check install -q -r requirements-dev.txt
 
 pre-commit-checks: pip_packages
-	.venv/bin/black --check app.py
-	.venv/bin/black --check strategies/
-	.venv/bin/black --check lib/
-	.venv/bin/black --check tests/
-	.venv/bin/pylint app.py
-	.venv/bin/pylint lib/*.py
-	ls strategies/*.py |grep -v Local | xargs .venv/bin/pylint
-	.venv/bin/mypy app.py
+	.venv/bin/black -q --check app.py
+	.venv/bin/black -q --check strategies/
+	.venv/bin/black -q --check lib/
+	.venv/bin/black -q --check tests/
+	.venv/bin/pylint -E app.py
+	.venv/bin/pylint -E lib/*.py
+	ls strategies/*.py |grep -v Local | xargs .venv/bin/pylint -E
+	.venv/bin/mypy  app.py
 	.venv/bin/mypy lib/*.py
 	ls strategies/*.py |grep -v Local | xargs .venv/bin/mypy
-	.venv/bin/pytest tests/
-	cd klines_caching_service; .venv/bin/black --check klines_caching_service.py
-	cd klines_caching_service; .venv/bin/pylint klines_caching_service.py
+	.venv/bin/pytest --quiet -W ignore --disable-pytest-warnings tests/
+	cd klines_caching_service; .venv/bin/black -q --check klines_caching_service.py
+	cd klines_caching_service; .venv/bin/pylint -E klines_caching_service.py
 	cd klines_caching_service; .venv/bin/mypy klines_caching_service.py
-	cd klines_caching_service; .venv/bin/pytest tests/
+	cd klines_caching_service; .venv/bin/pytest -W ignore --quiet --disable-pytest-warnings tests/
 
 tests: pre-commit-checks
 
