@@ -99,8 +99,8 @@ config-endpoint-service: checks
 		config-endpoint-service
 
 klines-caching-service: checks
-	cd klines_caching_service \
-		&& $(PREFIX_VARS) docker compose up -d
+	$(PREFIX_VARS) docker compose --profile klines -p $(DCOMPOSE_ID) run --rm \
+		--service-ports klines
 
 .venv:
 	python -m venv .venv
