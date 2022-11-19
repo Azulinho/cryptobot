@@ -6,10 +6,10 @@ SHELL := /bin/bash
 WHOAMI := $$(whoami)
 SMP_MULTIPLIER := 1
 DCOMPOSE_ID := $$( cat state/dcompose.id 2>/dev/null )
-PORT1 := $$( comm -23 <(seq 50000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
-PORT2 := $$( comm -23 <(seq 50000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
-PORT3 := $$( comm -23 <(seq 50000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
-PORT4 := $$( comm -23 <(seq 50000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+PORT1 := $$( comm -23 <(seq 20000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+PORT2 := $$( comm -23 <(seq 20000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+PORT3 := $$( comm -23 <(seq 20000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+PORT4 := $$( comm -23 <(seq 20000 65535) <(ss -tan | awk '{print $$4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
 BIND := "127.0.0.1"
 PREFIX_VARS := U=`id -u` G=`id -g` BIND=$(BIND) PORT1=$(PORT1) PORT2=$(PORT2) PORT3=$(PORT3) PORT4=$(PORT4) WHOAMI=`whoami` DCOMPOSE_ID=`cat state/dcompose.id 2>/dev/null`
 
