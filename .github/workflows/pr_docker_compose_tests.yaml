@@ -26,12 +26,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: install required packages for make
-        run: |
-          set -ex
-          sudo apt-get update
-          sudo apt-get install -y iproute2 coreutils
-
       - name: copy secrets
         run: cp tests/fake.yaml secrets/binance.prod.yaml
 
@@ -102,4 +96,4 @@ jobs:
           FILTER=""
           cp $CONFIG configs/
           cp $LOGFILE log/lastfewdays.log.gz
-          make automated-backtesting LOGFILE=lastfewdays.log.gz CONFIG=automated-backtesting.yaml MIN=1 FILTER='' SORTBY=profit
+          make automated-backtesting LOGFILE=lastfewdays.log.gz CONFIG=automated-backtesting.yaml MIN=1 FILTER='' SORTBY=profit PORT1=8991 PORT2=8992 PORT3=8993 PORT4=8994
