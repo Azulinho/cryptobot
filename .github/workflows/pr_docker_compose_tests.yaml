@@ -13,6 +13,12 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v2
 
+      - name: install packages
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get -y install python3-pip make
+
       - name: make build
         run: |
           set -e
