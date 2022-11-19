@@ -38,19 +38,11 @@ jobs:
           pip install docker-compose
           TAG=pr make build
 
-      - name: Push to GitHub Packages cryptobot image
-        uses: docker/build-push-action@v2
-        with:
-          tags: ghcr.io/azulinho/cryptobot:pr
-          push: true
-          no-cache: false
-
-      - name: Push to GitHub Packages klines_caching_service image
-        uses: docker/build-push-action@v2
-        with:
-          tags: ghcr.io/azulinho/klines_caching_service:pr
-          push: true
-          no-cache: false
+      - name: Push PR docker images
+        run: |
+          set -e
+          docker push ghcr.io/azulinho/cryptobot:pr
+          docker push ghcr.io/azulinho/klines_caching_service:pr
 
       - name: copy secrets
         run: cp tests/fake.yaml secrets/binance.prod.yaml
