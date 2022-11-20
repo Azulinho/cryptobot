@@ -72,13 +72,12 @@ automated-backtesting: checks dcompose_id
 		> results/automated-backtesting.$(CONFIG).min$(MIN).$(SORTBY).txt
 
 build: checks dcompose_id
+	docker pull ubuntu:focal
 	$(PREFIX_VARS) docker compose build klines
 	$(PREFIX_VARS) docker compose build cryptobot
 
 down: checks dcompose_id
-	$(PREFIX_VARS) docker compose -p $(DCOMPOSE_ID) down ; \
-		cd klines_caching_service && \
-	$(PREFIX_VARS) docker compose down
+	$(PREFIX_VARS) docker compose -p $(DCOMPOSE_ID) down
 
 download-price-logs: checks dcompose_id
 	$(PREFIX_VARS) docker compose --profile download-price-logs -p $(DCOMPOSE_ID) run --rm \
