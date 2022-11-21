@@ -149,7 +149,7 @@ help:
 	@echo "make prove-backtesting CONFIG=myconfig.yaml \
 		FROM=20220101 BACKTRACK=90 MIN=20 FORWARD=30 TO=20220901 SORTBY=profit|wins"
 	@echo "make config-endpoint-service BIND=0.0.0.0 CONFIG=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=wins|profit"
-	@echo "make klines_caching_service BIND=0.0.0.0 CONFIG=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=wins|profit"
+	@echo "make klines-caching-service BIND=0.0.0.0"
 
 support:
 	echo > support.txt
