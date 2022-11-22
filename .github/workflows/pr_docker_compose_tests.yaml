@@ -7,17 +7,16 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-      IMAGE: ghcr.io/azulinho/cryptobot
       TAG: pr
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
 
-      - name: make build
+      - name: install packages
         run: |
           set -e
-          pip install docker-compose
-          make build
+          sudo apt-get update
+          sudo apt-get -y install python3-pip make
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
@@ -26,91 +25,82 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: run backtesting strategies BuyMoonSellRecoveryStrategy.yaml
+      - name: pull latest pr tag
         run: |
           set -e
+          docker pull ghcr.io/azulinho/cryptobot:pr || true
+          docker pull ghcr.io/azulinho/klines_caching_service:pr || true
+
+      - name: make build
+        run: |
+          set -e
+          pip install docker-compose
+          TAG=pr make build
+
+      - name: Push PR docker images
+        run: |
+          set -e
+          docker push ghcr.io/azulinho/cryptobot:pr
+          docker push ghcr.io/azulinho/klines_caching_service:pr
+
+      - name: copy secrets
+        run: cp tests/fake.yaml secrets/binance.prod.yaml
+
+      - name: run backtesting strategies BuyMoonSellRecoveryStrategy.yaml
+        run: |
+          set -ex
           echo BuyMoonSellRecoveryStrategy.yaml
-          docker compose run \
-            --name cryptobot.automated-backtesting.$(whoami) --rm \
-            --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
-            cryptobot \
-            -c tests/BuyMoonSellRecoveryStrategy.yaml \
-            -m backtesting -s tests/fake.yaml |tail | tee result.txt
-          grep 'wins:366 losses:98 stales:104 holds:1' result.txt
+          cp tests/BuyMoonSellRecoveryStrategy.yaml configs/
+          TAG=pr make backtesting CONFIG=BuyMoonSellRecoveryStrategy.yaml
+          grep 'wins:366 losses:98 stales:104 holds:1' results/BuyMoonSellRecoveryStrategy.yaml.txt
 
       - name: run backtesting strategies BuyOnGrowthTrendAfterDropStrategy.yaml
         run: |
-          set -e
+          set -ex
           echo BuyOnGrowthTrendAfterDropStrategy.yaml
-          docker compose run \
-            --name cryptobot.automated-backtesting.$(whoami) --rm \
-            --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
-            cryptobot \
-            -c tests/BuyOnGrowthTrendAfterDropStrategy.yaml \
-            -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:19 losses:1 stales:75 holds:2' result.txt
-
+          cp tests/BuyOnGrowthTrendAfterDropStrategy.yaml configs/
+          TAG=pr make backtesting CONFIG=BuyOnGrowthTrendAfterDropStrategy.yaml
+          grep 'wins:19 losses:1 stales:75 holds:2' results/BuyOnGrowthTrendAfterDropStrategy.yaml.txt
 
       - name: run backtesting strategies BuyDropSellRecoveryStrategy.yaml
         run: |
-          set -e
+          set -ex
           echo BuyDropSellRecoveryStrategy.yaml
-          docker compose run \
-            --name cryptobot.automated-backtesting.$(whoami) --rm \
-            --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
-            cryptobot \
-            -c tests/BuyDropSellRecoveryStrategy.yaml \
-            -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:4 losses:9 stales:1 holds:0' result.txt
+          cp tests/BuyDropSellRecoveryStrategy.yaml configs/
+          TAG=pr make backtesting CONFIG=BuyDropSellRecoveryStrategy.yaml
+          grep 'wins:4 losses:9 stales:1 holds:0' results/BuyDropSellRecoveryStrategy.yaml.txt
 
       - name: run backtesting strategies BuyDropSellRecoveryStrategyWhenBTCisUp.yaml
         run: |
-          set -e
+          set -ex
           echo BuyDropSellRecoveryStrategyWhenBTCisUp.yaml
-          docker compose run \
-            --name cryptobot.automated-backtesting.$(whoami) --rm \
-            --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
-            cryptobot \
-            -c tests/BuyDropSellRecoveryStrategyWhenBTCisUp.yaml \
-            -m backtesting -s tests/fake.yaml | tail |tee result.txt
-          grep 'wins:199 losses:2 stales:637 holds:0' result.txt
+          cp tests/BuyDropSellRecoveryStrategyWhenBTCisUp.yaml configs/
+          TAG=pr make backtesting CONFIG=BuyDropSellRecoveryStrategyWhenBTCisUp.yaml
+          grep 'wins:199 losses:2 stales:637 holds:0' results/BuyDropSellRecoveryStrategyWhenBTCisUp.yaml.txt
 
       - name: run backtesting strategies BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
         run: |
-          set -e
+          set -ex
           echo BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
-          docker compose run \
-            --name cryptobot.automated-backtesting.$(whoami) --rm \
-            --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
-            cryptobot \
-            -c tests/BuyDropSellRecoveryStrategyWhenBTCisDown.yaml \
-            -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:9 losses:0 stales:97 holds:0' result.txt
+          cp tests/BuyDropSellRecoveryStrategyWhenBTCisDown.yaml configs/
+          TAG=pr make backtesting CONFIG=BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
+          grep 'wins:9 losses:0 stales:97 holds:0' results/BuyDropSellRecoveryStrategyWhenBTCisDown.yaml.txt
 
       - name: run backtesting strategies BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml
         run: |
-          set -e
+          set -ex
           echo BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml
-          docker compose run \
-            --name cryptobot.automated-backtesting.$(whoami) --rm \
-            --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
-            cryptobot \
-            -c tests/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml \
-            -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:112 losses:0 stales:351 holds:0' result.txt
+          cp tests/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml configs/
+          TAG=pr make backtesting CONFIG=BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml
+          grep 'wins:112 losses:0 stales:351 holds:0' results/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml.txt
 
       - name: run backtesting strategies BuyOnRecoveryAfterDropFromAverageStrategy.yaml
         run: |
-          set -e
+          set -ex
           echo BuyOnRecoveryAfterDropFromAverageStrategy.yaml
-          docker compose run \
-            --name cryptobot.automated-backtesting.$(whoami) --rm \
-            --entrypoint="/cryptobot/.venv/bin/python /cryptobot/app.py" \
-            cryptobot \
-            -c tests/BuyOnRecoveryAfterDropFromAverageStrategy.yaml \
-            -m backtesting -s tests/fake.yaml | tail | tee result.txt
-          grep 'wins:184 losses:4 stales:596 holds:0' result.txt
-
+          cp tests/BuyOnRecoveryAfterDropFromAverageStrategy.yaml configs/
+          TAG=pr make backtesting CONFIG=BuyOnRecoveryAfterDropFromAverageStrategy.yaml
+          grep 'wins:184 losses:4 stales:596 holds:0' results/BuyOnRecoveryAfterDropFromAverageStrategy.yaml.txt
 
       - name: run automated-backtesting
         run: |
@@ -120,9 +110,6 @@ jobs:
           CONFIG=tests/automated-backtesting.yaml
           MIN=1
           FILTER=""
-          docker compose run \
-            --name cryptobot.automated-backtesting.$(whoami) --rm \
-            --entrypoint="/cryptobot/.venv/bin/python /cryptobot/utils/automated-backtesting.py" \
-            cryptobot \
-            -l ${LOGFILE} -c ${CONFIG} -m ${MIN} \
-            -f "${FILTER}" -s "profit"| tail
+          cp $CONFIG configs/
+          cp $LOGFILE log/lastfewdays.log.gz
+          TAG=pr make automated-backtesting LOGFILE=lastfewdays.log.gz CONFIG=automated-backtesting.yaml MIN=1 FILTER='' SORTBY=profit PORT1=8991 PORT2=8992 PORT3=8993 PORT4=8994

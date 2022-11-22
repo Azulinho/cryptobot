@@ -1,4 +1,4 @@
-name: Run PR lint tests
+name: Run lint and syntax tests on a Pull Request
 on: pull_request
 
 jobs:
@@ -29,18 +29,5 @@ jobs:
         with:
           command: pyenv install
 
-      - name: pip install
-        run: |
-          set -e
-          python -m venv .venv
-          source .venv/bin/activate
-          pip install --upgrade pip
-          pip install wheel
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
-
-      - name: run tests
-        run: |
-          set -e
-          source .venv/bin/activate
-          make tests
+      - name: run cryptobot tests
+        run: make tests

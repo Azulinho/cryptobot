@@ -34,3 +34,4 @@ types-PyYAML==6.0.0
 typing-extensions==3.10.0.2
 urllib3-mock==0.3.3
 virtualenv==20.16.5
+types-requests

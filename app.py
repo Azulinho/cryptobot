@@ -36,6 +36,7 @@ from lib.helpers import (
     floor_value,
     mean,
     percent,
+    requests_with_backoff,
 )
 
 
@@ -234,7 +235,7 @@ class Coin:  # pylint: disable=too-few-public-methods
 
         # append the latest values,
         # but only if the old 'm' record, is older than 1 minute
-        new_minute = self.is_a_new_slot_of(date, "m")
+        new_minute: bool = self.is_a_new_slot_of(date, "m")
         # on a new minute window, we need to find the lowest, average, and max
         # prices across all the last 60 seconds of data we have available in
         # our 'seconds' buckets.
@@ -283,19 +284,19 @@ class Coin:  # pylint: disable=too-few-public-methods
         }
         previous, period = table[unit]
 
-        new_slot = False
+        new_slot: bool = False
         # deals with the scenario, where we don't yet have 'units' data
         #  available yet
         if not self.averages[unit] and self.averages[previous]:
             if self.averages[previous][0][0] <= date - period:
-                new_slot = True
+                new_slot: bool = True
 
         # checks if our latest 'unit' record is older than 'period'
         # then we've entered a new 'unit' window
         if self.averages[unit] and not new_slot:
             record_date, _ = self.averages[unit][-1]
             if record_date <= date - period:
-                new_slot = True
+                new_slot: bool = True
         return new_slot
 
     def trim_averages(self, date: float) -> None:
@@ -321,7 +322,7 @@ class Coin:  # pylint: disable=too-few-public-methods
                             del self.averages["h"][0]
                             del self.highest["h"][0]
 
-    def check_for_pump_and_dump(self):
+    def check_for_pump_and_dump(self) -> bool:
         """calculates current price vs 1 hour ago for pump/dump events"""
 
         # disclaimer: this might need some work, as it only avoids very sharp
@@ -374,7 +375,13 @@ class Coin:  # pylint: disable=too-few-public-methods
 class Bot:
     """Bot Class"""
 
-    def __init__(self, conn, config_file, config, logs_dir="log") -> None:
+    def __init__(
+        self,
+        conn,
+        config_file,
+        config,
+        logs_dir="log",
+    ) -> None:
         """Bot object"""
 
         # Binance API handler
@@ -482,6 +489,9 @@ class Bot:
             "SELL_ALL_ON_PULL_CONFIG_CHANGE", False
         )
         self.logs_dir = logs_dir
+        self.klines_caching_service_url: str = config.get(
+            "KLINES_CACHING_SERVICE_URL", "http://klines:8999"
+        )
 
     def extract_order_data(  # pylint: disable=no-self-use
         self, order_details, coin
@@ -498,15 +508,15 @@ class Bot:
         logging.debug(f"{coin.symbol} -> order_dtails:{order_details}")
 
         for k in order_details["fills"]:
-            item_price = float(k["price"])
-            item_qty = float(k["qty"])
+            item_price: float = float(k["price"])
+            item_qty: float = float(k["qty"])
 
             total += item_price * item_qty
             qty += item_qty
 
-        avg = total / qty
+        avg: float = total / qty
 
-        volume = float(self.calculate_volume_size(coin))
+        volume: float = float(self.calculate_volume_size(coin))
         logging.debug(f"{coin.symbol} -> volume:{volume} avgPrice:{avg}")
 
         return {
@@ -787,7 +797,7 @@ class Bot:
         # in our price.log file.
         if self.mode in ["backtesting"]:
             coin.bought_at = float(coin.price)
-            coin.volume = volume
+            coin.volume = float(volume)
             coin.value = float(coin.bought_at) * float(coin.volume)
             coin.cost = float(coin.bought_at) * float(coin.volume)
 
@@ -841,12 +851,13 @@ class Bot:
         coin.value = float(float(coin.volume) * float(coin.price))
         coin.profit = float(float(coin.value) - float(coin.cost))
 
+        word: str = ""
         if coin.profit < 0:
             word = "LS"
         else:
             word = "PRF"
 
-        message = " ".join(
+        message: str = " ".join(
             [
                 f"{c_from_timestamp(coin.date)}: {coin.symbol} "
                 f"[SOLD_BY_{coin.status}]",
@@ -892,7 +903,7 @@ class Bot:
         self.clear_coin_stats(coin)
         self.clear_all_coins_stats()
 
-        exposure = self.calculates_exposure()
+        exposure: float = self.calculates_exposure()
         logging.info(
             f"{c_from_timestamp(coin.date)}: INVESTMENT: {self.investment} "
             + f"PROFIT: {self.profit} EXPOSURE: {exposure} WALLET: "
@@ -912,7 +923,7 @@ class Bot:
         # We avoid having to poke the binance api twice for the same information
         # by saving it locally on disk. This way it will became available for
         # future backtestin runs.
-        f_path = f"cache/{symbol}.precision"
+        f_path: str = f"cache/{symbol}.precision"
         if self.mode == "backtesting" and exists(f_path):
             with open(f_path, "r") as f:
                 info = json.load(f)
@@ -936,11 +947,11 @@ class Bot:
 
         # calculates the number of units we are about to buy based on the number
         # of decimal points used, the share of the investment and the price
-        step_size = self.get_step_size(coin.symbol)
+        step_size: str = self.get_step_size(coin.symbol)
 
-        investment = percent(self.investment, self.re_invest_percentage)
+        investment: float = percent(self.investment, self.re_invest_percentage)
 
-        volume = float(
+        volume: float = float(
             floor_value((investment / self.max_coins) / coin.price, step_size)
         )
         if self.debug:
@@ -1098,7 +1109,7 @@ class Bot:
         if coin.status == "HOLD":
             if coin.price > percent(coin.sell_at_percentage, coin.bought_at):
                 coin.status = "TARGET_SELL"
-                s_value = (
+                s_value: float = (
                     percent(
                         coin.trail_target_sell_percentage,
                         coin.sell_at_percentage,
@@ -1265,7 +1276,7 @@ class Bot:
         # HARD_LIMIT_HOLDING_TIME as a percentage and use it that value as
         # a percentage of the total SELL_AT_PERCENTAGE value.
         if coin.holding_time > coin.soft_limit_holding_time:
-            ttl = 100 * (
+            ttl: float = 100 * (
                 1
                 - (
                     (coin.holding_time - coin.soft_limit_holding_time)
@@ -1451,7 +1462,7 @@ class Bot:
 
         # sync our coins state with the list of coins we want to use.
         # but keep using coins we currently have on our wallet
-        coins_to_remove = []
+        coins_to_remove: List = []
         # TODO: do we want to remove these coins, or should we just let the bot
         # keep on updating their stats, even if we don't buy them ?
         # there are places in the codebase where this is expected.
@@ -1830,17 +1841,21 @@ class Bot:
     def load_klines_for_coin(self, coin) -> bool:
         """fetches from binance or a local cache klines for a coin"""
 
+        ok: bool = False
+        data: dict = {}
         # fetch all the available klines for this coin, for the last
         # 60min, 24h, and 1000 days
-        ok = False
-        response = requests.get(
-            "http://klines:8999?"
-            + f"symbol={coin.symbol}"
-            + f"&date={coin.date}"
-            + f"&mode={self.mode}"
-            + f"&debug={self.debug}"
-        )
-        data = response.json()
+        if self.mode in ["testnet", "live"]:
+            data = self.fetch_klines_from_binance(coin.symbol, coin.date)
+        else:
+            response: requests.Response = requests.get(
+                self.klines_caching_service_url
+                + f"?symbol={coin.symbol}"
+                + f"&date={coin.date}"
+                + f"&mode={self.mode}"
+                + f"&debug={self.debug}"
+            )
+            data = response.json()
         # TODO: rework this
         if data:
             ok = True
@@ -1851,7 +1866,7 @@ class Bot:
             coin.highest = data["highest"]
 
         # trim values
-        unit_values = {
+        unit_values: dict = {
             "m": (60, 1),
             "h": (24, 60),
             # for 'Days' we retrieve 1000 days, binance API default
@@ -1868,6 +1883,144 @@ class Bot:
                 coin.highest[unit].pop()
 
         return ok
+
+    def fetch_klines_from_binance(self, symbol: str, date: int) -> dict:
+        """fetches from binance"""
+
+        # when we initialise a coin, we pull a bunch of klines from binance.
+        # we pull klines for the last 60min, the last 24h, and the last 1000days
+
+        # url to pull klines data from
+        api_url: str = (
+            f"https://api.binance.com/api/v3/klines?symbol={symbol}&"
+        )
+
+        # build a dict to allows to calculate how far back in h,m,d we are going
+        # to pull klines data from
+        unit_values: dict = {
+            "m": (60, 1),
+            "h": (24, 60),
+            # for 'Days' we retrieve 1000 days, binance API default
+            "d": (1000, 60 * 24),
+        }
+
+        # build all the query strings we need to fetch data from binance
+        binance_query_strings: dict = {}
+        for unit in ["m", "h", "d"]:
+
+            # lets find out the from what date we need to pull klines from while in
+            # backtesting mode.
+            timeslice, minutes_before_now = unit_values[unit]
+
+            backtest_end_time = date
+            end_unix_time: int = int(
+                (backtest_end_time - (60 * minutes_before_now)) * 1000
+            )
+
+            query: str = f"{api_url}endTime={end_unix_time}&interval=1{unit}"
+            binance_query_strings[unit] = query
+
+        # now we need to initialize a temp buckets{} with the
+        # lowest[], averages[], highest[]
+        buckets: dict = {}
+        for bucket in ["lowest", "averages", "highest"]:
+            buckets[bucket] = {}
+            for unit in ["m", "h", "d", "s"]:
+                buckets[bucket][unit] = []
+
+        # now we need to query binance and populate our buckets dict
+        for unit in ["m", "h", "d"]:
+
+            # the call binance for list of klines for our loop var
+            # unit ('m', 'm', 'd')
+            ok, klines = self.call_binance_for_klines(
+                binance_query_strings[unit]
+            )
+            if ok:
+                # and get a dict with the lowest, averages, highest lists from those
+                # binance raw klines
+                ok, low_avg_high = self.populate_values(klines, unit)
+
+            if ok:
+                # we should now have a new dict containing list of our
+                # lowest, averages, highest values in low_avg_high
+                for bucket in ["lowest", "averages", "highest"]:
+                    buckets[bucket][unit] = low_avg_high[bucket]
+                    # we need to trim our lists, so that we don't keep more
+                    # values that we should,
+                    # like storing the last 1000 minutes
+                    #
+                    # keep 60 minutes on our minutes bucket
+                    # 24 hours in our hours bucket
+                    timeslice, _ = unit_values[unit]
+                    while len(buckets[bucket][unit]) > timeslice:
+                        buckets[bucket][unit].pop()
+        return buckets
+
+    def call_binance_for_klines(self, query):
+        """calls upstream binance and retrieves the klines for a coin"""
+        logging.info(f"calling binance on {query}")
+        response = requests_with_backoff(query)
+        if response.status_code == 400:
+            # 400 typically means binance has no klines for this coin
+            logging.warning(f"got a 400 from binance for {query}")
+            return (True, [])
+        return (True, response.json())
+
+    def process_klines_line(self, kline):
+        """returns date, low, avg, high from a kline"""
+        (_, _, high, low, _, _, closetime, _, _, _, _, _) = kline
+
+        date = float(c_from_timestamp(closetime / 1000).timestamp())
+        low = float(low)
+        high = float(high)
+        avg = (low + high) / 2
+
+        return date, low, avg, high
+
+    def populate_values(self, klines, unit) -> Tuple:
+        """builds averages[], lowest[], highest[] out of klines"""
+        _lowest: list = []
+        _averages: list = []
+        _highest: list = []
+
+        # retrieve and calculate the lowest, highest, averages
+        # from the klines data.
+        # we need to transform the dates into consumable timestamps
+        # that work for our bot.
+        for line in klines:
+            date, low, avg, high = self.process_klines_line(line)
+            _lowest.append((date, low))
+            _averages.append((date, avg))
+            _highest.append((date, high))
+
+        # finally, populate all the data coin buckets
+        buckets: dict = {}
+        for metric in ["lowest", "averages", "highest"]:
+            buckets[metric] = []
+
+        unit_buckets: Dict[str, int] = {
+            "m": 60,
+            "h": 24,
+            # for 'Days' we retrieve 1000 days, binance API default
+            "d": 1000,
+        }
+
+        timeslice: int = unit_buckets[unit]
+        # we gather all the data we collected and only populate
+        # the required number of records we require.
+        # this could possibly be optimized, but at the same time
+        # this only runs the once when we initialise a coin
+        for d, v in _lowest[-timeslice:]:
+            buckets["lowest"].append((d, v))
+
+        for d, v in _averages[-timeslice:]:
+            buckets["averages"].append((d, v))
+
+        for d, v in _highest[-timeslice:]:
+            buckets["highest"].append((d, v))
+
+        return (True, buckets)
 
     def print_final_balance_report(self):
         """calculates and outputs final balance"""
@@ -1924,34 +2077,43 @@ class Bot:
 
         return exposure
 
-    def refresh_config_from_config_endpoint_service(self):
+    def refresh_config_from_config_endpoint_service(self) -> None:
         """updates the bot config (ticker list) from the config endpoint"""
         try:
             r = requests.get(self.pull_config_address).json()
             if r["md5"] == self.pull_config_md5:
                 return
 
+            # create a placeholder for us to add old and new tickers
             old_tickers_in_use = {}
-            for symbol in self.wallet:
-                # if SELL_ALL_ON_PULL_CONFIG_CHANGE is set, we will
-                # simply sell all tokens and start from an empty wallet
-                if self.sell_all_on_pull_config_change:
-                    self.sell_coin(self.coins[symbol])
-                else:
+            # if SELL_ALL_ON_PULL_CONFIG_CHANGE is set, we will
+            # simply sell all tokens and start from an empty wallet
+            if self.sell_all_on_pull_config_change:
+                for symbol in self.wallet:
+                    sale: bool = self.sell_coin(self.coins[symbol])
+                    if not sale:
+                        logging.warning("Failed to sell {symbol}")
+                self.clear_all_coins_stats()
+
+            else:
+                for symbol in self.wallet:
                     old_tickers_in_use[symbol] = self.tickers[symbol]
 
+            # we need to make sure we maintain any tickers for coins we may
+            # have in our wallet.
             old_tickers_in_use.update(r["TICKERS"])
             self.tickers = old_tickers_in_use
+            now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
             logging.info(
-                "updating tickers: had: "
+                f"{now}: updating tickers: had: "
                 + f"{self.pull_config_md5} now: {r['md5']}"
             )
             logging.info("new tickers:")
-            pp = pprint.PrettyPrinter(indent=4)
+            pp: pprint.PrettyPrinter = pprint.PrettyPrinter(indent=4)
             pp.pprint(self.tickers)
             self.pull_config_md5 = r["md5"]
             # clean old coins data, or we will get errors later on
-            symbols = list(self.coins.keys())
+            symbols: List[str] = list(self.coins.keys())
             for symbol in symbols:
                 if symbol not in self.tickers.keys():
                     del self.coins[symbol]
@@ -1970,7 +2132,7 @@ class Bot:
             )
             logging.error(error_msg)
 
-    def process_control_flags(self):
+    def process_control_flags(self) -> None:
         """process control/flags"""
         if exists("control/BALANCE"):
             self.print_current_balance_report()
@@ -2002,9 +2164,6 @@ if __name__ == "__main__":
         )
         parser.add_argument(
             "-ld", "--logs-dir", help="logs directory", default="log"
-        )
-        parser.add_argument(
-            "-pc", "--pull-config", help="Pull config", default=None
         )
         args = parser.parse_args()
 

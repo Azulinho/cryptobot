@@ -16,6 +16,7 @@ services:
       - live
       - logmode
       - testnet
+      - build
     ports:
       - ${BIND}:${PORT1}:5555
     volumes: &FULL_VOL_LIST
@@ -32,14 +33,14 @@ services:
 
   klines:
     container_name: klines-${DCOMPOSE_ID}-${WHOAMI}
-    image: ${IMAGE:-ghcr.io/azulinho/cryptobot}:${TAG:-latest}
+    image: ${IMAGE:-ghcr.io/azulinho/klines_caching_service}:${TAG:-latest}
     user: "${U}:${G}"
-    build: ./
-    entrypoint: ["/cryptobot/.venv/bin/python", "-u",  "klines_caching_service.py"]
+    build: ./klines_caching_service/
     privileged: false
     ports:
-      - ${BIND}:${PORT3}:8999
+      - ${BIND}:${PORT4}:8999
     profiles:
+      - klines
       - automated-backtesting
       - backtesting
       - build
