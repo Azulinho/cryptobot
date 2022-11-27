@@ -43,7 +43,7 @@ function checks() { # runs docker version checks
 }
 
 function build() { # builds docker images
-	docker pull ubuntu:focal >/dev/null
+	docker pull ubuntu:focal
 	docker build -t ${IMAGE}:${TAG} .
 	cd ./klines_caching_service && docker build -t ${KLINES_CACHING_SERVICE_IMAGE} .
 }
@@ -92,8 +92,8 @@ function logmode() { # runs in logmode
 		${RUN_IN_BACKGROUND} \
 		${IMAGE}:${TAG} \
 		/cryptobot/.venv/bin/python -u app.py \
-		-s secrets/fake.yaml \
-		-c configs/${CONFIG_FILE} \
+		-s /cryptobot/secrets/fake.yaml \
+		-c /cryptobot/configs/${CONFIG_FILE} \
 		-m ${MODE} > ${LOG_DIR}/${MODE}.${CONFIG_FILE}.txt 2>&1
 }
 
@@ -111,8 +111,8 @@ function testnet() { # runs in testnet mode
     -p ${BIND}:${PORT}:5555 \
 		${IMAGE}:${TAG} \
 		/cryptobot/.venv/bin/python -u app.py \
-		-s secrets/${SECRETS_FILE} \
-		-c configs/${CONFIG_FILE} \
+		-s /cryptobot/secrets/${SECRETS_FILE:-binance.testnet.yaml} \
+		-c /cryptobot/configs/${CONFIG_FILE} \
 		-m ${MODE} > ${LOG_DIR}/${MODE}.${CONFIG_FILE}.txt 2>&1
 }
 
@@ -130,8 +130,8 @@ function live() { # runs in live mode
     -p ${BIND}:${PORT}:5555 \
 		${IMAGE}:${TAG} \
 		/cryptobot/.venv/bin/python -u app.py \
-		-s secrets/${SECRETS_FILE} \
-		-c configs/${CONFIG_FILE} \
+		-s /cryptobot/secrets/${SECRETS_FILE:-binance.prod.yaml} \
+		-c /cryptobot/configs/${CONFIG_FILE} \
 		-m ${MODE} > ${LOG_DIR}/${MODE}.${CONFIG_FILE}.txt 2>&1
 }
 
@@ -144,8 +144,8 @@ function backtesting() { # runs in backtesting mode
 		${RUN_IN_BACKGROUND} \
 		${IMAGE}:${TAG} \
 		/cryptobot/.venv/bin/python -u app.py \
-		-s secrets/${SECRETS_FILE} \
-		-c configs/${CONFIG_FILE} \
+		-s /cryptobot/secrets/${SECRETS_FILE:-fake.yaml} \
+		-c /cryptobot/configs/${CONFIG_FILE} \
 		-m backtesting > ${LOG_DIR}/backtesting.${CONFIG_FILE}.txt 2>&1
 }
 
@@ -161,7 +161,7 @@ function automated_backtesting() { # runs the automated backtesting
 		${DOCKER_NETWORK} \
 		${RUN_IN_BACKGROUND} \
 		-e LOGFILE=/cryptobot/log/${LOGFILE} \
-		-e CONFIG=configs/${CONFIG_FILE} \
+		-e CONFIG=/cryptobot/configs/${CONFIG_FILE} \
 		-e MIN=${MIN} \
 		-e FILTER=${FILTER} \
 		-e SORTBY=${SORTBY} \
@@ -370,16 +370,6 @@ function main() { # main innit?
 	if [ "`echo " $MODE " | grep -cE ' logmode | live | testnet '`" -eq 1 ]; then
 		if [ -z "$CONFIG_FILE" ]; then
 			echo "CONFIG_FILE env variable not set"
-			exit 1
-		fi
-
-		if [ -z "$SECRETS_FILE" ]; then
-			echo "SECRETS_FILE env variable not set"
-			exit 1
-		fi
-
-		if [ -z "$MODE" ]; then
-			echo "MODE env variable not set"
 			exit 1
 		fi
 	fi
