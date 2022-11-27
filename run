@@ -289,6 +289,7 @@ function klines_caching_service() { # runs the klines caching service
 		${DOCKER_NAME} \
 		${DOCKER_MOUNTS} \
 		${DOCKER_NETWORK} \
+		--network-alias klines \
 		${RUN_IN_BACKGROUND} \
     -p ${BIND}:${PORT}:8999 \
 		${KLINES_CACHING_SERVICE_IMAGE}
@@ -447,9 +448,6 @@ function main() { # main innit?
 	export DOCKER_MOUNTS=""
 	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v /etc/timezone:/etc/timezone:ro"
 	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v /etc/localtime:/etc/localtime:ro"
-	# latest docker versions, are giving the container an unreadable resolv.conf
-	# if this is not set.
-	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v /etc/resolv.conf:/etc/resolv.conf:ro"
 	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $CONFIG_DIR:/cryptobot/configs:rw "
 	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $SECRETS_DIR:/cryptobot/secrets:ro"
 	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $LOG_DIR:/cryptobot/log:rw "
