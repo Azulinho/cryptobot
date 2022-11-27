@@ -1,4 +1,4 @@
-name: Build and publish Docker images on a git tag push
+name: docker build cryptobot:TAG
 on:
   push:
     tags:

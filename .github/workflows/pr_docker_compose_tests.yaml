@@ -16,7 +16,7 @@ jobs:
         run: |
           set -e
           sudo apt-get update
-          sudo apt-get -y install python3-pip make
+          sudo apt-get -y install python3-pip
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
@@ -31,11 +31,15 @@ jobs:
           docker pull ghcr.io/azulinho/cryptobot:pr || true
           docker pull ghcr.io/azulinho/klines_caching_service:pr || true
 
-      - name: make build
+      - name: run build
         run: |
           set -e
-          pip install docker-compose
-          TAG=pr make build
+          TAG=pr ./run build
+
+      - name: run klines-caching-service in background
+        run: |
+          set -e
+          TAG=pr ./run klines-caching-service RUN_IN_BACKGROUND=yes
 
       - name: Push PR docker images
         run: |
@@ -51,7 +55,7 @@ jobs:
           set -ex
           echo BuyMoonSellRecoveryStrategy.yaml
           cp tests/BuyMoonSellRecoveryStrategy.yaml configs/
-          TAG=pr make backtesting CONFIG=BuyMoonSellRecoveryStrategy.yaml
+          TAG=pr ./run backtesting CONFIG=BuyMoonSellRecoveryStrategy.yaml
           grep 'wins:366 losses:98 stales:104 holds:1' results/BuyMoonSellRecoveryStrategy.yaml.txt
 
       - name: run backtesting strategies BuyOnGrowthTrendAfterDropStrategy.yaml
@@ -59,7 +63,7 @@ jobs:
           set -ex
           echo BuyOnGrowthTrendAfterDropStrategy.yaml
           cp tests/BuyOnGrowthTrendAfterDropStrategy.yaml configs/
-          TAG=pr make backtesting CONFIG=BuyOnGrowthTrendAfterDropStrategy.yaml
+          TAG=pr ./run backtesting CONFIG=BuyOnGrowthTrendAfterDropStrategy.yaml
           grep 'wins:19 losses:1 stales:75 holds:2' results/BuyOnGrowthTrendAfterDropStrategy.yaml.txt
 
       - name: run backtesting strategies BuyDropSellRecoveryStrategy.yaml
@@ -67,7 +71,7 @@ jobs:
           set -ex
           echo BuyDropSellRecoveryStrategy.yaml
           cp tests/BuyDropSellRecoveryStrategy.yaml configs/
-          TAG=pr make backtesting CONFIG=BuyDropSellRecoveryStrategy.yaml
+          TAG=pr ./run backtesting CONFIG=BuyDropSellRecoveryStrategy.yaml
           grep 'wins:4 losses:9 stales:1 holds:0' results/BuyDropSellRecoveryStrategy.yaml.txt
 
       - name: run backtesting strategies BuyDropSellRecoveryStrategyWhenBTCisUp.yaml
@@ -75,7 +79,7 @@ jobs:
           set -ex
           echo BuyDropSellRecoveryStrategyWhenBTCisUp.yaml
           cp tests/BuyDropSellRecoveryStrategyWhenBTCisUp.yaml configs/
-          TAG=pr make backtesting CONFIG=BuyDropSellRecoveryStrategyWhenBTCisUp.yaml
+          TAG=pr ./run backtesting CONFIG=BuyDropSellRecoveryStrategyWhenBTCisUp.yaml
           grep 'wins:199 losses:2 stales:637 holds:0' results/BuyDropSellRecoveryStrategyWhenBTCisUp.yaml.txt
 
       - name: run backtesting strategies BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
@@ -83,7 +87,7 @@ jobs:
           set -ex
           echo BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
           cp tests/BuyDropSellRecoveryStrategyWhenBTCisDown.yaml configs/
-          TAG=pr make backtesting CONFIG=BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
+          TAG=pr ./run backtesting CONFIG=BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
           grep 'wins:9 losses:0 stales:97 holds:0' results/BuyDropSellRecoveryStrategyWhenBTCisDown.yaml.txt
 
       - name: run backtesting strategies BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml
@@ -91,7 +95,7 @@ jobs:
           set -ex
           echo BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml
           cp tests/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml configs/
-          TAG=pr make backtesting CONFIG=BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml
+          TAG=pr ./run backtesting CONFIG=BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml
           grep 'wins:112 losses:0 stales:351 holds:0' results/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml.txt
 
       - name: run backtesting strategies BuyOnRecoveryAfterDropFromAverageStrategy.yaml
@@ -99,7 +103,7 @@ jobs:
           set -ex
           echo BuyOnRecoveryAfterDropFromAverageStrategy.yaml
           cp tests/BuyOnRecoveryAfterDropFromAverageStrategy.yaml configs/
-          TAG=pr make backtesting CONFIG=BuyOnRecoveryAfterDropFromAverageStrategy.yaml
+          TAG=pr ./run backtesting CONFIG=BuyOnRecoveryAfterDropFromAverageStrategy.yaml
           grep 'wins:184 losses:4 stales:596 holds:0' results/BuyOnRecoveryAfterDropFromAverageStrategy.yaml.txt
 
       - name: run automated-backtesting
@@ -112,4 +116,4 @@ jobs:
           FILTER=""
           cp $CONFIG configs/
           cp $LOGFILE log/lastfewdays.log.gz
-          TAG=pr make automated-backtesting LOGFILE=lastfewdays.log.gz CONFIG=automated-backtesting.yaml MIN=1 FILTER='' SORTBY=profit PORT1=8991 PORT2=8992 PORT3=8993 PORT4=8994
+          TAG=pr ./run automated-backtesting LOGFILE=lastfewdays.log.gz CONFIG=automated-backtesting.yaml MIN=1 FILTER='' SORTBY=profit PORT1=8991 PORT2=8992 PORT3=8993 PORT4=8994

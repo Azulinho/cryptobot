@@ -1,4 +1,4 @@
-name: build cryptobot docker image on next_release branch
+name: docker build cryptobot:next_release
 on:
   push:
     branches:
@@ -38,4 +38,4 @@ jobs:
           tags: ${{ steps.meta_cryptobot_img.outputs.tags }}
           labels: ${{ steps.meta_cryptobot_img.outputs.labels }}
           push: true
-          no-cache: true
+          no-cache: false

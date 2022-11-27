@@ -6,11 +6,11 @@
 hooks:
   - type: pre-commit
     actions:
-      - name: "make pre-commit-checks"
-        exec: "make"
-        args: ["tests"]
+      - name: "run pre-commit-checks"
+        exec: "bash"
+        args: ["./run", "tests"]
   - type: pre-rebase
     actions:
-      - name: "make pre-commit-checks"
-        exec: "make"
-        args: ["tests"]
+      - name: "run pre-commit-checks"
+        exec: "bash"
+        args: ["./run", "tests"]
