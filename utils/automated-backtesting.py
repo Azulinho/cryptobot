@@ -81,6 +81,7 @@ def split_logs_into_coins(filename, cfg, logs_dir="log"):
 def wrap_subprocessing(config, config_dir, results_dir, timeout=None):
     """wraps subprocess call"""
     subprocess.run(
+        # TODO: tests/fake.yaml? really?
         "python app.py -m backtesting -s tests/fake.yaml "
         + f"-c {config_dir}/{config} >{results_dir}/{config}.txt 2>&1",
         shell=True,
