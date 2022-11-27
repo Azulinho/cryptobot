@@ -1,4 +1,4 @@
-name: build klines_caching_service docker image on next_release branch
+name: docker build klines_caching_service:next_release
 on:
   push:
     branches:

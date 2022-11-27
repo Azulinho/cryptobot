@@ -24,10 +24,8 @@ jobs:
           && make \
           && sudo make install
 
-      - name: pyenv install
-        uses: "gabrielfalcao/pyenv-action@v5"
-        with:
-          command: pyenv install
+      - name: run setup
+        run: ./run setup
 
       - name: run cryptobot tests
-        run: make tests
+        run: ./run tests

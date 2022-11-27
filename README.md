@@ -318,7 +318,7 @@ for testing containing a small set of coins
 running. But not buy or sell anything.
 
 ```
-make logmode CONFIG=config.yaml
+./run logmode CONFIG=config.yaml
 ```
 
 You can also look into the [obtaining old price.log files
@@ -347,7 +347,7 @@ all collected price logs based on the provided config.yaml.
 
 
 ```
-make backtesting CONFIG=config.yaml
+./run backtesting CONFIG=config.yaml
 ```
 
 8. Update your config.yaml until you are happy with the results and re-run the
@@ -376,7 +376,7 @@ make backtesting CONFIG=config.yaml
 9. Finally, when happy run in live trading mode,
 
 ```
-make live CONFIG=config.yaml
+./run live CONFIG=config.yaml
 ```
 
 
@@ -863,13 +863,13 @@ Use it as:
 1. First compress all non-active logs
 
 ```
-make compress-logs
+./run compress-logs
 ```
 
 2. Generate a logfile for the last days we want to test
 
 ```
-make lastfewdays DAYS=14 PAIR=USDT
+./run lastfewdays DAYS=14 PAIR=USDT
 mv lastfewdays.USDT.log.gz log/
 ```
 
@@ -885,7 +885,7 @@ This will generate a config.yaml with the coins sorted by which strategy
 returned the highest profit for each coin.
 
 ```
-make automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='profit'
+./run automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='profit'
 ```
 
 This will generate a config.yaml with the coins sorted by which strategy
@@ -893,7 +893,7 @@ returned the highest number of clean wins for each coin. We call clean wins as
 bot runs that don't contain any losses, holds or stales, only wins.
 
 ```
-make automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='wins'
+./run automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='wins'
 ```
 
 ## Prove automated-backtesting results
@@ -908,7 +908,7 @@ It then repeats this process starting the day after the last logfile
 backtested through the tuned config, all the way until the end date provided.
 
 ```
- make prove-backtesting FROM=20220801 BACKTRACK=90 MIN=9 CONFIG=backtesting.yaml TO=20220831 FORWARD=7 SORTBY=wins
+ ./run prove-backtesting FROM=20220801 BACKTRACK=90 MIN=9 CONFIG=backtesting.yaml TO=20220831 FORWARD=7 SORTBY=wins
 ```
 
 ## config-endpoint-service
@@ -918,7 +918,7 @@ automated-backtesting periodically, and having the LIVE bot pull that optimized
 config as soon automated-backtesting completes.
 
 ```
-make config-endpoint-service BIND=0.0.0.0 CONFIG=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=wins|profit
+./run config-endpoint-service BIND=0.0.0.0 CONFIG=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=wins|profit
 ```
 
 see [PULL_CONFIG_ADDRESS]#pull_config_address and
@@ -940,7 +940,7 @@ in the format used by this bot.
 Use it as:
 
 ```
-make download-price-logs FROM=20210101 TO=20211231
+./run download-price-logs FROM=20210101 TO=20211231
 ```
 
 And wait, as this will take a while to run.
@@ -960,7 +960,7 @@ There are a few Makefile targets that help in getting started,
 Run:
 
 ```
-make pip_packages
+./run setup
 ```
 To create a Python virtualenv .venv and install all required python packages for
 normal execution and development.
@@ -968,7 +968,7 @@ normal execution and development.
 
 Run:
 ```
-make tests
+./run tests
 ```
 
 To run all local tests, formatters, and linters
