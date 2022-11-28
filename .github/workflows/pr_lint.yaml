@@ -11,8 +11,31 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v2
 
-      - name: install build-essentials
-        run: sudo apt-get -y install build-essential
+      - name: retrieve cached-packages
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev git ca-certificates cargo gzip pigz bzip2 pbzip2 autoconf automake shtool coreutils autogen libtool shtool nasm
+
+      - name: retrieve cached ta-lib
+        id: cache-ta-lib
+        uses: actions/cache@v3
+        with:
+          path: /tmp/ta-lib
+          key: ta-lib
+
+      - name: retrieve cached pythons
+        id: cache-pyenv
+        uses: actions/cache@v3
+        with:
+          path: /home/runner/.pyenv
+          key: ${{ runner.os }}-pyenv-${{ hashFiles('.python-version') }}
+
+      - name: retrieve cached pip packages
+        id: cache-pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
 
       - name: install ta-lib
         run: |

@@ -83,7 +83,7 @@ def wrap_subprocessing(config, config_dir, results_dir, timeout=None):
     subprocess.run(
         # TODO: tests/fake.yaml? really?
         "python app.py -m backtesting -s tests/fake.yaml "
-        + f"-c {config_dir}/{config} >{results_dir}/{config}.txt 2>&1",
+        + f"-c {config_dir}/{config} >{results_dir}/backtesting.{config}.txt 2>&1",
         shell=True,
         timeout=timeout,
         check=False,
@@ -333,9 +333,9 @@ def cleanup(config_dir="configs", results_dir="results", logs_dir="log"):
     """clean files"""
     for item in glob.glob(f"{config_dir}/coin.*.yaml"):
         os.remove(item)
-    for item in glob.glob(f"{results_dir}/coin.*.txt"):
+    for item in glob.glob(f"{results_dir}/backtesting.coin.*.txt"):
         os.remove(item)
-    for item in glob.glob(f"{logs_dir}/coin.*.log.gz"):
+    for item in glob.glob(f"{logs_dir}/backtesting.coin.*.log.gz"):
         os.remove(item)
 
 
@@ -468,7 +468,7 @@ def gather_best_results_from_run(coinfiles, sortby, results_dir):
     # TODO: parsing logfiles is not nice, rework this in app.py
     for coinfile in coinfiles:
         symbol = coinfile.split(".")[1]
-        results_txt = f"{results_dir}/coin.{symbol}.yaml.txt"
+        results_txt = f"{results_dir}/backtesting.coin.{symbol}.yaml.txt"
         with open(results_txt) as f:
             run_results = f.read()
 
