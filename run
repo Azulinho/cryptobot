@@ -44,8 +44,16 @@ function checks() { # runs docker version checks
 
 function build() { # builds docker images
 	docker pull ubuntu:focal
-	docker build -t ${IMAGE}:${TAG} .
-	cd ./klines_caching_service && docker build -t ${KLINES_CACHING_SERVICE_IMAGE} .
+	# pull latest build images from registry
+	docker pull ${IMAGE}:${TAG}  || true
+	docker pull ${KLINES_CACHING_SERVICE_IMAGE} || true
+
+	docker build -t tempbuild --cache-from=${IMAGE}:${TAG} .
+	docker tag tempbuild ${IMAGE}:${TAG}
+
+	cd ./klines_caching_service
+	docker build -t tempbuild --cache-from=${KLINES_CACHING_SERVICE_IMAGE} .
+	docker tag tempbuild ${KLINES_CACHING_SERVICE_IMAGE}
 }
 
 function down() { # power down all containers
@@ -68,7 +76,8 @@ function download_price_logs() { # downloads klines logs fro binance
 		exit 1
 	fi
 
-	docker run --rm -it \
+	docker run --rm \
+		${USE_TTY} \
 		${DOCKER_RUN_AS} \
 		${DOCKER_NAME} \
 		${DOCKER_MOUNTS} \
@@ -84,7 +93,8 @@ function docker_network() { # creates a docker network
 }
 
 function logmode() { # runs in logmode
-	docker run --rm -it \
+	docker run --rm \
+		${USE_TTY} \
 		${DOCKER_RUN_AS} \
 		${DOCKER_NAME} \
 		${DOCKER_MOUNTS} \
@@ -102,7 +112,8 @@ function testnet() { # runs in testnet mode
 		export PORT=$( cat ${STATE_DIR}/.testnet.port)
 	fi
 
-	docker run --rm -it \
+	docker run --rm \
+		${USE_TTY} \
 		${DOCKER_RUN_AS} \
 		${DOCKER_NAME} \
 		${DOCKER_MOUNTS} \
@@ -121,7 +132,8 @@ function live() { # runs in live mode
 		export PORT=$( cat ${STATE_DIR}/.${MODE}.port )
 	fi
 
-	docker run --rm -it \
+	docker run --rm \
+		${USE_TTY} \
 		${DOCKER_RUN_AS} \
 		${DOCKER_NAME} \
 		${DOCKER_MOUNTS} \
@@ -136,7 +148,8 @@ function live() { # runs in live mode
 }
 
 function backtesting() { # runs in backtesting mode
-	docker run --rm -it \
+	docker run --rm \
+		${USE_TTY} \
 		${DOCKER_RUN_AS} \
 		${DOCKER_NAME} \
 		${DOCKER_MOUNTS} \
@@ -146,7 +159,7 @@ function backtesting() { # runs in backtesting mode
 		/cryptobot/.venv/bin/python -u app.py \
 		-s /cryptobot/secrets/${SECRETS_FILE:-fake.yaml} \
 		-c /cryptobot/configs/${CONFIG_FILE} \
-		-m backtesting > ${LOG_DIR}/backtesting.${CONFIG_FILE}.txt 2>&1
+		-m backtesting > ${RESULTS_DIR}/backtesting.${CONFIG_FILE}.txt 2>&1
 }
 
 function automated_backtesting() { # runs the automated backtesting
@@ -154,12 +167,13 @@ function automated_backtesting() { # runs the automated backtesting
 	RESULTS_LOG="${RESULTS_LOG}.${CONFIG_FILE}"
 	RESULTS_LOG="${RESULTS_LOG}.min${MIN}"
 	RESULTS_LOG="${RESULTS_LOG}.${SORTBY}.txt"
-	docker run --rm -it \
+
+	docker run --rm \
+		${USE_TTY} \
 		${DOCKER_RUN_AS} \
 		${DOCKER_NAME} \
 		${DOCKER_MOUNTS} \
 		${DOCKER_NETWORK} \
-		${RUN_IN_BACKGROUND} \
 		-e LOGFILE=/cryptobot/log/${LOGFILE} \
 		-e CONFIG=/cryptobot/configs/${CONFIG_FILE} \
 		-e MIN=${MIN} \
@@ -210,7 +224,8 @@ function prove_backtesting() { # runs the prove backtesting
 	RESULTS_LOG="${RESULTS_LOG}.${FROM}_${TO}"
 	RESULTS_LOG="${RESULTS_LOG}.f${FORWARD}d"
 	RESULTS_LOG="${RESULTS_LOG}.b${BACKTRACK}d.txt"
-	docker run --rm -it \
+	docker run --rm \
+		${USE_TTY} \
 		${DOCKER_RUN_AS} \
 		${DOCKER_NAME} \
 		${DOCKER_MOUNTS} \
@@ -218,7 +233,7 @@ function prove_backtesting() { # runs the prove backtesting
 		${RUN_IN_BACKGROUND} \
 		-e FROM=${FROM} \
 		-e BACKTRACK=${BACKTRACK} \
-		-e CONFIG=${CONFIG_FILE} \
+		-e CONFIG_FILE=${CONFIG_FILE} \
 		-e MIN=${MIN} \
 		-e FORWARD=${FORWARD} \
 		-e TO=${TO} \
@@ -262,7 +277,8 @@ function config_endpoint_service() { # runs the config endpoint service
 		export SMP_MULTIPLIER=1
 	fi
 
-	docker run --rm -it \
+	docker run --rm \
+		${USE_TTY} \
 		${DOCKER_RUN_AS} \
 		${DOCKER_NAME} \
 		${DOCKER_MOUNTS} \
@@ -284,7 +300,14 @@ function klines_caching_service() { # runs the klines caching service
 	if [ -z "$PORT" ]; then
 		export PORT=$( cat ${STATE_DIR}/.${MODE}.port )
 	fi
-	docker run --rm -it \
+
+	if [ -n "${RUN_IN_BACKGROUND}" ]; then
+		docker ps | grep "klines_caching_service-${CONTAINER_SUFFIX}" \
+			|awk '{ print $1 }' | xargs -i docker kill {} >/dev/null 2>&1
+	fi
+
+	docker run --rm \
+		${USE_TTY} \
 		${DOCKER_RUN_AS} \
 		${DOCKER_NAME} \
 		${DOCKER_MOUNTS} \
@@ -297,37 +320,131 @@ function klines_caching_service() { # runs the klines caching service
 
 function setup() { # local setup for development
 	which pyenv >/dev/null 2>&1 ||  curl https://pyenv.run | bash
-	which pyenv >/dev/null 2>&1 || eval "$(pyenv init --path)"
+	export PATH=~/.pyenv/bin:$PATH
 
 	if [ ! -e .venv ]; then
 		pyenv install -s
-		python -m venv .venv
-		.venv/bin/pip --disable-pip-version-check install -q wheel
-		.venv/bin/pip --disable-pip-version-check install -q -r requirements.txt
-		.venv/bin/pip --disable-pip-version-check install -q -r requirements-dev.txt
+		pyenv exec python -m venv .venv
 	fi
+
+	source .venv/bin/activate
+	pip --disable-pip-version-check install wheel
+	pip --disable-pip-version-check install -r requirements.txt
+	pip --disable-pip-version-check install -r requirements-dev.txt
+	deactivate
 
 	cd klines_caching_service
 	if [ ! -e .venv ]; then
 		pyenv install -s
-		python -m venv .venv
-		.venv/bin/pip --disable-pip-version-check install -q wheel
-		.venv/bin/pip --disable-pip-version-check install -q -r requirements.txt
-		.venv/bin/pip --disable-pip-version-check install -q -r ../requirements-dev.txt
+		pyenv exec python -m venv .venv
 	fi
+
+	source .venv/bin/activate
+	pip --disable-pip-version-check install wheel
+	pip --disable-pip-version-check install -r requirements.txt
+	pip --disable-pip-version-check install -r ../requirements-dev.txt
+	deactivate
 }
 
 function tests() { # CI and pre-commit tests
-	.venv/bin/black -q --check app.py strategies/ lib/ tests/
-	ls strategies/*.py |grep -v Local | xargs .venv/bin/pylint -E app.py lib/*.py
-	ls strategies/*.py |grep -v Local | xargs .venv/bin/mypy app.py lib/*.py
-	.venv/bin/pytest --quiet -W ignore --disable-pytest-warnings tests/
+	set -e
+	set -o pipefail
+	export PATH=~/.pyenv/bin:$PATH
+	source .venv/bin/activate
+	black --check app.py strategies/ lib/ tests/
+	ls strategies/*.py |grep -v Local | xargs pylint -E app.py lib/*.py
+	ls strategies/*.py |grep -v Local | xargs mypy app.py lib/*.py
+	pytest --quiet -W ignore --disable-pytest-warnings tests/
+	deactivate
 
 	cd klines_caching_service
-	.venv/bin/black -q --check klines_caching_service.py
-	.venv/bin/pylint -E klines_caching_service.py
-	.venv/bin/mypy klines_caching_service.py
-	.venv/bin/pytest -W ignore --quiet --disable-pytest-warnings tests/
+	source .venv/bin/activate
+	black -q --check klines_caching_service.py
+	pylint -E klines_caching_service.py
+	mypy klines_caching_service.py
+	pytest -W ignore --quiet --disable-pytest-warnings tests/
+	deactivate
+}
+
+function github_actions_ci_pr_docker_tests() {
+	set -ex
+  ./run build TAG=pr KLINES_CACHING_SERVICE_IMAGE="ghcr.io/azulinho/klines_caching_service:pr"
+  ./run klines-caching-service RUN_IN_BACKGROUND=yes KLINES_CACHING_SERVICE_IMAGE="ghcr.io/azulinho/klines_caching_service:pr"
+
+	sleep 5
+
+	# don't worry if we can't push, as when running locally this will fail anyway
+	docker push ghcr.io/azulinho/cryptobot:pr || true
+	docker push ghcr.io/azulinho/klines_caching_service:pr || true
+	# TODO: review where these are being consumed in the tests
+  cp tests/fake.yaml secrets/binance.prod.yaml
+  cp tests/fake.yaml secrets/fake.yaml
+
+	echo BuyMoonSellRecoveryStrategy.yaml
+	cp tests/BuyMoonSellRecoveryStrategy.yaml configs/
+	./run backtesting CONFIG_FILE=BuyMoonSellRecoveryStrategy.yaml TAG=pr
+	grep 'wins:366 losses:98 stales:104 holds:1' results/backtesting.BuyMoonSellRecoveryStrategy.yaml.txt
+
+	echo BuyOnGrowthTrendAfterDropStrategy.yaml
+	cp tests/BuyOnGrowthTrendAfterDropStrategy.yaml configs/
+	./run backtesting CONFIG_FILE=BuyOnGrowthTrendAfterDropStrategy.yaml TAG=pr
+	grep 'wins:19 losses:1 stales:75 holds:2' results/backtesting.BuyOnGrowthTrendAfterDropStrategy.yaml.txt
+
+  echo BuyDropSellRecoveryStrategy.yaml
+	cp tests/BuyDropSellRecoveryStrategy.yaml configs/
+	./run backtesting CONFIG_FILE=BuyDropSellRecoveryStrategy.yaml TAG=pr
+	grep 'wins:4 losses:9 stales:1 holds:0' results/backtesting.BuyDropSellRecoveryStrategy.yaml.txt
+
+	echo BuyDropSellRecoveryStrategyWhenBTCisUp.yaml
+	cp tests/BuyDropSellRecoveryStrategyWhenBTCisUp.yaml configs/
+	./run backtesting CONFIG_FILE=BuyDropSellRecoveryStrategyWhenBTCisUp.yaml TAG=pr
+	grep 'wins:199 losses:2 stales:637 holds:0' results/backtesting.BuyDropSellRecoveryStrategyWhenBTCisUp.yaml.txt
+
+	echo BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
+	cp tests/BuyDropSellRecoveryStrategyWhenBTCisDown.yaml configs/
+	./run backtesting CONFIG_FILE=BuyDropSellRecoveryStrategyWhenBTCisDown.yaml TAG=pr
+	grep 'wins:9 losses:0 stales:97 holds:0' results/backtesting.BuyDropSellRecoveryStrategyWhenBTCisDown.yaml.txt
+
+	echo BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml
+	cp tests/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml configs/
+	./run backtesting CONFIG_FILE=BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml TAG=pr
+	grep 'wins:112 losses:0 stales:351 holds:0' results/backtesting.BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml.txt
+
+	echo BuyOnRecoveryAfterDropFromAverageStrategy.yaml
+	cp tests/BuyOnRecoveryAfterDropFromAverageStrategy.yaml configs/
+	./run backtesting CONFIG_FILE=BuyOnRecoveryAfterDropFromAverageStrategy.yaml TAG=pr
+	grep 'wins:184 losses:4 stales:596 holds:0' results/backtesting.BuyOnRecoveryAfterDropFromAverageStrategy.yaml.txt
+
+	echo automated-tests
+	LOGFILE=tests/price.log.gz
+	CONFIG_FILE=tests/automated-backtesting.yaml
+	MIN=1
+	FILTER=""
+	cp $CONFIG_FILE configs/
+	cp $LOGFILE log/lastfewdays.log.gz
+	./run automated-backtesting \
+		TAG=pr \
+		LOGFILE=lastfewdays.log.gz \
+		CONFIG_FILE=automated-backtesting.yaml \
+		MIN=1 FILTER='' SORTBY=profit
+
+	md5sum ${CONFIG_DIR}/BuyOnRecoveryAfterDropFromAverageStrategy.yaml \
+		|cut -f1 -d " " | grep '9bd932943d3c5a8f38e0d9598f5a67ee'
+
+	echo prove-backtesting
+	for ta in 01 02 03 04 05 06 07 08 09
+	do
+		cat tests/price.log.gz | grep 2021-12-${ta}  |gzip -1 > log/202112${ta}.log.gz
+	done
+
+	./run prove-backtesting \
+		TAG=pr \
+		FROM=20211201 TO=20211209 BACKTRACK=1 FORWARD=1 MIN=1 \
+		CONFIG_FILE=automated-backtesting.yaml
+
+	md5sum ${CONFIG_DIR}/BuyOnRecoveryAfterDropFromAverageStrategy.yaml \
+		|cut -f1 -d " " | grep 'dbb69758a3d2eb24041ec70cd4494a1e'
+
 }
 
 # TODO: review these below
@@ -356,6 +473,9 @@ function main() { # main innit?
 	export PATH="${LOCAL_PATH}/.venv/bin:$PATH"
 
 	if [ $# -eq 0 ]; then usage; exit 1; fi
+
+	export USE_TTY=""
+	test -t 1 && USE_TTY="-it"
 
 	# allow for the same syntax used in makefiles using '-' instead of '_'
 	export MODE=$( echo $1 | tr -s '-' '_' )
@@ -464,7 +584,6 @@ function main() { # main innit?
 	export DOCKER_NETWORK="--network ${CONTAINER_SUFFIX}"
 
 	checks
-	latest
 	docker_network
   set_service_ports cryptobot klines_caching_service config_endpoint_service
 	${MODE}
