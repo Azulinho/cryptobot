@@ -447,9 +447,8 @@ function github_actions_ci_pr_docker_tests() {
 
 }
 
-# TODO: review these below
 function compress_logs() { # compresses the latest price logs
-	find ${LOG_DIR}/ -name "202*.log" -mmin +60 | xargs -i gzip -3 {}
+	find ${LOG_DIR}/ -name "202*.log" | grep -v "$(date  '+%Y%m%d')" | xargs -i gzip -3 {}
 }
 
 function last_few_days() { # generates a lastfewdays.log.gz from last n days
