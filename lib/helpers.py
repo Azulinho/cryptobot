@@ -63,6 +63,9 @@ def requests_with_backoff(query: str):
         logging.warning(f"HTTP {status} from binance, sleeping for {backoff}s")
         sleep(backoff)
         response.raise_for_status()
+
+    with open("log/binance.response.log", "at") as f:
+        f.write(f"{query} {status} {response}\n")
     return response
 
 
@@ -98,14 +101,22 @@ def cached_binance_client(access_key: str, secret_key: str) -> Client:
 
 def step_size_to_precision(step_size: str) -> int:
     """returns step size"""
-    return step_size.find("1") - 1
+    precision: int = step_size.find("1") - 1
+    with open("log/binance.step_size_to_precision.log", "at") as f:
+        f.write(f"{step_size} {precision}\n")
+    return precision
 
 
 def floor_value(val: float, step_size: str) -> str:
     """floors quantity depending on precision"""
-    precision = step_size_to_precision(step_size)
+    value: str = ""
+    precision: int = step_size_to_precision(step_size)
     if precision > 0:
-        return "{:0.0{}f}".format(  # pylint: disable=consider-using-f-string
+        value = "{:0.0{}f}".format(  # pylint: disable=consider-using-f-string
             val, precision
         )
-    return str(math.floor(int(val)))
+    else:
+        value = str(math.floor(int(val)))
+    with open("log/binance.floor_value.log", "at") as f:
+        f.write(f"{val} {step_size} {precision} {value}\n")
+    return value
