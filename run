@@ -45,15 +45,15 @@ function checks() { # runs docker version checks
 function build() { # builds docker images
 	docker pull ubuntu:focal
 	# pull latest build images from registry
+	docker pull ${IMAGE}:latest  || true
+	docker pull ${IMAGE}:next_release  || true
 	docker pull ${IMAGE}:${TAG}  || true
-	docker pull ${KLINES_CACHING_SERVICE_IMAGE} || true
 
-	docker build -t tempbuild --cache-from=${IMAGE}:${TAG} .
+	docker build  --build-arg BUILDKIT_INLINE_CACHE=1 -t tempbuild \
+		--cache-from=${IMAGE}:latest \
+		--cache-from=${IMAGE}:next_release \
+		--cache-from=${IMAGE}:${TAG} .
 	docker tag tempbuild ${IMAGE}:${TAG}
-
-	cd ./klines_caching_service
-	docker build -t tempbuild --cache-from=${KLINES_CACHING_SERVICE_IMAGE} .
-	docker tag tempbuild ${KLINES_CACHING_SERVICE_IMAGE}
 }
 
 function down() { # power down all containers
@@ -62,7 +62,6 @@ function down() { # power down all containers
 
 function latest() { # pulls :latest image tag
 	docker pull ${IMAGE}:${TAG} >/dev/null
-	docker pull ${KLINES_CACHING_SERVICE_IMAGE} >/dev/null
 }
 
 # this should become its own docker image
@@ -315,7 +314,10 @@ function klines_caching_service() { # runs the klines caching service
 		--network-alias klines \
 		${RUN_IN_BACKGROUND} \
     -p ${BIND}:${PORT}:8999 \
-		${KLINES_CACHING_SERVICE_IMAGE}
+		${IMAGE}:${TAG} \
+    /cryptobot/.venv/bin/gunicorn --preload --workers=4 \
+			--worker-class=egg:meinheld#gunicorn_worker \
+			--bind 0.0.0.0:8999  klines_caching_service:app
 }
 
 function setup() { # local setup for development
@@ -332,18 +334,6 @@ function setup() { # local setup for development
 	pip --disable-pip-version-check install -r requirements.txt
 	pip --disable-pip-version-check install -r requirements-dev.txt
 	deactivate
-
-	cd klines_caching_service
-	if [ ! -e .venv ]; then
-		pyenv install -s
-		pyenv exec python -m venv .venv
-	fi
-
-	source .venv/bin/activate
-	pip --disable-pip-version-check install wheel
-	pip --disable-pip-version-check install -r requirements.txt
-	pip --disable-pip-version-check install -r ../requirements-dev.txt
-	deactivate
 }
 
 function tests() { # CI and pre-commit tests
@@ -351,31 +341,22 @@ function tests() { # CI and pre-commit tests
 	set -o pipefail
 	export PATH=~/.pyenv/bin:$PATH
 	source .venv/bin/activate
-	black --check app.py strategies/ lib/ tests/
-	ls strategies/*.py |grep -v Local | xargs pylint -E app.py lib/*.py
-	ls strategies/*.py |grep -v Local | xargs mypy app.py lib/*.py
+	black --check app.py strategies/ lib/ tests/ utils/
+	ls strategies/*.py |grep -v Local | xargs pylint -E app.py lib/*.py utils/*.py
+	ls strategies/*.py |grep -v Local | xargs mypy app.py lib/*.py utils/*.py
 	pytest --quiet -W ignore --disable-pytest-warnings tests/
-	deactivate
-
-	cd klines_caching_service
-	source .venv/bin/activate
-	black -q --check klines_caching_service.py
-	pylint -E klines_caching_service.py
-	mypy klines_caching_service.py
-	pytest -W ignore --quiet --disable-pytest-warnings tests/
 	deactivate
 }
 
 function github_actions_ci_pr_docker_tests() {
 	set -ex
-  ./run build TAG=pr KLINES_CACHING_SERVICE_IMAGE="ghcr.io/azulinho/klines_caching_service:pr"
-  ./run klines-caching-service RUN_IN_BACKGROUND=yes KLINES_CACHING_SERVICE_IMAGE="ghcr.io/azulinho/klines_caching_service:pr"
+  ./run build TAG=pr
+  ./run klines-caching-service RUN_IN_BACKGROUND=yes TAG=pr
 
 	sleep 5
 
 	# don't worry if we can't push, as when running locally this will fail anyway
 	docker push ghcr.io/azulinho/cryptobot:pr || true
-	docker push ghcr.io/azulinho/klines_caching_service:pr || true
 	# TODO: review where these are being consumed in the tests
   cp tests/fake.yaml secrets/binance.prod.yaml
   cp tests/fake.yaml secrets/fake.yaml
@@ -507,11 +488,6 @@ function main() { # main innit?
 	if [ -z "$TAG" ]; then
 		export TAG="latest"
 	fi
-
-	if [ -z "$KLINES_CACHING_SERVICE_IMAGE" ]; then
-		export KLINES_CACHING_SERVICE_IMAGE="ghcr.io/azulinho/klines_caching_service:latest"
-	fi
-
 
 	if [ -z "$SMP_MULTIPLIER" ]; then
 		export SMP_MULTIPLIER=1

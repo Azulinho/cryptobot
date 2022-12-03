@@ -8,13 +8,14 @@ import subprocess
 import threading
 import time
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Tuple
 
 import pandas  # pylint: disable=E0401
 import yaml
 from flask import Flask, jsonify
 from isal import igzip
 
-g = {}
+g: Dict = {}
 app = Flask(__name__)
 
 

@@ -286,7 +286,9 @@ def main():
             start_bal = float(balances[strategy])
             log_msg(f"starting balance for {strategy}: {balances[strategy]}")
             run_prove_backtesting(f"{_config}", results_dir)
-            with open(f"{results_dir}/backtesting.{_config}.txt") as results_txt:
+            with open(
+                f"{results_dir}/backtesting.{_config}.txt"
+            ) as results_txt:
                 final_balance = float(
                     re.findall(
                         r"final balance: (-?\d+\.\d+)", results_txt.read()
