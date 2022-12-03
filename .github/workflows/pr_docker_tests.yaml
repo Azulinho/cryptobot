@@ -1,4 +1,4 @@
-name: Run PR docker-compose based tests
+name: Run PR docker based tests
 on: pull_request
 
 jobs:
