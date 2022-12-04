@@ -284,7 +284,7 @@ function config_endpoint_service() { # runs the config endpoint service
 		${DOCKER_NETWORK} \
 		${RUN_IN_BACKGROUND} \
 		-e BACKTRACK=${BACKTRACK} \
-		-e CONFIG=${CONFIG_FILE} \
+		-e CONFIG_FILE=${CONFIG_FILE} \
 		-e MIN=${MIN} \
 		-e SORTBY=${SORTBY} \
 		-e PAIRING=${PAIRING} \
