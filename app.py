@@ -579,6 +579,8 @@ class Bot:
 
     def place_sell_order(self, coin):
         """places a limit/market sell order"""
+        bid: str = ""
+        order_details: str = ""
         try:
             now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
             if self.order_type == "LIMIT":
@@ -619,6 +621,9 @@ class Bot:
         except BinanceAPIException as error_msg:
             logging.error(f"sell() exception: {error_msg}")
             logging.error(f"tried to sell: {coin.volume} of {coin.symbol}")
+            with open("log/binance.place_sell_order.log", "at") as f:
+                f.write(f"{coin.symbol} {coin.date} {self.order_type} ")
+                f.write(f"{bid} {coin.volume} {order_details}\n")
             return False
 
         while True:
@@ -640,6 +645,9 @@ class Bot:
                     return False
                 sleep(0.1)
             except BinanceAPIException as error_msg:
+                with open("log/binance.place_sell_order.log", "at") as f:
+                    f.write(f"{coin.symbol} {coin.date} {self.order_type} ")
+                    f.write(f"{bid} {coin.volume} {order_details}\n")
                 logging.warning(error_msg)
 
         logging.debug(order_status)
@@ -662,10 +670,15 @@ class Bot:
 
         # and give this coin a new fresh date based on our recent actions
         coin.date = float(udatetime.now().timestamp())
+        with open("log/binance.place_sell_order.log", "at") as f:
+            f.write(f"{coin.symbol} {coin.date} {self.order_type} ")
+            f.write(f"{bid} {coin.volume} {order_details}\n")
         return True
 
     def place_buy_order(self, coin, volume):
         """places a limit/market buy order"""
+        bid: str = ""
+        order_details: str = ""
         try:
             now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
             # TODO: add the ability to place a order from a specific position
@@ -708,6 +721,9 @@ class Bot:
         except BinanceAPIException as error_msg:
             logging.error(f"buy() exception: {error_msg}")
             logging.error(f"tried to buy: {volume} of {coin.symbol}")
+            with open("log/binance.place_buy_order.log", "at") as f:
+                f.write(f"{coin.symbol} {coin.date} {self.order_type} ")
+                f.write(f"{bid} {coin.volume} {order_details}\n")
             return False
         logging.debug(order_details)
 
@@ -737,10 +753,18 @@ class Bot:
                             ]
                         )
                     )
+                    with open("log/binance.place_buy_order.log", "at") as f:
+                        f.write(
+                            f"{coin.symbol} {coin.date} {self.order_type} "
+                        )
+                        f.write(f"{bid} {coin.volume} {order_details}\n")
                     return False
                 sleep(0.1)
 
             except BinanceAPIException as error_msg:
+                with open("log/binance.place_buy_order.log", "at") as f:
+                    f.write(f"{coin.symbol} {coin.date} {self.order_type} ")
+                    f.write(f"{bid} {coin.volume} {order_details}\n")
                 logging.warning(error_msg)
         logging.debug(order_status)
 
@@ -762,6 +786,9 @@ class Bot:
             coin.volume = self.extract_order_data(order_details, coin)[
                 "volume"
             ]
+        with open("log/binance.place_buy_order.log", "at") as f:
+            f.write(f"{coin.symbol} {coin.date} {self.order_type} ")
+            f.write(f"{bid} {coin.volume} {order_details}\n")
         return True
 
     def buy_coin(self, coin) -> bool:
@@ -940,6 +967,8 @@ class Bot:
             with open(f_path, "w") as f:
                 f.write(json.dumps(info))
 
+        with open("log/binance.step_size.log", "at") as f:
+            f.write(f"{symbol} {step_size}\n")
         return step_size
 
     def calculate_volume_size(self, coin) -> float:
@@ -959,6 +988,8 @@ class Bot:
                 f"[{coin.symbol}] investment:{self.investment}{self.pairing} "
                 + f"vol:{volume} price:{coin.price} step_size:{step_size}"
             )
+        with open("log/binance.volume.log", "at") as f:
+            f.write(f"{coin.symbol} {step_size} {investment} {volume}\n")
         return volume
 
     @retry(wait=wait_exponential(multiplier=1, max=3))

@@ -1,0 +1,25 @@
+name: Run PR docker based tests
+on: pull_request
+
+jobs:
+  pr_docker_tests:
+    name: run ci_pr_docker_tests TAG=pr
+    runs-on: self-hosted
+    env:
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+      TAG: pr
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ./run github_actions_ci_pr_tests
+        run: |
+          set -ex
+          ./run github_actions_ci_pr_docker_tests TAG=pr

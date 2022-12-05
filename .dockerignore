@@ -14,3 +14,5 @@ tags
 tests/*
 .venv
 .venv/*
+.git
+strategies/Local*

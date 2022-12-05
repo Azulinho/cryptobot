@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 ulimit -n 65535
 source /cryptobot/.venv/bin/activate
 python -u utils/automated-backtesting.py \

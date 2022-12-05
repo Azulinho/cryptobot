@@ -1,4 +1,4 @@
-name: Build and publish Docker images on a git tag push
+name: docker build cryptobot:TAG
 on:
   push:
     tags:
@@ -6,7 +6,7 @@ on:
 jobs:
   push_to_registry:
     name: Push Docker image to GitHub Container Registry
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
       packages: write
       contents: write

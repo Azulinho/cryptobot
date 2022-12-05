@@ -22,3 +22,5 @@ strategies/Local*
 *~
 *.prof
 control/*
+.tests*.txt
+lastfewdays.log.gz

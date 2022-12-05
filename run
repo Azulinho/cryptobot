@@ -1,0 +1,567 @@
+#!/usr/bin/env bash
+
+function usage() {
+	echo "USAGE:"
+	echo "./run logmode CONFIG_FILE=< config.yaml >"
+	echo "./run backtesting CONFIG_FILE=< config.yaml >"
+	echo "./run testnet CONFIG_FILE=< config.yaml >"
+	echo "./run live CONFIG_FILE=< config.yaml >"
+	echo "./run compress-logs"
+	echo "./run lastfewdays DAYS=3 PAIR=USDT"
+	echo "./run automated-backtesting LOGFILE=lastfewdays.log.gz CONFIG_FILE=backtesting.yaml MIN=10 FILTER='' SORTBY='profit|wins'"
+	echo "./run download-price-logs FROM=20210101 TO=20211231"
+	echo "./run prove-backtesting CONFIG_FILE=myconfig.yaml FROM=20220101 BACKTRACK=90 MIN=20 FORWARD=30 TO=20220901 SORTBY=profit|wins"
+	echo "./run config-endpoint-service BIND=0.0.0.0 CONFIG_FILE=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=wins|profit"
+	echo "./run klines-caching-service BIND=0.0.0.0"
+}
+
+function free_port () { # looks for a free TCP port
+    LPORT=32768;
+    UPORT=60999;
+    while true; do
+        MPORT=$[$LPORT + ($RANDOM % $UPORT)];
+        (echo "" >/dev/tcp/127.0.0.1/${MPORT}) >/dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            echo $MPORT;
+            return 0;
+        fi
+    done
+}
+
+function set_service_ports () { # locks a port to use by each service
+	for service in $*
+	do
+		if [ ! -f $STATE_DIR/.${service}.port ] ; then
+			free_port > $STATE_DIR/.${service}.port
+		fi
+	done
+}
+
+function checks() { # runs docker version checks
+	if [ "`docker --version | cut -d " " -f3 | tr -d 'v'| cut -c1`" -lt 2 ]; \
+		then echo "docker version is too old"; exit 1; fi
+}
+
+function build() { # builds docker images
+	docker pull ubuntu:focal
+	# pull latest build images from registry
+	docker pull ${IMAGE}:latest  || true
+	docker pull ${IMAGE}:next_release  || true
+	docker pull ${IMAGE}:${TAG}  || true
+
+	docker build  --build-arg BUILDKIT_INLINE_CACHE=1 -t tempbuild \
+		--cache-from=${IMAGE}:latest \
+		--cache-from=${IMAGE}:next_release \
+		--cache-from=${IMAGE}:${TAG} .
+	docker tag tempbuild ${IMAGE}:${TAG}
+}
+
+function down() { # power down all containers
+	docker ps | grep "${CONTAINER_SUFFIX}" | awk '{print $1}' | xargs -i docker kill {}
+}
+
+function latest() { # pulls :latest image tag
+	docker pull ${IMAGE}:${TAG} >/dev/null
+}
+
+# this should become its own docker image
+function download_price_logs() { # downloads klines logs fro binance
+	if [ -z "$FROM" ]; then
+		echo "FROM env variable not set"
+		exit 1
+	fi
+	if [ -z "$TO" ]; then
+		echo "TO env variable not set"
+		exit 1
+	fi
+
+	docker run --rm \
+		${USE_TTY} \
+		${DOCKER_RUN_AS} \
+		${DOCKER_NAME} \
+		${DOCKER_MOUNTS} \
+		${DOCKER_NETWORK} \
+		${RUN_IN_BACKGROUND} \
+		${IMAGE}:${TAG} \
+    /cryptobot/.venv/bin/python -u  /cryptobot/utils/pull_klines.py \
+		-s ${FROM} -e ${TO}
+}
+
+function docker_network() { # creates a docker network
+	docker network ls |grep ${CONTAINER_SUFFIX} >/dev/null 2>&1 || docker network create ${CONTAINER_SUFFIX}
+}
+
+function logmode() { # runs in logmode
+	docker run --rm \
+		${USE_TTY} \
+		${DOCKER_RUN_AS} \
+		${DOCKER_NAME} \
+		${DOCKER_MOUNTS} \
+		${DOCKER_NETWORK} \
+		${RUN_IN_BACKGROUND} \
+		${IMAGE}:${TAG} \
+		/cryptobot/.venv/bin/python -u app.py \
+		-s /cryptobot/secrets/fake.yaml \
+		-c /cryptobot/configs/${CONFIG_FILE} \
+		-m ${MODE} > ${LOG_DIR}/${MODE}.${CONFIG_FILE}.txt 2>&1
+}
+
+function testnet() { # runs in testnet mode
+	if [ -z "$PORT" ]; then
+		export PORT=$( cat ${STATE_DIR}/.testnet.port)
+	fi
+
+	docker run --rm \
+		${USE_TTY} \
+		${DOCKER_RUN_AS} \
+		${DOCKER_NAME} \
+		${DOCKER_MOUNTS} \
+		${DOCKER_NETWORK} \
+		${RUN_IN_BACKGROUND} \
+    -p ${BIND}:${PORT}:5555 \
+		${IMAGE}:${TAG} \
+		/cryptobot/.venv/bin/python -u app.py \
+		-s /cryptobot/secrets/${SECRETS_FILE:-binance.testnet.yaml} \
+		-c /cryptobot/configs/${CONFIG_FILE} \
+		-m ${MODE} > ${LOG_DIR}/${MODE}.${CONFIG_FILE}.txt 2>&1
+}
+
+function live() { # runs in live mode
+	if [ -z "$PORT" ]; then
+		export PORT=$( cat ${STATE_DIR}/.${MODE}.port )
+	fi
+
+	docker run --rm \
+		${USE_TTY} \
+		${DOCKER_RUN_AS} \
+		${DOCKER_NAME} \
+		${DOCKER_MOUNTS} \
+		${DOCKER_NETWORK} \
+		${RUN_IN_BACKGROUND} \
+    -p ${BIND}:${PORT}:5555 \
+		${IMAGE}:${TAG} \
+		/cryptobot/.venv/bin/python -u app.py \
+		-s /cryptobot/secrets/${SECRETS_FILE:-binance.prod.yaml} \
+		-c /cryptobot/configs/${CONFIG_FILE} \
+		-m ${MODE} > ${LOG_DIR}/${MODE}.${CONFIG_FILE}.txt 2>&1
+}
+
+function backtesting() { # runs in backtesting mode
+	docker run --rm \
+		${USE_TTY} \
+		${DOCKER_RUN_AS} \
+		${DOCKER_NAME} \
+		${DOCKER_MOUNTS} \
+		${DOCKER_NETWORK} \
+		${RUN_IN_BACKGROUND} \
+		${IMAGE}:${TAG} \
+		/cryptobot/.venv/bin/python -u app.py \
+		-s /cryptobot/secrets/${SECRETS_FILE:-fake.yaml} \
+		-c /cryptobot/configs/${CONFIG_FILE} \
+		-m backtesting > ${RESULTS_DIR}/backtesting.${CONFIG_FILE}.txt 2>&1
+}
+
+function automated_backtesting() { # runs the automated backtesting
+	RESULTS_LOG="${RESULTS_DIR}/automated-backtesting"
+	RESULTS_LOG="${RESULTS_LOG}.${CONFIG_FILE}"
+	RESULTS_LOG="${RESULTS_LOG}.min${MIN}"
+	RESULTS_LOG="${RESULTS_LOG}.${SORTBY}.txt"
+
+	docker run --rm \
+		${USE_TTY} \
+		${DOCKER_RUN_AS} \
+		${DOCKER_NAME} \
+		${DOCKER_MOUNTS} \
+		${DOCKER_NETWORK} \
+		-e LOGFILE=/cryptobot/log/${LOGFILE} \
+		-e CONFIG=/cryptobot/configs/${CONFIG_FILE} \
+		-e MIN=${MIN} \
+		-e FILTER=${FILTER} \
+		-e SORTBY=${SORTBY} \
+		-e SMP_MULTIPLIER=${SMP_MULTIPLIER} \
+		${IMAGE}:${TAG} \
+		/cryptobot/utils/automated-backtesting.sh \
+		> ${RESULTS_LOG}
+}
+
+function prove_backtesting() { # runs the prove backtesting
+	if [ -z "$FROM" ]; then
+		echo "FROM env variable not set"
+		exit 1
+	fi
+	if [ -z "$BACKTRACK" ]; then
+		echo "BACKTRACK env variable not set"
+		exit 1
+	fi
+	if [ -z "$CONFIG_FILE" ]; then
+		echo "CONFIG_FILE env variable not set"
+		exit 1
+	fi
+	if [ -z "$MIN" ]; then
+		echo "MIN env variable not set"
+		exit 1
+	fi
+	if [ -z "$FORWARD" ]; then
+		echo "FORWARD env variable not set"
+		exit 1
+	fi
+	if [ -z "$TO" ]; then
+		echo "TO env variable not set"
+		exit 1
+	fi
+	if [ -z "$SORTBY" ]; then
+		export SORTBY=wins
+	fi
+	if [ -z "$SMP_MULTIPLIER" ]; then
+		export SMP_MULTIPLIER=1
+	fi
+
+	RESULTS_LOG="${RESULTS_DIR}/prove-backtesting"
+	RESULTS_LOG="${RESULTS_LOG}.${CONFIG}"
+	RESULTS_LOG="${RESULTS_LOG}.min${MIN}"
+	RESULTS_LOG="${RESULTS_LOG}.${SORTBY}"
+	RESULTS_LOG="${RESULTS_LOG}.${FROM}_${TO}"
+	RESULTS_LOG="${RESULTS_LOG}.f${FORWARD}d"
+	RESULTS_LOG="${RESULTS_LOG}.b${BACKTRACK}d.txt"
+	docker run --rm \
+		${USE_TTY} \
+		${DOCKER_RUN_AS} \
+		${DOCKER_NAME} \
+		${DOCKER_MOUNTS} \
+		${DOCKER_NETWORK} \
+		${RUN_IN_BACKGROUND} \
+		-e FROM=${FROM} \
+		-e BACKTRACK=${BACKTRACK} \
+		-e CONFIG_FILE=${CONFIG_FILE} \
+		-e MIN=${MIN} \
+		-e FORWARD=${FORWARD} \
+		-e TO=${TO} \
+		-e SORTBY=${SORTBY} \
+		-e SMP_MULTIPLIER=${SMP_MULTIPLIER} \
+		${IMAGE}:${TAG} \
+		/cryptobot/utils/prove-backtesting.sh \
+		> ${RESULTS_LOG}
+}
+
+function config_endpoint_service() { # runs the config endpoint service
+	if [ -z "$PORT" ]; then
+		export PORT=$( cat ${STATE_DIR}/.${MODE}.port )
+	fi
+
+	if [ -z "$PAIRING" ]; then
+		echo "PAIRING env variable not set"
+		exit 1
+	fi
+	if [ -z "$TUNED_CONFIG" ]; then
+		echo "TUNED_CONFIG env variable not set"
+		exit 1
+	fi
+
+	if [ -z "$BACKTRACK" ]; then
+		echo "BACKTRACK env variable not set"
+		exit 1
+	fi
+	if [ -z "$CONFIG_FILE" ]; then
+		echo "CONFIG_FILE env variable not set"
+		exit 1
+	fi
+	if [ -z "$MIN" ]; then
+		echo "MIN env variable not set"
+		exit 1
+	fi
+	if [ -z "$SORTBY" ]; then
+		export SORTBY=wins
+	fi
+	if [ -z "$SMP_MULTIPLIER" ]; then
+		export SMP_MULTIPLIER=1
+	fi
+
+	docker run --rm \
+		${USE_TTY} \
+		${DOCKER_RUN_AS} \
+		${DOCKER_NAME} \
+		${DOCKER_MOUNTS} \
+		${DOCKER_NETWORK} \
+		${RUN_IN_BACKGROUND} \
+		-e BACKTRACK=${BACKTRACK} \
+		-e CONFIG_FILE=${CONFIG_FILE} \
+		-e MIN=${MIN} \
+		-e SORTBY=${SORTBY} \
+		-e PAIRING=${PAIRING} \
+		-e TUNED_CONFIG=${TUNED_CONFIG} \
+		-e SMP_MULTIPLIER=${SMP_MULTIPLIER} \
+    -p ${BIND}:${PORT}:5883 \
+		${IMAGE}:${TAG} \
+    /cryptobot/utils/config-endpoint-service.sh
+}
+
+function klines_caching_service() { # runs the klines caching service
+	if [ -z "$PORT" ]; then
+		export PORT=$( cat ${STATE_DIR}/.${MODE}.port )
+	fi
+
+	if [ -n "${RUN_IN_BACKGROUND}" ]; then
+		docker ps | grep "klines_caching_service-${CONTAINER_SUFFIX}" \
+			|awk '{ print $1 }' | xargs -i docker kill {} >/dev/null 2>&1
+	fi
+
+	docker run --rm \
+		${USE_TTY} \
+		${DOCKER_RUN_AS} \
+		${DOCKER_NAME} \
+		${DOCKER_MOUNTS} \
+		${DOCKER_NETWORK} \
+		--network-alias klines \
+		${RUN_IN_BACKGROUND} \
+    -p ${BIND}:${PORT}:8999 \
+		${IMAGE}:${TAG} \
+    /cryptobot/.venv/bin/gunicorn --preload --workers=4 \
+			--worker-class=egg:meinheld#gunicorn_worker \
+			--bind 0.0.0.0:8999  klines_caching_service:app
+}
+
+function setup() { # local setup for development
+	which pyenv >/dev/null 2>&1 ||  curl https://pyenv.run | bash
+	export PATH=~/.pyenv/bin:$PATH
+
+	if [ ! -e .venv ]; then
+		pyenv install -s
+		pyenv exec python -m venv .venv
+	fi
+
+	source .venv/bin/activate
+	pip --disable-pip-version-check install wheel
+	pip --disable-pip-version-check install -r requirements.txt
+	pip --disable-pip-version-check install -r requirements-dev.txt
+	deactivate
+}
+
+function tests() { # CI and pre-commit tests
+	set -e
+	set -o pipefail
+	export PATH=~/.pyenv/bin:$PATH
+	source .venv/bin/activate
+	black --check app.py strategies/ lib/ tests/ utils/
+	ls strategies/*.py |grep -v Local | xargs pylint -E app.py lib/*.py utils/*.py
+	ls strategies/*.py |grep -v Local | xargs mypy app.py lib/*.py utils/*.py
+	pytest --quiet -W ignore --disable-pytest-warnings tests/
+	deactivate
+}
+
+function github_actions_ci_pr_docker_tests() {
+	set -ex
+  ./run build TAG=pr
+  ./run klines-caching-service RUN_IN_BACKGROUND=yes TAG=pr
+
+	sleep 5
+
+	# don't worry if we can't push, as when running locally this will fail anyway
+	docker push ghcr.io/azulinho/cryptobot:pr || true
+	# TODO: review where these are being consumed in the tests
+  cp tests/fake.yaml secrets/binance.prod.yaml
+  cp tests/fake.yaml secrets/fake.yaml
+
+	echo BuyMoonSellRecoveryStrategy.yaml
+	cp tests/BuyMoonSellRecoveryStrategy.yaml configs/
+	./run backtesting CONFIG_FILE=BuyMoonSellRecoveryStrategy.yaml TAG=pr
+	grep 'wins:366 losses:98 stales:104 holds:1' results/backtesting.BuyMoonSellRecoveryStrategy.yaml.txt
+
+	echo BuyOnGrowthTrendAfterDropStrategy.yaml
+	cp tests/BuyOnGrowthTrendAfterDropStrategy.yaml configs/
+	./run backtesting CONFIG_FILE=BuyOnGrowthTrendAfterDropStrategy.yaml TAG=pr
+	grep 'wins:19 losses:1 stales:75 holds:2' results/backtesting.BuyOnGrowthTrendAfterDropStrategy.yaml.txt
+
+  echo BuyDropSellRecoveryStrategy.yaml
+	cp tests/BuyDropSellRecoveryStrategy.yaml configs/
+	./run backtesting CONFIG_FILE=BuyDropSellRecoveryStrategy.yaml TAG=pr
+	grep 'wins:4 losses:9 stales:1 holds:0' results/backtesting.BuyDropSellRecoveryStrategy.yaml.txt
+
+	echo BuyDropSellRecoveryStrategyWhenBTCisUp.yaml
+	cp tests/BuyDropSellRecoveryStrategyWhenBTCisUp.yaml configs/
+	./run backtesting CONFIG_FILE=BuyDropSellRecoveryStrategyWhenBTCisUp.yaml TAG=pr
+	grep 'wins:199 losses:2 stales:637 holds:0' results/backtesting.BuyDropSellRecoveryStrategyWhenBTCisUp.yaml.txt
+
+	echo BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
+	cp tests/BuyDropSellRecoveryStrategyWhenBTCisDown.yaml configs/
+	./run backtesting CONFIG_FILE=BuyDropSellRecoveryStrategyWhenBTCisDown.yaml TAG=pr
+	grep 'wins:9 losses:0 stales:97 holds:0' results/backtesting.BuyDropSellRecoveryStrategyWhenBTCisDown.yaml.txt
+
+	echo BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml
+	cp tests/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml configs/
+	./run backtesting CONFIG_FILE=BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml TAG=pr
+	grep 'wins:112 losses:0 stales:351 holds:0' results/backtesting.BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml.txt
+
+	echo BuyOnRecoveryAfterDropFromAverageStrategy.yaml
+	cp tests/BuyOnRecoveryAfterDropFromAverageStrategy.yaml configs/
+	./run backtesting CONFIG_FILE=BuyOnRecoveryAfterDropFromAverageStrategy.yaml TAG=pr
+	grep 'wins:184 losses:4 stales:596 holds:0' results/backtesting.BuyOnRecoveryAfterDropFromAverageStrategy.yaml.txt
+
+	echo automated-tests
+	LOGFILE=tests/price.log.gz
+	CONFIG_FILE=tests/automated-backtesting.yaml
+	MIN=1
+	FILTER=""
+	cp $CONFIG_FILE configs/
+	cp $LOGFILE log/lastfewdays.log.gz
+	./run automated-backtesting \
+		TAG=pr \
+		LOGFILE=lastfewdays.log.gz \
+		CONFIG_FILE=automated-backtesting.yaml \
+		MIN=1 FILTER='' SORTBY=profit
+
+	md5sum ${CONFIG_DIR}/BuyOnRecoveryAfterDropFromAverageStrategy.yaml \
+		|cut -f1 -d " " | grep '9bd932943d3c5a8f38e0d9598f5a67ee'
+
+	echo prove-backtesting
+	for ta in 01 02 03 04 05 06 07 08 09
+	do
+		cat tests/price.log.gz | grep 2021-12-${ta}  |gzip -1 > log/202112${ta}.log.gz
+	done
+
+	./run prove-backtesting \
+		TAG=pr \
+		FROM=20211201 TO=20211209 BACKTRACK=1 FORWARD=1 MIN=1 \
+		CONFIG_FILE=automated-backtesting.yaml
+
+	md5sum ${CONFIG_DIR}/BuyOnRecoveryAfterDropFromAverageStrategy.yaml \
+		|cut -f1 -d " " | grep 'dbb69758a3d2eb24041ec70cd4494a1e'
+
+}
+
+function compress_logs() { # compresses the latest price logs
+	find ${LOG_DIR}/ -name "202*.log" | grep -v "$(date  '+%Y%m%d')" | xargs -i gzip -3 {}
+}
+
+function last_few_days() { # generates a lastfewdays.log.gz from last n days
+	if [ -z "$PAIR" ]; then
+		echo "PAIR env variable not set"
+		exit 1
+	fi
+	if [ -z "$DAYS" ]; then
+		echo "DAYS env variable not set"
+		exit 1
+	fi
+
+	rm -f lastfewdays.log.gz; for ta in `find log/ -name '202*.gz' |sort -n \
+		| tail -${DAYS}` ; do zcat $ta | grep -a "${PAIR}" \
+		| grep -vEa 'DOWN${PAIR}|UP${PAIR}|BULL${PAIR}|BEAR${PAIR}' \
+		| gzip -3 >> lastfewdays.log.gz; done
+}
+
+function main() { # main innit?
+	LOCAL_PATH="$(pwd)"
+	export PATH="${LOCAL_PATH}/.venv/bin:$PATH"
+
+	if [ $# -eq 0 ]; then usage; exit 1; fi
+
+	export USE_TTY=""
+	test -t 1 && USE_TTY="-it"
+
+	# allow for the same syntax used in makefiles using '-' instead of '_'
+	export MODE=$( echo $1 | tr -s '-' '_' )
+	shift 1
+
+	# convert CLI into env vars
+	for ARG in $*
+	do
+		export $ARG
+	done
+
+	# certain modes require certain env vars set
+	if [ "`echo " $MODE " | grep -cE ' logmode | live | testnet '`" -eq 1 ]; then
+		if [ -z "$CONFIG_FILE" ]; then
+			echo "CONFIG_FILE env variable not set"
+			exit 1
+		fi
+	fi
+
+	if [ -z "$RUN_IN_BACKGROUND" ]; then
+		export RUN_IN_BACKGROUND=""
+	else
+		export RUN_IN_BACKGROUND="-d"
+	fi
+
+	if [ -z "$IMAGE" ]; then
+		export IMAGE="ghcr.io/azulinho/cryptobot"
+	fi
+
+	if [ -z "$TAG" ]; then
+		export TAG="latest"
+	fi
+
+	if [ -z "$SMP_MULTIPLIER" ]; then
+		export SMP_MULTIPLIER=1
+	fi
+
+	if [ -z "$BIND_ADDRESS" ]; then
+		export DOCKER_IP=$(ip a show docker0 |grep 'inet '| awk '{ print $2 }' | cut -f1 -d '/')
+		export BIND_ADDRESS=$DOCKER_IP
+	fi
+
+	if [ -z "$LOG_DIR" ]; then
+		export LOG_DIR="$(pwd)/log"
+	fi
+
+	if [ -z "$CONFIG_DIR" ]; then
+		export CONFIG_DIR="$(pwd)/configs"
+	fi
+
+	if [ -z "$SECRETS_DIR" ]; then
+		export SECRETS_DIR="$(pwd)/secrets"
+	fi
+
+	if [ -z "$STATE_DIR" ]; then
+		export STATE_DIR="$(pwd)/state"
+	fi
+
+	if [ -z "$RESULTS_DIR" ]; then
+		export RESULTS_DIR="$(pwd)/results"
+	fi
+
+	if [ -z "$CONTROL_DIR" ]; then
+		export CONTROL_DIR="$(pwd)/control"
+	fi
+
+	if [ -z "$CACHE_DIR" ]; then
+		export CACHE_DIR="$(pwd)/cache"
+	fi
+
+	# TODO: do I need this?
+	if [ -z "$TESTS_DIR" ]; then
+		export TESTS_DIR="$(pwd)/tests"
+	fi
+
+	if [ -z "$SORTBY" ]; then
+		export SORTBY="wins"
+	fi
+
+	if [ -z "$FILTER" ]; then
+		export FILTER=''
+	fi
+
+
+	export DOCKER_MOUNTS=""
+	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v /etc/timezone:/etc/timezone:ro"
+	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v /etc/localtime:/etc/localtime:ro"
+	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $CONFIG_DIR:/cryptobot/configs:rw "
+	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $SECRETS_DIR:/cryptobot/secrets:ro"
+	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $LOG_DIR:/cryptobot/log:rw "
+	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $STATE_DIR:/cryptobot/state:rw "
+	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $RESULTS_DIR:/cryptobot/results:rw "
+	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $CONTROL_DIR:/cryptobot/control:rw "
+	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $CACHE_DIR:/cryptobot/cache:rw "
+	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $TESTS_DIR:/cryptobot/tests:rw "
+
+	export DOCKER_RUN_AS="--user $(id -u):$(id -g)"
+	export DOCKER_PREFIX_VARS="U=`id -u` G=`id -g` BIND=${BIND_ADDRESS} "
+	export CONTAINER_SUFFIX="$(whoami)-$(pwd |md5sum |cut -c1-8)"
+	export DOCKER_NAME="--name $MODE-${CONTAINER_SUFFIX}"
+	export DOCKER_NETWORK="--network ${CONTAINER_SUFFIX}"
+
+	checks
+	docker_network
+  set_service_ports cryptobot klines_caching_service config_endpoint_service
+	${MODE}
+}
+
+main $*

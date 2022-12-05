@@ -106,12 +106,12 @@ def run_prove_backtesting(config, results_dir):
     subprocess.run(
         "python -u app.py -s secrets/binance.prod.yaml "
         + f"-c configs/{config}  -m  backtesting"
-        + f"> {results_dir}/{config}.txt 2>&1",
+        + f"> {results_dir}/backtesting.{config}.txt 2>&1",
         shell=True,
         check=False,
     )
     subprocess.run(
-        f"grep -E '\[HOLD\]|\[SOLD_BY_' {results_dir}/{config}.txt ",  # pylint: disable=W1401
+        f"grep -E '\[HOLD\]|\[SOLD_BY_' {results_dir}/backtesting.{config}.txt ",  # pylint: disable=W1401
         shell=True,
         check=False,
     )
@@ -286,7 +286,9 @@ def main():
             start_bal = float(balances[strategy])
             log_msg(f"starting balance for {strategy}: {balances[strategy]}")
             run_prove_backtesting(f"{_config}", results_dir)
-            with open(f"{results_dir}/{_config}.txt") as results_txt:
+            with open(
+                f"{results_dir}/backtesting.{_config}.txt"
+            ) as results_txt:
                 final_balance = float(
                     re.findall(
                         r"final balance: (-?\d+\.\d+)", results_txt.read()

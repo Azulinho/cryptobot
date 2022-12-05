@@ -81,8 +81,9 @@ def split_logs_into_coins(filename, cfg, logs_dir="log"):
 def wrap_subprocessing(config, config_dir, results_dir, timeout=None):
     """wraps subprocess call"""
     subprocess.run(
+        # TODO: tests/fake.yaml? really?
         "python app.py -m backtesting -s tests/fake.yaml "
-        + f"-c {config_dir}/{config} >{results_dir}/{config}.txt 2>&1",
+        + f"-c {config_dir}/{config} >{results_dir}/backtesting.{config}.txt 2>&1",
         shell=True,
         timeout=timeout,
         check=False,
@@ -241,7 +242,9 @@ def generate_coin_template_config_file(coin, strategy, cfg, config_dir):
                     "KLINES_SLICE_PERCENTAGE_CHANGE": cfg[
                         "KLINES_SLICE_PERCENTAGE_CHANGE"
                     ],
-                    "KLINES_CACHING_SERVICE_URL": cfg.get("KLINES_CACHING_SERVICE_URL", "http://klines:8999"),
+                    "KLINES_CACHING_SERVICE_URL": cfg.get(
+                        "KLINES_CACHING_SERVICE_URL", "http://klines:8999"
+                    ),
                     "STRATEGY": strategy,
                     "STOP_BOT_ON_LOSS": cfg.get("STOP_BOT_ON_LOSS", False),
                     "STOP_BOT_ON_STALE": cfg.get("STOP_BOT_ON_STALE", False),
@@ -278,7 +281,9 @@ def generate_config_for_tuned_strategy(strategy, cfg, results, logfile):
                 {
                     "PAUSE_FOR": cfg["PAUSE_FOR"],
                     "INITIAL_INVESTMENT": cfg["INITIAL_INVESTMENT"],
-                    "RE_INVEST_PERCENTAGE": cfg.get("RE_INVEST_PERCENTAGE", 100),
+                    "RE_INVEST_PERCENTAGE": cfg.get(
+                        "RE_INVEST_PERCENTAGE", 100
+                    ),
                     "MAX_COINS": cfg["MAX_COINS"],
                     "PAIRING": cfg["PAIRING"],
                     "CLEAR_COIN_STATS_AT_BOOT": cfg[
@@ -290,7 +295,9 @@ def generate_config_for_tuned_strategy(strategy, cfg, results, logfile):
                     "DEBUG": cfg["DEBUG"],
                     "TRADING_FEE": cfg["TRADING_FEE"],
                     "SELL_AS_SOON_IT_DROPS": cfg["SELL_AS_SOON_IT_DROPS"],
-                    "KLINES_CACHING_SERVICE_URL": cfg.get("KLINES_CACHING_SERVICE_URL", "http://klines:8999"),
+                    "KLINES_CACHING_SERVICE_URL": cfg.get(
+                        "KLINES_CACHING_SERVICE_URL", "http://klines:8999"
+                    ),
                     "STRATEGY": strategy,
                     "RESULTS": results,
                     "LOGFILE": [logfile],
@@ -332,9 +339,9 @@ def cleanup(config_dir="configs", results_dir="results", logs_dir="log"):
     """clean files"""
     for item in glob.glob(f"{config_dir}/coin.*.yaml"):
         os.remove(item)
-    for item in glob.glob(f"{results_dir}/coin.*.txt"):
+    for item in glob.glob(f"{results_dir}/backtesting.coin.*.txt"):
         os.remove(item)
-    for item in glob.glob(f"{logs_dir}/coin.*.log.gz"):
+    for item in glob.glob(f"{logs_dir}/backtesting.coin.*.log.gz"):
         os.remove(item)
 
 
@@ -356,7 +363,9 @@ def generate_all_coin_config_files(
         )
 
 
-def process_all_coin_files(coinfiles, config_dir="configs", results_dir="results"):
+def process_all_coin_files(
+    coinfiles, config_dir="configs", results_dir="results"
+):
     """process all coin files"""
     tasks = []
     with get_context("spawn").Pool(processes=N_TASKS) as pool:
@@ -366,7 +375,8 @@ def process_all_coin_files(coinfiles, config_dir="configs", results_dir="results
             # ocasionally we get stuck runs, so we timeout a coin run
             # to a maximum of 15 minutes
             job = pool.apply_async(
-                wrap_subprocessing, (f"coin.{symbol}.yaml", config_dir, results_dir, 900)
+                wrap_subprocessing,
+                (f"coin.{symbol}.yaml", config_dir, results_dir, 900),
             )
             tasks.append(job)
 
@@ -467,7 +477,7 @@ def gather_best_results_from_run(coinfiles, sortby, results_dir):
     # TODO: parsing logfiles is not nice, rework this in app.py
     for coinfile in coinfiles:
         symbol = coinfile.split(".")[1]
-        results_txt = f"{results_dir}/coin.{symbol}.yaml.txt"
+        results_txt = f"{results_dir}/backtesting.coin.{symbol}.yaml.txt"
         with open(results_txt) as f:
             run_results = f.read()
 
