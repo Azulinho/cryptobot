@@ -560,7 +560,7 @@ function main() { # main innit?
 
 	checks
 	docker_network
-  set_service_ports cryptobot klines_caching_service config_endpoint_service
+  set_service_ports klines_caching_service config_endpoint_service live testnet
 	${MODE}
 }
 
