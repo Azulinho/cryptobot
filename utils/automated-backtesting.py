@@ -439,7 +439,7 @@ def cli():
         "-rfbt",
         "--run-final-backtest",
         help="run final backtesting?",
-        default=True,
+        default="True",
     )
     args = parser.parse_args()
 
@@ -455,7 +455,7 @@ def cli():
         args.config_dir,
         args.results_dir,
         args.logs_dir,
-        args.run_final_backtest,
+        False if args.run_final_backtest != "True" else True,
     ]
 
 
