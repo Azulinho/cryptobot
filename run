@@ -543,6 +543,7 @@ function main() { # main innit?
 	export DOCKER_MOUNTS=""
 	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v /etc/timezone:/etc/timezone:ro"
 	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v /etc/localtime:/etc/localtime:ro"
+	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $PWD/strategies:/cryptobot/strategies:rw "
 	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $CONFIG_DIR:/cryptobot/configs:rw "
 	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $SECRETS_DIR:/cryptobot/secrets:ro"
 	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $LOG_DIR:/cryptobot/log:rw "

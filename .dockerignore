@@ -15,4 +15,3 @@ tests/*
 .venv
 .venv/*
 .git
-strategies/Local*
