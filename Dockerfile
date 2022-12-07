@@ -60,10 +60,7 @@ RUN /cryptobot/.venv/bin/pip install --upgrade pip setuptools wheel
 # pyenv is failling to compile isal without setting C_INCLUDE_PATH
 RUN C_INCLUDE_PATH=/cryptobot/.pyenv/versions/pyston-2.3.4/include/python3.8-pyston2.3/ /cryptobot/.venv/bin/pip install -r requirements.txt
 
-ADD app.py .
 ADD lib/ lib/
-ADD strategies/ strategies/
-
 ADD utils/automated-backtesting.py utils/automated-backtesting.py
 ADD utils/automated-backtesting.sh utils/automated-backtesting.sh
 ADD utils/prove-backtesting.py utils/prove-backtesting.py
@@ -72,3 +69,5 @@ ADD utils/pull_klines.py utils/pull_klines.py
 ADD utils/config-endpoint-service.py utils/config-endpoint-service.py
 ADD utils/config-endpoint-service.sh utils/config-endpoint-service.sh
 ADD klines_caching_service.py klines_caching_service.py
+ADD app.py .
+
