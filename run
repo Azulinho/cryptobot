@@ -399,7 +399,7 @@ function github_actions_ci_pr_docker_tests() {
 	echo automated-tests
 	LOGFILE=tests/price.log.gz
 	CONFIG_FILE=tests/automated-backtesting.yaml
-	MIN=1
+	MIN=0
 	FILTER=""
 	cp $CONFIG_FILE configs/
 	cp $LOGFILE log/lastfewdays.log.gz
@@ -407,10 +407,10 @@ function github_actions_ci_pr_docker_tests() {
 		TAG=pr \
 		LOGFILE=lastfewdays.log.gz \
 		CONFIG_FILE=automated-backtesting.yaml \
-		MIN=1 FILTER='' SORTBY=profit
+		MIN=0 FILTER='' SORTBY=profit
 
 	md5sum ${CONFIG_DIR}/BuyOnRecoveryAfterDropFromAverageStrategy.yaml \
-		|cut -f1 -d " " | grep '9bd932943d3c5a8f38e0d9598f5a67ee'
+		|cut -f1 -d " " | grep '681edf96c543130fc3de3c7d6779cf9a'
 
 	echo prove-backtesting
 	for ta in 01 02 03 04 05 06 07 08 09
