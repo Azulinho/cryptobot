@@ -15,7 +15,6 @@ disable = [
   "too-many-instance-attributes",
   "too-many-arguments",
   "logging-fstring-interpolation",
-  "no-self-use",
   "too-many-lines",
   "too-many-statements",
   "too-many-branches",
@@ -23,7 +22,6 @@ disable = [
   "unspecified-encoding",
   "too-many-locals",
   "fixme",
-  "Similar lines in 2 files",
   "R0801",
   "C0103"
 ]

@@ -8,8 +8,8 @@
 from datetime import datetime
 from unittest import mock
 
-import pytest
 import app
+import pytest
 
 
 @pytest.fixture()
@@ -143,7 +143,7 @@ class TestCoin:
             coin_time = float(app.udatetime.now().timestamp() - x)
             coin.update(coin_time, 100)
 
-        assert len(coin.averages["s"]) == 60
+        assert len(coin.averages["s"]) == 61
 
         assert len(coin.averages["m"]) == 2
 
@@ -157,7 +157,7 @@ class TestCoin:
             coin_time = float(app.udatetime.now().timestamp() - x)
             coin.update(coin_time, 100)
 
-        assert len(coin.averages["s"]) == 60
+        assert len(coin.averages["s"]) == 61
 
         assert len(coin.averages["m"]) == 60
 
@@ -190,7 +190,7 @@ class TestCoin:
         assert list(coin.lowest["m"])[0][1] == 100.0
         assert list(coin.highest["m"])[0][1] == 160.0
 
-        assert list(coin.lowest["m"])[-1][1] == 160.0
+        assert list(coin.lowest["m"])[-1][1] == 159.0
         assert list(coin.highest["m"])[-1][1] == 220.0
 
     def test_update_coin_updates_hour_lowest_highest(self, coin):
