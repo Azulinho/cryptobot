@@ -315,8 +315,8 @@ function klines_caching_service() { # runs the klines caching service
 		${RUN_IN_BACKGROUND} \
     -p ${BIND}:${PORT}:8999 \
 		${IMAGE}:${TAG} \
-    /cryptobot/.venv/bin/gunicorn --preload --workers=4 \
-			--worker-class=egg:meinheld#gunicorn_worker \
+    /cryptobot/.venv/bin/gunicorn --preload --workers=4 --threads=4 \
+			--worker-class=gthread \
 			--bind 0.0.0.0:8999  klines_caching_service:app
 }
 
