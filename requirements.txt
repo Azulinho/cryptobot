@@ -27,7 +27,7 @@ mypy==0.991
 mypy-extensions==0.4.3
 networkx==2.8
 numpy==1.23.3
-pandas==1.4.2
+pandas==1.5.2
 pyrate-limiter==2.8.3
 python-binance==1.0.15
 python-dateutil==2.8.2
