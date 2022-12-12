@@ -143,7 +143,7 @@ function live() { # runs in live mode
 		/cryptobot/.venv/bin/python -u app.py \
 		-s /cryptobot/secrets/${SECRETS_FILE:-binance.prod.yaml} \
 		-c /cryptobot/configs/${CONFIG_FILE} \
-		-m ${MODE} > ${LOG_DIR}/${MODE}.${CONFIG_FILE}.txt 2>&1
+		-m ${MODE} >> ${LOG_DIR}/${MODE}.${CONFIG_FILE}.txt 2>&1
 }
 
 function backtesting() { # runs in backtesting mode
