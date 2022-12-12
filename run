@@ -341,9 +341,13 @@ function tests() { # CI and pre-commit tests
 	set -o pipefail
 	export PATH=~/.pyenv/bin:$PATH
 	source .venv/bin/activate
+	echo "running black..."
 	black --check app.py strategies/ lib/ tests/ utils/
+	echo "running pylint..."
 	ls strategies/*.py |grep -v Local | xargs pylint -E app.py lib/*.py utils/*.py
+	echo "running mypy..."
 	ls strategies/*.py |grep -v Local | xargs mypy app.py lib/*.py utils/*.py
+	echo "running pytest..."
 	pytest --quiet -W ignore --disable-pytest-warnings tests/
 	deactivate
 }
