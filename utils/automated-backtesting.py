@@ -144,12 +144,10 @@ def gather_best_results_from_backtesting_log(log, minimum, kind, word, sortby):
                     else:
                         if w >= coins[coin]["w"]:
                             # if this run has the same amount of wins but higher
-                            # profit, then keep the old one.
-                            # we are aiming for the safest number of wins, not
-                            # the highest profit.
+                            # profit, then keep this one.
                             if (
                                 w == coins[coin]["w"]
-                                and profit > coins[coin]["profit"]
+                                and profit < coins[coin]["profit"]
                             ):
                                 continue
                             coins[coin] = {
