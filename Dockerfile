@@ -53,7 +53,7 @@ ADD .python-version .
 RUN curl https://pyenv.run | bash
 ENV PYENV_ROOT="$HOME/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims/:$PATH"
-RUN CONFIGURE_OPTS="--enable-shared --fno-semantic-interposition --enable-optimizations --with-lto --with-pgo" pyenv install
+RUN CONFIGURE_OPTS="--enable-shared --enable-optimizations --with-lto --with-pgo" pyenv install
 RUN python -m venv /cryptobot/.venv
 ADD requirements.txt .
 RUN /cryptobot/.venv/bin/pip install --upgrade pip setuptools wheel
