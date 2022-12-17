@@ -109,7 +109,7 @@ def root():
     with open(f"configs/{tuned_config}") as f:
         config = yaml.safe_load(f.read())
         hash = hashlib.md5(
-            (json.dumps(config, sort_keys=True)).encode("utf-8")
+            (json.dumps(config["TICKERS"], sort_keys=True)).encode("utf-8")
         ).hexdigest()
         config["md5"] = hash
     return jsonify(config)
