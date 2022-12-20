@@ -143,7 +143,7 @@ function live() { # runs in live mode
 		/cryptobot/.venv/bin/python -u app.py \
 		-s /cryptobot/secrets/${SECRETS_FILE:-binance.prod.yaml} \
 		-c /cryptobot/configs/${CONFIG_FILE} \
-		-m ${MODE} > ${LOG_DIR}/${MODE}.${CONFIG_FILE}.txt 2>&1
+		-m ${MODE} >> ${LOG_DIR}/${MODE}.${CONFIG_FILE}.txt 2>&1
 }
 
 function backtesting() { # runs in backtesting mode
@@ -315,8 +315,8 @@ function klines_caching_service() { # runs the klines caching service
 		${RUN_IN_BACKGROUND} \
     -p ${BIND}:${PORT}:8999 \
 		${IMAGE}:${TAG} \
-    /cryptobot/.venv/bin/gunicorn --preload --workers=4 \
-			--worker-class=egg:meinheld#gunicorn_worker \
+    /cryptobot/.venv/bin/gunicorn --preload --workers=4 --threads=4 \
+			--worker-class=gthread \
 			--bind 0.0.0.0:8999  klines_caching_service:app
 }
 
@@ -341,9 +341,13 @@ function tests() { # CI and pre-commit tests
 	set -o pipefail
 	export PATH=~/.pyenv/bin:$PATH
 	source .venv/bin/activate
+	echo "running black..."
 	black --check app.py strategies/ lib/ tests/ utils/
+	echo "running pylint..."
 	ls strategies/*.py |grep -v Local | xargs pylint -E app.py lib/*.py utils/*.py
+	echo "running mypy..."
 	ls strategies/*.py |grep -v Local | xargs mypy app.py lib/*.py utils/*.py
+	echo "running pytest..."
 	pytest --quiet -W ignore --disable-pytest-warnings tests/
 	deactivate
 }

@@ -53,12 +53,12 @@ ADD .python-version .
 RUN curl https://pyenv.run | bash
 ENV PYENV_ROOT="$HOME/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims/:$PATH"
-RUN CONFIGURE_OPTS="--enable-shared --fno-semantic-interposition --enable-optimizations --with-lto --with-pgo" pyenv install
+RUN CONFIGURE_OPTS="--enable-shared --enable-optimizations --with-lto --with-pgo" pyenv install
 RUN python -m venv /cryptobot/.venv
 ADD requirements.txt .
 RUN /cryptobot/.venv/bin/pip install --upgrade pip setuptools wheel
 # pyenv is failling to compile isal without setting C_INCLUDE_PATH
-RUN C_INCLUDE_PATH=/cryptobot/.pyenv/versions/pyston-2.3.4/include/python3.8-pyston2.3/ /cryptobot/.venv/bin/pip install -r requirements.txt
+RUN /cryptobot/.venv/bin/pip install -r requirements.txt
 
 ADD lib/ lib/
 ADD utils/automated-backtesting.py utils/automated-backtesting.py

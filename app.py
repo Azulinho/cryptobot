@@ -1,6 +1,7 @@
 """ CryptoBot for Binance """
 
 import argparse
+import hashlib
 import importlib
 import json
 import logging
@@ -483,7 +484,18 @@ class Bot:
         # define if we want to use MARKET or LIMIT orders
         self.order_type: str = config.get("ORDER_TYPE", "MARKET")
         self.binance_lock = SoftFileLock("state/binance.lock", timeout=90)
-        self.pull_config_md5: str = ""
+        # generate a md5 hash of the tickers config based on the same method
+        # used in the config-endpoint-service. We want a hash to be available
+        # at boot so that when we first get the config from config-endpoint-service
+        # and if the tickers haven't changed match the bot won't assume the
+        # tickers or the config have changed.
+        # this is needed to prevent SELL_ALL_ON_PULL_CONFIG_CHANGE to sell all
+        # the coins at bot startup.
+        self.pull_config_md5: str = hashlib.md5(
+            (json.dumps(dict(config["TICKERS"]), sort_keys=True)).encode(
+                "utf-8"
+            )
+        ).hexdigest()
         self.pull_config_address: str = config.get("PULL_CONFIG_ADDRESS", "")
         self.sell_all_on_pull_config_change: bool = config.get(
             "SELL_ALL_ON_PULL_CONFIG_CHANGE", False
