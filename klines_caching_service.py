@@ -1,20 +1,21 @@
 """ load_klines_for_coin: manages the cache/ directory """
 import json
 import logging
-from time import sleep
 import sys
 import threading
-from hashlib import md5
-from functools import lru_cache
-from os import getpid
-from os.path import exists
 from datetime import datetime
-import requests
+from functools import lru_cache
+from hashlib import md5
+from os import getpid, mkdir
+from os.path import exists
+from shutil import move
+from time import sleep
 
+import colorlog  # pylint: disable=E0401
+import requests
+from flask import Flask, request  # pylint: disable=E0401
 from pyrate_limiter import Duration, Limiter, RequestRate
 from tenacity import retry, wait_exponential
-import colorlog  # pylint: disable=E0401
-from flask import Flask, request  # pylint: disable=E0401
 
 rate: RequestRate = RequestRate(
     600, Duration.MINUTE
@@ -104,53 +105,50 @@ def process_klines_line(kline):
     return date, low, avg, high
 
 
-def read_from_local_cache(f_path):
+def read_from_local_cache(f_path, symbol):
     """reads kline from local cache if it exists"""
 
-    logging.info(f"using path {f_path}")
     # wrap results in a try call, in case our cached files are corrupt
     # and attempt to pull the required fields from our data.
 
-    if not exists(f_path):
-        logging.info(f"(no cache file {f_path}")
-        return (False, [])
+    if exists(f"cache/{symbol}/{f_path}"):
+        try:
+            with open(f"cache/{symbol}/{f_path}", "r") as f:
+                results = json.load(f)
+        except Exception as err:  # pylint: disable=W0703
+            logging.critical(err)
+            return (False, [])
 
-    logging.info(f"(trying to read klines from {f_path}")
-    try:
-        with open(f_path, "r") as f:
-            results = json.load(f)
-    except Exception as err:  # pylint: disable=W0703
-        logging.critical(err)
-        return (False, [])
+        # new listed coins will return an empty array
+        # so we bail out early here
+        if not results:
+            logging.info(f"empty klines from cache/{symbol}/{f_path}")
+            return (True, [])
 
-    # new listed coins will return an empty array
-    # so we bail out early here
-    if not results:
-        logging.info(f"(empty klines from {f_path}")
-        return (True, [])
+        # check for valid values by reading one line
+        try:
+            # pylint: disable=W0612
+            (
+                _,
+                _,
+                high,
+                low,
+                _,
+                _,
+                closetime,
+                _,
+                _,
+                _,
+                _,
+                _,
+            ) = results[0]
+        except Exception as err:  # pylint: disable=W0703
+            logging.critical(err)
+            return (False, [])
 
-    # check for valid values by reading one line
-    try:
-        # pylint: disable=W0612
-        (
-            _,
-            _,
-            high,
-            low,
-            _,
-            _,
-            closetime,
-            _,
-            _,
-            _,
-            _,
-            _,
-        ) = results[0]
-    except Exception as err:  # pylint: disable=W0703
-        logging.critical(err)
-        return (False, [])
-
-    return (True, results)
+        return (True, results)
+    logging.info(f"no file cache/{symbol}/{f_path}")
+    return (False, [])
 
 
 def populate_values(klines, unit):
@@ -210,11 +208,14 @@ def call_binance_for_klines(query):
     return (True, response.json())
 
 
-def save_binance_klines(query, f_path, klines, mode):
+def save_binance_klines(query, f_path, klines, mode, symbol):
     """saves binance klines for a coin locally"""
-    logging.info(f"caching binance {query} on {f_path}")
+    logging.info(f"caching binance {query} on cache/{symbol}/{f_path}")
     if mode == "backtesting":
-        with open(f_path, "w") as f:
+        if not exists(f"cache/{symbol}"):
+            mkdir(f"cache/{symbol}")
+
+        with open(f"cache/{symbol}/{f_path}", "w") as f:
             f.write(json.dumps(klines))
 
 
@@ -253,7 +254,7 @@ def load_klines_for_coin():
 
         query = f"{api_url}endTime={end_unix_time}&interval=1{unit}"
         md5_query = md5(query.encode()).hexdigest()  # nosec
-        f_path = f"cache/{symbol}.{md5_query}"
+        f_path = f"{symbol}.{md5_query}"
         unit_url_fpath.append((unit, query, f_path))
 
     values = {}
@@ -264,11 +265,11 @@ def load_klines_for_coin():
 
     for unit, query, f_path in unit_url_fpath:
         klines = []
-        ok, klines = read_from_local_cache(f_path)
+        ok, klines = read_from_local_cache(f_path, symbol)
         if not ok:
             ok, klines = call_binance_for_klines(query)
             if ok:
-                save_binance_klines(query, f_path, klines, mode)
+                save_binance_klines(query, f_path, klines, mode, symbol)
 
         if ok:
             ok, low_avg_high = populate_values(klines, unit)
