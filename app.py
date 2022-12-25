@@ -2198,6 +2198,9 @@ class Bot:
             self.quit = True
             unlink("control/STOP")
             return
+        while exists("control/PAUSE"):
+            logging.warning("control/PAUSE flag found. Sleeping 1min.")
+            sleep(60)
 
 
 if __name__ == "__main__":
