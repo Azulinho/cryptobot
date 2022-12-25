@@ -1,6 +1,8 @@
 FROM ubuntu:focal
+ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update &&  \
-  DEBIAN_FRONTEND=noninteractive apt-get install -yq \
+  apt-get install -yq eatmydata
+RUN eatmydata apt-get install -yq \
   make \
   build-essential \
   libssl-dev \
@@ -40,25 +42,25 @@ RUN apt-get update &&  \
 
 RUN useradd -d /cryptobot -u 1001 -ms /bin/bash cryptobot
 RUN cd /tmp \
-  && wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz \
-  && tar xf ta-lib-0.4.0-src.tar.gz \
+  && eatmydata wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz \
+  && eatmydata tar xf ta-lib-0.4.0-src.tar.gz \
   && cd ta-lib \
-  && ./configure --prefix=/usr \
-  && make \
-  && make install
+  && eatmydata ./configure --prefix=/usr \
+  && eatmydata make \
+  && eatmydata make install
 USER cryptobot
 ENV HOME /cryptobot
 WORKDIR /cryptobot
 ADD .python-version .
-RUN curl https://pyenv.run | bash
+RUN curl https://pyenv.run | eatmydata bash
 ENV PYENV_ROOT="$HOME/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims/:$PATH"
-RUN CONFIGURE_OPTS="--enable-shared --enable-optimizations --with-lto --with-pgo" pyenv install
-RUN python -m venv /cryptobot/.venv
+RUN CONFIGURE_OPTS="--enable-shared --enable-optimizations --with-lto --with-pgo" eatmydata pyenv install
+RUN eatmydata python -m venv /cryptobot/.venv
 ADD requirements.txt .
-RUN /cryptobot/.venv/bin/pip install --upgrade pip setuptools wheel
+RUN eatmydata /cryptobot/.venv/bin/pip install --upgrade pip setuptools wheel
 # pyenv is failling to compile isal without setting C_INCLUDE_PATH
-RUN /cryptobot/.venv/bin/pip install -r requirements.txt
+RUN eatmydata /cryptobot/.venv/bin/pip install -r requirements.txt
 
 ADD lib/ lib/
 ADD utils/automated-backtesting.py utils/automated-backtesting.py
