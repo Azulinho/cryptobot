@@ -155,7 +155,7 @@ function backtesting() { # runs in backtesting mode
 		${DOCKER_NETWORK} \
 		${RUN_IN_BACKGROUND} \
 		${IMAGE}:${TAG} \
-		/cryptobot/.venv/bin/python -u app.py \
+		/usr/bin/eatmydata /cryptobot/.venv/bin/python -u app.py \
 		-s /cryptobot/secrets/${SECRETS_FILE:-fake.yaml} \
 		-c /cryptobot/configs/${CONFIG_FILE} \
 		-m backtesting > ${RESULTS_DIR}/backtesting.${CONFIG_FILE}.txt 2>&1
@@ -180,7 +180,7 @@ function automated_backtesting() { # runs the automated backtesting
 		-e SORTBY=${SORTBY} \
 		-e SMP_MULTIPLIER=${SMP_MULTIPLIER} \
 		${IMAGE}:${TAG} \
-		/cryptobot/utils/automated-backtesting.sh \
+		/usr/bin/eatmydata /cryptobot/utils/automated-backtesting.sh \
 		> ${RESULTS_LOG}
 }
 
@@ -239,7 +239,7 @@ function prove_backtesting() { # runs the prove backtesting
 		-e SORTBY=${SORTBY} \
 		-e SMP_MULTIPLIER=${SMP_MULTIPLIER} \
 		${IMAGE}:${TAG} \
-		/cryptobot/utils/prove-backtesting.sh \
+		/usr/bin/eatmydata /cryptobot/utils/prove-backtesting.sh \
 		> ${RESULTS_LOG}
 }
 
