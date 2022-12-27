@@ -131,6 +131,27 @@ if __name__ == "__main__":
                 log.append(
                     f"{klines_date} {ticker} {(float(high) + float(low))/2}\n"
                 )
+            # create a directory for each symbol to keep its logfiles
+            if not os.path.exists(f"log/{ticker}"):
+                os.mkdir(f"log/{ticker}")
+            # write down log/ ticker / day.log
+            with open(f"log/{ticker}/{day}.log", "w", encoding="utf-8") as f:
+                oldprice = 0
+                for line in log:
+                    parts = line.split(" ")
+                    symbol = parts[2]
+                    price = parts[3]
+
+                    # dedup identical price log lines
+                    if price != oldprice:
+                        oldprice = price
+                        f.write(line)
+            # and compress to log/ ticker / day.log.gz
+            with gzip.open(f"log/{ticker}/{day}.log.gz", "wt") as z:
+                with open(f"log/{ticker}/{day}.log", encoding="utf-8") as f:
+                    z.write(f.read())
+            if os.path.exists(f"log/{ticker}/{day}.log"):
+                os.remove(f"log/{ticker}/{day}.log")
 
         # now that we have all klines for all tickers for this day,
         # we're going to dedup the results and discard any lines that haven't
