@@ -973,10 +973,10 @@ class Bot:
                 logging.error(error_msg)
                 return str(-1)
 
-        result: dict = {}
         for d in info["filters"]:
-            result.update(d)
-        step_size = result["stepSize"]
+            if "filterType" in d.keys():
+                if d["filterType"] == "LOT_SIZE":
+                    step_size = d["stepSize"]
 
         if self.mode == "backtesting" and not exists(f_path):
             with open(f_path, "w") as f:
