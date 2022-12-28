@@ -30,7 +30,7 @@ def compress_file(filename):
     os.remove(filename)
 
 
-def split_logs_into_coins(filename, cfg, logs_dir="log"):
+def split_logs_into_coins(filename, cfg, filterby, logs_dir="log"):
     """splits one price.log into individual coin price.log files"""
     coinfiles = set()
     coinfh = {}
@@ -40,10 +40,14 @@ def split_logs_into_coins(filename, cfg, logs_dir="log"):
 
             # don't process all the lines, but only the ones related to our PAIR
             # 2021-01-01 00:00:01.0023 BTCUSDT 36000.00
-            if not f"{pairing} " in line:
+            if not f"{pairing} " in str(line):
                 continue
 
-            parts = line.split(" ")
+            # and constrain to our filterby
+            if not f"{filterby} " in str(line):
+                continue
+
+            parts = str(line).split(" ")
             symbol = parts[2]
 
             # don't process any BEAR/BULL/UP/DOWN lines
@@ -565,7 +569,7 @@ def main():
         run_final_backtest,
     ) = cli()
 
-    coinfiles = split_logs_into_coins(logfile, cfgs, logs_dir="log")
+    coinfiles = split_logs_into_coins(logfile, cfgs, filterby, logs_dir="log")
 
     if os.path.exists("cache/binance.client"):
         os.remove("cache/binance.client")
