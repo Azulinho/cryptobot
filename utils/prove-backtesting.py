@@ -31,6 +31,9 @@ def cli():
     parser.add_argument(
         "-s", "--sortby", help="sortby results by profit/wins", default="wins"
     )
+    parser.add_argument(
+        "-x", "--filter", help="filter coins by word", default=""
+    )
 
     # TODO: the args below are not currently consumed
     parser.add_argument(
@@ -43,7 +46,7 @@ def cli():
         "-ld", "--logs-dir", help="logs directory", default="log"
     )
     parser.add_argument(
-        "-x", "--concurrency", help="SMP_MULTIPLIER value", default="1.0"
+        "-n", "--concurrency", help="SMP_MULTIPLIER value", default="1.0"
     )
     args = parser.parse_args()
 
@@ -59,6 +62,7 @@ def cli():
         args.results_dir,
         args.logs_dir,
         args.concurrency,
+        args.filter,
     ]
 
 
@@ -118,19 +122,21 @@ def run_prove_backtesting(config, results_dir):
 
 
 def run_automated_backtesting(
-    config, min_profit, sortby, logs_dir="log", env={}
+    config, min_profit, sortby, logs_dir="log", env={}, filterby=""
 ):
     """calls automated-backtesting"""
     subprocess.run(
         f"python -u utils/automated-backtesting.py -l {logs_dir}/lastfewdays.log.gz "
-        + f"-c configs/{config} -m {min_profit} -f '' -s {sortby} --run-final-backtest=False",
+        + f"-c configs/{config} -m {min_profit} -f '{filterby}' -s {sortby} --run-final-backtest=False",
         shell=True,
         check=False,
         env=env,
     )
 
 
-def create_zipped_logfile(dates, pairing, logs_dir="log", symbols=[]):
+def create_zipped_logfile(
+    dates, pairing, logs_dir="log", symbols=[], filterby=""
+):
     """
     generates lastfewdays.log.gz from the provided list of price.log files
     excluding any symbol in the excluded list, and not matching pairing
@@ -147,7 +153,11 @@ def create_zipped_logfile(dates, pairing, logs_dir="log", symbols=[]):
                 continue
             with igzip.open(log, "rt") as r:
                 for line in r:
-                    if pairing not in line:
+                    # skip line if not related to our PAIRING
+                    if pairing not in str(line):
+                        continue
+                    # skip line if not in our filtered word
+                    if filterby not in str(line):
                         continue
                     # don't process any BEAR/BULL/UP/DOWN lines
                     excluded = [
@@ -156,7 +166,7 @@ def create_zipped_logfile(dates, pairing, logs_dir="log", symbols=[]):
                         f"BEAR{pairing}",
                         f"BULL{pairing}",
                     ]
-                    if any(symbol in line for symbol in excluded):
+                    if any(symbol in str(line) for symbol in excluded):
                         continue
 
                     if symbols:
@@ -183,6 +193,7 @@ def main():
         results_dir,
         logs_dir,
         concurrency,
+        filterby,
     ) = cli()
 
     log_msg(
@@ -216,7 +227,7 @@ def main():
         )
         dates = backtesting_dates(end_date=start_date, days=backtrack_days)
         log_msg(dates)
-        create_zipped_logfile(dates, pairing, logs_dir)
+        create_zipped_logfile(dates, pairing, logs_dir, filterby=filterby)
         log_msg(
             f"starting automated_backtesting using {config_file} for {min_profit}"
         )
@@ -235,6 +246,7 @@ def main():
             min_profit=min_profit,
             sortby=sortby,
             env={**os.environ, "SMP_MULTIPLIER": concurrency},
+            filterby=filterby,
         )
 
         dates = prove_backtesting_dates(
@@ -266,7 +278,9 @@ def main():
         )
         log_msg(dates)
 
-        create_zipped_logfile(dates, pairing, logs_dir, symbols)
+        create_zipped_logfile(
+            dates, pairing, logs_dir, symbols, filterby=filterby
+        )
 
         for strategy in strategies:
             with open(f"{config_dir}/{strategy}.yaml") as f:
