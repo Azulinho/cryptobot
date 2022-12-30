@@ -47,7 +47,8 @@ RUN cd /tmp \
   && cd ta-lib \
   && eatmydata ./configure --prefix=/usr \
   && eatmydata make \
-  && eatmydata make install
+  && eatmydata make install \
+  && rm -rf /tmp/ta-lib*
 USER cryptobot
 ENV HOME /cryptobot
 WORKDIR /cryptobot
@@ -55,12 +56,14 @@ ADD .python-version .
 RUN curl https://pyenv.run | eatmydata bash
 ENV PYENV_ROOT="$HOME/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims/:$PATH"
-RUN CONFIGURE_OPTS="--enable-shared --enable-optimizations --with-lto --with-pgo" eatmydata pyenv install
+RUN CONFIGURE_OPTS="--enable-shared --enable-optimizations --with-lto --with-pgo" eatmydata pyenv install \
+  && rm -f /tmp/python-build*.log
 RUN eatmydata python -m venv /cryptobot/.venv
 ADD requirements.txt .
 RUN eatmydata /cryptobot/.venv/bin/pip install --upgrade pip setuptools wheel
 # pyenv is failling to compile isal without setting C_INCLUDE_PATH
-RUN eatmydata /cryptobot/.venv/bin/pip install -r requirements.txt
+RUN eatmydata /cryptobot/.venv/bin/pip install -r requirements.txt && \
+  rm -rf /tmp/*
 
 ADD lib/ lib/
 ADD utils/automated-backtesting.py utils/automated-backtesting.py
