@@ -68,15 +68,15 @@ jobs:
       - name: install ta-lib
         run: |
           cd /tmp \
-          && wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz \
-          && tar xf ta-lib-0.4.0-src.tar.gz \
+          && eatmydata wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz \
+          && eatmydata tar xf ta-lib-0.4.0-src.tar.gz \
           && cd ta-lib \
-          && ./configure --prefix=/usr \
-          && make \
-          && sudo make install
+          && eatmydata ./configure --prefix=/usr \
+          && eatmydata make \
+          && sudo eatmydata make install
 
       - name: run setup
-        run: ./run setup
+        run: eatmydata ./run setup
 
       - name: run cryptobot tests
-        run: ./run tests
+        run: eatmydata ./run tests
