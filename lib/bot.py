@@ -24,8 +24,7 @@ from os import fsync, unlink
 from os.path import basename, exists
 from time import sleep
 from typing import Any, Dict, List, Tuple
-from multiprocessing import Process
-from faster_fifo import Queue  # pylint: disable=no-name-in-module
+from multiprocessing import Process, Queue
 
 
 from lib.helpers import (
@@ -1503,8 +1502,7 @@ class Bot:
         if not self.cfg["TICKERS"]:
             logging.warning("no tickers to backtest")
         else:
-
-            q_klines = Queue()
+            q_klines: Queue = Queue()
             Process(
                 target=self.place_klines_into_q,
                 args=(
