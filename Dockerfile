@@ -8,6 +8,8 @@ RUN eatmydata apt-get install -yq \
   libssl-dev \
   zlib1g-dev \
   libbz2-dev \
+  libisal-dev \
+  libisal2 \
   libreadline-dev \
   libsqlite3-dev \
   wget \
