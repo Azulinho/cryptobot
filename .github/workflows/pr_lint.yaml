@@ -39,6 +39,46 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements-dev.txt') }}-${{ hashFiles('**/requirements.txt') }}-${{ hashFiles('.python-version') }}
 
+      - name: install apt-packages
+        run: |
+          sudo apt-get update
+          sudo  DEBIAN_FRONTEND=noninteractive apt-get install -yq eatmydata
+          sudo  DEBIAN_FRONTEND=noninteractive eatmydata apt-get install -yq \
+          make \
+          build-essential \
+          libssl-dev \
+          zlib1g-dev \
+          libbz2-dev \
+          libisal-dev \
+          libisal2 \
+          libreadline-dev \
+          libsqlite3-dev \
+          wget \
+          curl \
+          llvm \
+          libncursesw5-dev \
+          xz-utils \
+          tk-dev \
+          libxml2-dev \
+          libxmlsec1-dev \
+          libffi-dev \
+          liblzma-dev \
+          git \
+          ca-certificates \
+          cargo \
+          gzip \
+          pigz \
+          bzip2 \
+          pbzip2 \
+          autoconf \
+          automake \
+          shtool \
+          coreutils \
+          autogen \
+          libtool \
+          shtool \
+          nasm
+
       - name: install ta-lib
         run: |
           cd /tmp \
