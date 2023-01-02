@@ -11,26 +11,12 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v2
 
-      - name: retrieve cached apt
-        id: cache-apt
-        uses: actions/cache@v3
-        with:
-          path: /var/cache/apt/archives/
-          key: cache-apt
-
       - name: retrieve cached ta-lib
         id: cache-ta-lib
         uses: actions/cache@v3
         with:
           path: /tmp/ta-lib
           key: ta-lib
-
-      - name: retrieve cached pythons
-        id: cache-pyenv
-        uses: actions/cache@v3
-        with:
-          path: /home/runner/.pyenv
-          key: ${{ runner.os }}-pyenv-${{ hashFiles('.python-version') }}
 
       - name: retrieve cached pip packages
         id: cache-pip
