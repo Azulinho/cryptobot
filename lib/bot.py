@@ -1522,11 +1522,7 @@ class Bot:
                     break
                 payload = q_klines.get()
                 for item in payload:
-                    try:
-                        symbol, date, market_price = item
-                    except Exception as e:
-                        print(e)
-                        print(item)
+                    symbol, date, market_price = item
                     if symbol == "QUIT":
                         finished = True
                         break
