@@ -1143,12 +1143,39 @@ class Bot:
                         b.flush()
                         fsync(b.fileno())
 
+        for statefile in ["state/coins.json", "state/wallet.json"]:
+            if exists(statefile):
+                with open(statefile, "rb") as f:
+                    # as these files are important to the bot, we keep a
+                    # backup file in case there is a failure that could
+                    # corrupt the live .pickle files.
+                    # in case or corruption, simply copy the .backup files over
+                    # the .pickle files.
+                    with open(f"{statefile}.backup", "wb") as b:
+                        b.write(f.read())
+                        b.flush()
+                        fsync(b.fileno())
+
         with open("state/coins.pickle", "wb") as f:
             pickle.dump(self.coins, f)
             f.flush()
             fsync(f.fileno())
         with open("state/wallet.pickle", "wb") as f:
             pickle.dump(self.wallet, f)
+            f.flush()
+            fsync(f.fileno())
+
+        with open("state/coins.json", "wt") as f:
+            objects = {}
+            for symbol in self.coins.keys():
+                objects[symbol] = self.coins[symbol].__dict__
+
+            f.write(json.dumps(objects))
+            f.flush()
+            fsync(f.fileno())
+
+        with open("state/wallet.json", "wt") as f:
+            f.write(json.dumps(self.wallet))
             f.flush()
             fsync(f.fileno())
 
@@ -1162,16 +1189,43 @@ class Bot:
 
         # TODO: look into a fallback mechanism to the .backup files if
         # the .pickle are corrupted.
-
-        if exists("state/coins.pickle"):
-            logging.warning("found coins.pickle, loading coins")
-            with open("state/coins.pickle", "rb") as f:
-                self.coins = pickle.load(f)  # nosec
-        if exists("state/wallet.pickle"):
-            logging.warning("found wallet.pickle, loading wallet")
-            with open("state/wallet.pickle", "rb") as f:
-                self.wallet = pickle.load(f)  # nosec
+        json_mode = False
+        if exists("state/wallet.json"):
+            json_mode = True
+            logging.warning("found wallet.json, loading wallet")
+            with open("state/wallet.json", "rt") as f:
+                self.wallet = json.loads(f.read())
             logging.warning(f"wallet contains {self.wallet}")
+
+        if exists("state/coins.json"):
+            logging.warning("found coins.json, loading coins")
+            with open("state/coins.json", "rt") as f:
+                objects = dict(json.loads(f.read()))
+                for symbol in objects.keys():
+                    self.init_or_update_coin(objects[symbol])
+                    for k, v in objects[symbol].items():
+                        # we load the klines from the init_or_update_coin()
+                        # above so we should skip the data from the .json file
+                        if k in ["lowest", "averages", "highest"]:
+                            print(
+                                f"ignoring likely stale {k} data from .json for {symbol}"
+                            )
+                            continue
+                        setattr(self.coins[symbol], k, v)
+
+            logging.warning(f"coins contains {str(self.coins.keys())}")
+
+        # only load .pickle if .json is not available
+        if not json_mode:
+            if exists("state/coins.pickle"):
+                logging.warning("found coins.pickle, loading coins")
+                with open("state/coins.pickle", "rb") as f:
+                    self.coins = pickle.load(f)  # nosec
+            if exists("state/wallet.pickle"):
+                logging.warning("found wallet.pickle, loading wallet")
+                with open("state/wallet.pickle", "rb") as f:
+                    self.wallet = pickle.load(f)  # nosec
+                logging.warning(f"wallet contains {self.wallet}")
 
         # sync our coins state with the list of coins we want to use.
         # but keep using coins we currently have on our wallet
