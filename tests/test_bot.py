@@ -71,68 +71,68 @@ def coin(bot):
 
 
 class TestCoin:
-    def test_update_coin_wont_age_if_not_owned(self, coin):
+    def test_update_coin_wont_age_if_not_owned(self, coin, bot):
         coin.holding_time = 0
         coin.status = ""
-        coin.update(float(lib.bot.udatetime.now().timestamp()), 100.0)
+        bot.update(coin, float(lib.bot.udatetime.now().timestamp()), 100.0)
         assert coin.holding_time == 0
 
-    def test_update_coin_in_target_sell_status_will_age(self, coin):
+    def test_update_coin_in_target_sell_status_will_age(self, coin, bot):
         coin.holding_time = 0
         coin.status = "TARGET_SELL"
         coin.bought_date = float(lib.bot.udatetime.now().timestamp() - 3600)
-        coin.update(float(lib.bot.udatetime.now().timestamp()), 100.0)
+        bot.update(coin, float(lib.bot.udatetime.now().timestamp()), 100.0)
         assert coin.holding_time == 3600
 
-    def test_update_coin_in_hold_status_will_age(self, coin):
+    def test_update_coin_in_hold_status_will_age(self, coin, bot):
         coin.holding_time = 0
         coin.status = "HOLD"
         coin.bought_date = float(lib.bot.udatetime.now().timestamp() - 3600)
-        coin.update(float(lib.bot.udatetime.now().timestamp()), 100.0)
+        bot.update(coin, float(lib.bot.udatetime.now().timestamp()), 100.0)
         assert coin.holding_time == 3600
 
     def test_update_coin_in_naughty_reverts_to_non_naughty_after_timeout_(
-        self, coin
+        self, coin, bot
     ):
         coin.naughty_timeout = 3599
         coin.naughty = True
         coin.naughty_date = float(lib.bot.udatetime.now().timestamp() - 3600)
-        coin.update(float(lib.bot.udatetime.now().timestamp()), 100.0)
+        bot.update(coin, float(lib.bot.udatetime.now().timestamp()), 100.0)
         assert coin.naughty is False
 
     def test_update_coin_in_naughty_remains_naughty_before_timeout_(
-        self, coin
+        self, coin, bot
     ):
         coin.naughty_timeout = 7200
         coin.naughty = True
         coin.naughty_date = float(lib.bot.udatetime.now().timestamp() - 3600)
-        coin.update(float(lib.bot.udatetime.now().timestamp()), 100.0)
+        bot.update(coin, float(lib.bot.udatetime.now().timestamp()), 100.0)
         assert coin.naughty is True
 
-    def test_update_reached_new_min(self, coin):
+    def test_update_reached_new_min(self, coin, bot):
         coin.min = 200
-        coin.update(float(lib.bot.udatetime.now().timestamp()), 100.0)
+        bot.update(coin, float(lib.bot.udatetime.now().timestamp()), 100.0)
         assert coin.min == 100
 
-    def test_update_reached_new_max(self, coin):
+    def test_update_reached_new_max(self, coin, bot):
         coin.max = 100
-        coin.update(float(lib.bot.udatetime.now().timestamp()), 200.0)
+        bot.update(coin, float(lib.bot.udatetime.now().timestamp()), 200.0)
         assert coin.max == 200
 
-    def test_update_value_is_set(self, coin):
+    def test_update_value_is_set(self, coin, bot):
         coin.volume = 2
-        coin.update(float(lib.bot.udatetime.now().timestamp()), 100.0)
+        bot.update(coin, float(lib.bot.udatetime.now().timestamp()), 100.0)
         assert coin.value == 200
 
-    def test_update_coin_updates_state_dip(self, coin):
+    def test_update_coin_updates_state_dip(self, coin, bot):
         coin.status = "TARGET_DIP"
         coin.dip = 150
-        coin.update(float(lib.bot.udatetime.now().timestamp()), 120.00)
+        bot.update(coin, float(lib.bot.udatetime.now().timestamp()), 120.00)
         assert coin.dip == 120.00
 
-    def test_update_coin_updates_seconds_averages(self, coin):
+    def test_update_coin_updates_seconds_averages(self, coin, bot):
         now = float(lib.bot.udatetime.now().timestamp())
-        coin.update(now, 120.00)
+        bot.update(coin, now, 120.00)
 
         # coin.averages['unit'] is a tupple of (date, price)
         assert (now, 120.00) in coin.averages["s"]
@@ -141,10 +141,10 @@ class TestCoin:
         assert 120.00 == coin.averages["s"][0][1]
         assert len(coin.averages["s"]) == 1
 
-    def test_update_coin_updates_minutes_averages(self, coin):
+    def test_update_coin_updates_minutes_averages(self, coin, bot):
         for x in list(reversed(range(60 * 2 + 1))):
             coin_time = float(lib.bot.udatetime.now().timestamp() - x)
-            coin.update(coin_time, 100)
+            bot.update(coin, coin_time, 100)
 
         assert len(coin.averages["s"]) == 61
 
@@ -155,10 +155,10 @@ class TestCoin:
 
         assert list(coin.averages["m"])[0][1] == 100.0
 
-    def test_update_coin_updates_hour_averages(self, coin):
+    def test_update_coin_updates_hour_averages(self, coin, bot):
         for x in list(reversed(range(60 * 60 + 60 + 1))):
             coin_time = float(lib.bot.udatetime.now().timestamp() - x)
-            coin.update(coin_time, 100)
+            bot.update(coin, coin_time, 100)
 
         assert len(coin.averages["s"]) == 61
 
@@ -169,10 +169,10 @@ class TestCoin:
 
         assert list(coin.averages["h"])[0][1] == 100.0
 
-    def test_update_coin_updates_days_averages(self, coin):
+    def test_update_coin_updates_days_averages(self, coin, bot):
         for x in list(reversed(range(3600 * 24 + 3600 + 60 + 1))):
             coin_time = float(lib.bot.udatetime.now().timestamp() - x)
-            coin.update(coin_time, 100)
+            bot.update(coin, coin_time, 100)
 
         assert len(coin.averages["h"]) == 24
 
@@ -182,11 +182,11 @@ class TestCoin:
         assert len(coin.averages["d"]) == 1
         assert list(coin.averages["d"])[0][1] == 100.0
 
-    def test_update_coin_updates_minutes_lowest_highest(self, coin):
+    def test_update_coin_updates_minutes_lowest_highest(self, coin, bot):
         price = 100
         for x in list(reversed(range(60 * 2 + 1))):
             coin_time = float(lib.bot.udatetime.now().timestamp() - x)
-            coin.update(coin_time, price)
+            bot.update(coin, coin_time, price)
             price = price + 1
 
         assert len(coin.lowest["m"]) == 2
@@ -196,11 +196,11 @@ class TestCoin:
         assert list(coin.lowest["m"])[-1][1] == 159.0
         assert list(coin.highest["m"])[-1][1] == 220.0
 
-    def test_update_coin_updates_hour_lowest_highest(self, coin):
+    def test_update_coin_updates_hour_lowest_highest(self, coin, bot):
         price = 100
         for x in list(reversed(range(60 * 60 + 60 + 1))):
             coin_time = float(lib.bot.udatetime.now().timestamp() - x)
-            coin.update(coin_time, price)
+            bot.update(coin, coin_time, price)
             price = price + 1
 
         assert len(coin.lowest["m"]) == 60
@@ -211,11 +211,11 @@ class TestCoin:
         assert list(coin.lowest["h"])[0][1] == 100.0
         assert list(coin.highest["h"])[0][1] == 3760.0
 
-    def test_update_coin_updates_day_lowest_highest(self, coin):
+    def test_update_coin_updates_day_lowest_highest(self, coin, bot):
         price = 100
         for x in list(reversed(range(3600 * 24 + 3600 + 60 + 1))):
             coin_time = float(lib.bot.udatetime.now().timestamp() - x)
-            coin.update(coin_time, price)
+            bot.update(coin, coin_time, price)
             price = price + 1
 
         assert len(coin.lowest["h"]) == 24
@@ -226,13 +226,13 @@ class TestCoin:
         assert list(coin.lowest["d"])[0][1] == 100.0
         assert list(coin.highest["d"])[0][1] == 90160.0
 
-    def test_trim_averages(self, coin):
+    def test_trim_averages(self, coin, bot):
         price = 100
         now = lib.bot.udatetime.now().timestamp()
 
         for x in list(reversed(range(3600 * 48 + 3600 + 60 + 1))):
             coin_time = float(now - x)
-            coin.update(coin_time, price)
+            bot.update(coin, coin_time, price)
 
         assert coin.averages["s"][0] == (now - 60, 100.0)
         assert coin.averages["s"][59] == (now - 1, 100.0)
@@ -243,7 +243,7 @@ class TestCoin:
         assert coin.averages["h"][0] == (now - 86400, 100.0)
         assert coin.averages["h"][23] == (now - 3600, 100.0)
 
-    def test_for_pump_and_dump_returns_true_on_pump(self, coin):
+    def test_for_pump_and_dump_returns_true_on_pump(self, coin, bot):
         # pylint: disable=attribute-defined-outside-init
         self.enable_pump_and_dump_checks = True
         now = lib.bot.udatetime.now().timestamp()
@@ -251,26 +251,26 @@ class TestCoin:
         coin.klines_trend_period = "2h"
         coin.klines_slice_percentage_change = float(1)
 
-        coin.update(now - 3600 * 2, 100)
-        coin.update(now - 3600 * 1, 1500)
+        bot.update(coin, now - 3600 * 2, 100)
+        bot.update(coin, now - 3600 * 1, 1500)
         # price has gone up 500%
-        coin.update(now, 200)
+        bot.update(coin, now, 200)
 
-        assert coin.check_for_pump_and_dump() is True
+        assert bot.check_for_pump_and_dump(coin) is True
 
-    def test_for_pump_and_dump_returns_false_on_pump(self, coin):
+    def test_for_pump_and_dump_returns_false_on_pump(self, coin, bot):
         now = lib.bot.udatetime.now().timestamp()
 
         coin.klines_trend_period = "1h"
         coin.klines_slice_percentage_change = float(1)
 
-        coin.update(now - 3600 * 3, 100)
-        coin.update(now - 3600 * 2, 100)
-        coin.update(now - 3600, 100)
+        bot.update(coin, now - 3600 * 3, 100)
+        bot.update(coin, now - 3600 * 2, 100)
+        bot.update(coin, now - 3600, 100)
         # price has gone up 500%
-        coin.update(now, 500)
+        bot.update(coin, now, 500)
 
-        assert coin.check_for_pump_and_dump() is False
+        assert bot.check_for_pump_and_dump(coin) is False
 
 
 class TestBot:
@@ -511,7 +511,7 @@ class TestBot:
             coin_time = float(
                 lib.bot.udatetime.now().timestamp() - (x * 86400)
             )
-            coin.update(coin_time, 0)
+            bot.update(coin, coin_time, 0)
 
         bot.coins["BTCUSDT"] = coin
 
@@ -1081,7 +1081,7 @@ class TestCoinStatus:
         coin.sell_at_percentage = 3
         coin.bought_at = 100
         coin.bought_date = float(lib.bot.udatetime.now().timestamp() - 3600)
-        coin.update(float(lib.bot.udatetime.now().timestamp()), 120.00)
+        bot.update(coin, float(lib.bot.udatetime.now().timestamp()), 120.00)
         bot.target_sell(coin)
         assert coin.status == "TARGET_SELL"
 

@@ -33,6 +33,7 @@ from lib.helpers import (
     c_from_timestamp,
     floor_value,
     percent,
+    mean,
     requests_with_backoff,
 )
 
@@ -223,7 +224,9 @@ class Bot:
 
         # is this a new coin?
         if self.enable_new_listing_checks:
-            if coin.new_listing(self.enable_new_listing_checks_age_in_days):
+            if self.new_listing(
+                coin, self.enable_new_listing_checks_age_in_days
+            ):
                 return
 
         # our wallet is already full
@@ -232,7 +235,7 @@ class Bot:
 
         # has the current price been influenced by a pump and dump?
         if self.enable_pump_and_dump_checks:
-            if coin.check_for_pump_and_dump():
+            if self.check_for_pump_and_dump(self.coins[coin.symbol]):
                 return
 
         # all our pre-conditions played out, now run the buy_strategy
@@ -764,8 +767,8 @@ class Bot:
             self.load_klines_for_coin(self.coins[symbol])
         else:
             # or simply update the coin with the latest price data
-            self.coins[symbol].update(
-                udatetime.now().timestamp(), market_price
+            self.update(
+                self.coins[symbol], udatetime.now().timestamp(), market_price
             )
 
     def process_coins(self) -> None:
@@ -1457,8 +1460,7 @@ class Bot:
             if self.coins[symbol].last_read_date + self.pause > date:
                 return
             self.coins[symbol].last_read_date = date
-
-            self.coins[symbol].update(date, market_price)
+            self.update(self.coins[symbol], date, market_price)
 
         # and finally run through the strategy for our coin.
         self.run_strategy(self.coins[symbol])
@@ -1864,3 +1866,224 @@ class Bot:
         while exists("control/PAUSE"):
             logging.warning("control/PAUSE flag found. Sleeping 1min.")
             sleep(60)
+
+    def update(self, coin: Coin, date: float, market_price: float) -> None:
+        """updates a coin object with latest market values"""
+        coin.date = date
+        coin.last = coin.price
+        coin.price = market_price
+
+        # update any coin we HOLD with the number seconds since we bought it
+        if coin.status in ["TARGET_SELL", "HOLD"]:
+            coin.holding_time = int(coin.date - coin.bought_date)
+
+        # if we had a STOP_LOSS event, and we've expired the NAUGHTY_TIMEOUT
+        # then set the coin free again, and allow the bot to buy it.
+        if coin.naughty:
+            if int(coin.date - coin.naughty_date) > coin.naughty_timeout:
+                coin.naughty = False
+
+        # do we have a new min price?
+        if market_price < coin.min:
+            coin.min = market_price
+
+        # do we have a new max price?
+        if market_price > coin.max:
+            coin.max = market_price
+
+        # coin.volume is only set when we hold this coin in our wallet
+        if coin.volume:
+            coin.value = coin.volume * coin.price
+            coin.cost = coin.bought_at * coin.volume
+            coin.profit = coin.value - coin.cost
+
+        # monitors for the highest price recorded for a coin we are looking
+        # to sell soon.
+        if coin.status == "TARGET_SELL":
+            if market_price > coin.tip:
+                coin.tip = market_price
+
+        # monitors for the lowest price recorded for a coin we are looking
+        # to buy soon.
+        if coin.status == "TARGET_DIP":
+            if market_price < coin.dip:
+                logging.debug(f"{coin.symbol}: new dip: {coin.dip}")
+                coin.dip = market_price
+
+        # updates the different price buckets data for this coint and
+        # removes any old data from those buckets.
+        self.consolidate_averages(coin, date, market_price)
+        self.trim_averages(coin, date)
+
+    def consolidate_on_new_slot(self, coin: Coin, date: float, unit):
+        """consolidates on a new min/hour/day"""
+
+        previous = {"d": "h", "h": "m", "m": "s"}[unit]
+
+        if unit != "m":
+            coin.lowest[unit].append(
+                (date, min([v for _, v in coin.lowest[previous]]))
+            )
+            coin.averages[unit].append(
+                (date, mean([v for _, v in coin.averages[previous]]))
+            )
+            coin.highest[unit].append(
+                (date, max([v for _, v in coin.highest[previous]]))
+            )
+        else:
+            coin.lowest["m"].append(
+                (date, min([v for _, v in coin.averages["s"]]))
+            )
+            coin.averages["m"].append(
+                (date, mean([v for _, v in coin.averages["s"]]))
+            )
+            coin.highest["m"].append(
+                (date, max([v for _, v in coin.averages["s"]]))
+            )
+
+    def consolidate_averages(
+        self, coin: Coin, date: float, market_price: float
+    ) -> None:
+        """consolidates all coin price averages over the different buckets"""
+
+        # append the latest 's' value, this could done more frequently than
+        # once per second.
+        coin.averages["s"].append((date, market_price))
+
+        # append the latest values,
+        # but only if the old 'm' record, is older than 1 minute
+        new_minute: bool = self.is_a_new_slot_of(coin, date, "m")
+        # on a new minute window, we need to find the lowest, average, and max
+        # prices across all the last 60 seconds of data we have available in
+        # our 'seconds' buckets.
+        # note that for seconds, we only store 'averages' as it doesn't make
+        # sense, to record lows/highs within a second window
+        if new_minute:
+            self.consolidate_on_new_slot(coin, date, "m")
+        else:
+            # finally if we're not reached a new minute, then jump out early
+            # as we won't have any additional data to process in the following
+            # buckets of hours, or days
+            return
+
+        # deals with the scenario where we have minutes data but no hourly
+        # data in our buckets yet.
+        # if we find the oldest record in our 'minutes' bucket is older than
+        # 1 hour, then we have entered a new hour window.
+        new_hour = self.is_a_new_slot_of(coin, date, "h")
+
+        # on a new hour, we need to record the min, average, max prices for
+        # this coin, based on the data we have from the last 60 minutes.
+        if new_hour:
+            self.consolidate_on_new_slot(coin, date, "h")
+        else:
+            # if we're not in a new hour, then skip further processing as
+            # there won't be any new day changes to be managed.
+            return
+
+        # deal with the scenario where we have hourly data but no daily data
+        # yet if the older record for hourly data is older than 1 day, then
+        # we've entered a new day window
+        new_day = self.is_a_new_slot_of(coin, date, "d")
+
+        # on a new day window, we need to update the min, averages, max prices
+        # recorded for this coin, based on the history available from the last
+        # 24 hours as recorded in our hourly buckets.
+        if new_day:
+            self.consolidate_on_new_slot(coin, date, "d")
+
+    def is_a_new_slot_of(self, coin: Coin, date: float, unit):
+        """finds out if we entered a new unit time slot"""
+        table = {
+            "m": ("s", 60),
+            "h": ("m", 3600),
+            "d": ("h", 86400),
+        }
+        previous, period = table[unit]
+
+        new_slot: bool = False
+        # deals with the scenario, where we don't yet have 'units' data
+        #  available yet
+        if not coin.averages[unit] and coin.averages[previous]:
+            if coin.averages[previous][0][0] <= date - period:
+                new_slot = True
+
+        # checks if our latest 'unit' record is older than 'period'
+        # then we've entered a new 'unit' window
+        if coin.averages[unit] and not new_slot:
+            record_date, _ = coin.averages[unit][-1]
+            if record_date <= date - period:
+                new_slot = True
+        return new_slot
+
+    def trim_averages(self, coin: Coin, date: float) -> None:
+        """trims all coin price older than ..."""
+
+        # checks the older record for each bucket and cleans up any data
+        # older than 60secs, 60min, 24hours
+        d, _ = coin.averages["s"][0]
+        if d < date - 60:
+            del coin.averages["s"][0]
+
+            if coin.averages["m"]:
+                d, _ = coin.averages["m"][0]
+                if d < date - 3600:
+                    del coin.lowest["m"][0]
+                    del coin.averages["m"][0]
+                    del coin.highest["m"][0]
+
+                    if coin.averages["h"]:
+                        d, _ = coin.averages["h"][0]
+                        if d < date - 86400:
+                            del coin.lowest["h"][0]
+                            del coin.averages["h"][0]
+                            del coin.highest["h"][0]
+
+    def check_for_pump_and_dump(self, coin: Coin) -> bool:
+        """calculates current price vs 1 hour ago for pump/dump events"""
+
+        # disclaimer: this might need some work, as it only avoids very sharp
+        # pump and dump short peaks.
+
+        # if the strategy doesn't consume averages, we force an average setting
+        # in here of 2hours so that we can use an anti-pump protection
+        timeslice: int = int("".join(coin.klines_trend_period[:-1]))
+        if timeslice == 0:
+            coin.klines_trend_period = "2h"
+            coin.klines_slice_percentage_change = float(1)
+
+        # make the coin as a pump if we don't have enough data to validate if
+        # this could possibly be a pump
+        if len(coin.averages["h"]) < 2:
+            return True
+
+        # on a pump, we would have a low price, followed by a pump(high price),
+        # followed by a dump(low price)
+        # so don't buy if we see this pattern over the last 2 hours.
+        last2hours = coin.averages["h"][-2:]
+
+        two_hours_ago = last2hours[0][1]
+        one_hour_ago = last2hours[1][1]
+
+        if (
+            (two_hours_ago < one_hour_ago)
+            and (one_hour_ago > float(coin.price))
+            and (coin.price > two_hours_ago)
+        ):
+            return True
+
+        return False
+
+    def new_listing(self, coin: Coin, days: int):
+        """checks if coin is a new listing"""
+        # wait a few days before going to buy a new coin
+        # since we list what coins we buy in TICKERS the bot would never
+        # buy a coin as soon it is listed.
+        # However in backtesting, the bot will buy that coin as its listed in
+        # the TICKERS list and the price lines show up in the price logs.
+        # we want to avoid buy these new listings as they are very volatile
+        # and the bot won't have enough history to properly backtest a coin
+        # looking for a profit pattern to use.
+        if len(coin.averages["d"]) < days:
+            return True
+        return False
