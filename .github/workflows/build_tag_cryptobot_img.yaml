@@ -30,7 +30,7 @@ jobs:
       - name: docker build latest
         run: |
           ./run build TAG=latest
-          docker -t ghcr.io/azulinho/cryptobot:latest ghcr.io/azulinho/cryptobot:${{ github.ref_name }}
+          docker tag ghcr.io/azulinho/cryptobot:latest ghcr.io/azulinho/cryptobot:${{ github.ref_name }}
 
       - name: docker push latest and tag
         run: |
