@@ -43,3 +43,47 @@ jobs:
           labels: ${{ steps.meta_cryptobot_img.outputs.labels }}
           push: true
           no-cache: true
+
+      - name: sets python version to pyston
+        run: |
+          echo pyston-2.3.5 > .python-version
+
+      - name: Docker meta ALT pyston cryptobot image
+        id: meta_alt_pyston_cryptobot_img
+        uses: docker/metadata-action@v3
+        with:
+          images: ghcr.io/azulinho/cryptobot
+          tags: |
+            type=raw,value=pyston
+
+      - name: Push ALT pyston to GitHub Packages
+        uses: docker/build-push-action@v2
+        with:
+          tags: ${{ steps.meta_cryptobot_img.outputs.tags }}
+          labels: ${{ steps.meta_cryptobot_img.outputs.labels }}
+          push: true
+          no-cache: false
+
+
+      - name: sets python version to pypy
+        run: |
+          echo pypy3.9-7.3.11 > .python-version
+
+      - name: Docker meta ALT pypy cryptobot image
+        id: meta_alt_pypy_cryptobot_img
+        uses: docker/metadata-action@v3
+        with:
+          images: ghcr.io/azulinho/cryptobot
+          tags: |
+            type=raw,value=pypy
+
+      - name: Push ALT pypy to GitHub Packages
+        uses: docker/build-push-action@v2
+        with:
+          tags: ${{ steps.meta_cryptobot_img.outputs.tags }}
+          labels: ${{ steps.meta_cryptobot_img.outputs.labels }}
+          push: true
+          no-cache: false
+
+
+
