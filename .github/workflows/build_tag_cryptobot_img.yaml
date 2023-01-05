@@ -28,12 +28,12 @@ jobs:
           docker pull ubuntu:focal
 
       - name: docker build latest
-        run:
+        run: |
           ./run build TAG=latest
           docker -t ghcr.io/azulinho/cryptobot:latest ghcr.io/azulinho/cryptobot:${{ github.ref_name }}
 
       - name: docker push latest and tag
-        run:
+        run: |
           docker push ghcr.io/azulinho/cryptobot:latest
           docker push ghcr.io/azulinho/cryptobot:${{ github.ref_name }}
 
