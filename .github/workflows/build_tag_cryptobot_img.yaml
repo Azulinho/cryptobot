@@ -16,19 +16,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Docker meta cryptobot image
-        id: meta_cryptobot_img
-        uses: docker/metadata-action@v3
-        with:
-          images: ghcr.io/azulinho/cryptobot
-          tags: |
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
-            type=sha
-            type=raw,value=latest
-
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
         with:
@@ -36,54 +23,41 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push to GitHub Packages
-        uses: docker/build-push-action@v2
-        with:
-          tags: ${{ steps.meta_cryptobot_img.outputs.tags }}
-          labels: ${{ steps.meta_cryptobot_img.outputs.labels }}
-          push: true
-          no-cache: true
+      - name: pull latest base image
+        run:
+          docker pull ubuntu:focal
+
+      - name: docker build latest
+        run:
+          ./run build TAG=latest
+          docker -t ghcr.io/azulinho/cryptobot:latest ghcr.io/azulinho/cryptobot:${DOCKER_TAG}
+
+      - name: docker push latest and tag
+        run:
+          DOCKER_TAG=`git tag --sort=version:refname|tail -1`
+          docker push ghcr.io/azulinho/cryptobot:latest
+          docker push ghcr.io/azulinho/cryptobot:${DOCKER_TAG}
 
       - name: sets python version to pyston
         run: |
           echo pyston-2.3.5 > .python-version
 
-      - name: Docker meta ALT pyston cryptobot image
-        id: meta_alt_pyston_cryptobot_img
-        uses: docker/metadata-action@v3
-        with:
-          images: ghcr.io/azulinho/cryptobot
-          tags: |
-            type=raw,value=pyston
+      - name: docker build pyston
+        run:
+          ./run build TAG=pyston
 
-      - name: Push ALT pyston to GitHub Packages
-        uses: docker/build-push-action@v2
-        with:
-          tags: ${{ steps.meta_cryptobot_img.outputs.tags }}
-          labels: ${{ steps.meta_cryptobot_img.outputs.labels }}
-          push: true
-          no-cache: false
-
+      - name: docker push pyston
+        run:
+          docker push ghcr.io/azulinho/cryptobot:pyston
 
       - name: sets python version to pypy
         run: |
           echo pypy3.9-7.3.11 > .python-version
 
-      - name: Docker meta ALT pypy cryptobot image
-        id: meta_alt_pypy_cryptobot_img
-        uses: docker/metadata-action@v3
-        with:
-          images: ghcr.io/azulinho/cryptobot
-          tags: |
-            type=raw,value=pypy
+      - name: docker build pypy
+        run:
+          ./run build TAG=pypy
 
-      - name: Push ALT pypy to GitHub Packages
-        uses: docker/build-push-action@v2
-        with:
-          tags: ${{ steps.meta_cryptobot_img.outputs.tags }}
-          labels: ${{ steps.meta_cryptobot_img.outputs.labels }}
-          push: true
-          no-cache: false
-
-
-
+      - name: docker push pypy
+        run:
+          docker push ghcr.io/azulinho/cryptobot:pypy
