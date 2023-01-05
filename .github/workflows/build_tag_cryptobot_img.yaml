@@ -30,13 +30,12 @@ jobs:
       - name: docker build latest
         run:
           ./run build TAG=latest
-          docker -t ghcr.io/azulinho/cryptobot:latest ghcr.io/azulinho/cryptobot:${DOCKER_TAG}
+          docker -t ghcr.io/azulinho/cryptobot:latest ghcr.io/azulinho/cryptobot:${{ git.ref_name }}
 
       - name: docker push latest and tag
         run:
-          DOCKER_TAG=`git tag --sort=version:refname|tail -1`
           docker push ghcr.io/azulinho/cryptobot:latest
-          docker push ghcr.io/azulinho/cryptobot:${DOCKER_TAG}
+          docker push ghcr.io/azulinho/cryptobot:${{ git.ref_name }}
 
       - name: sets python version to pyston
         run: |
