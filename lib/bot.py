@@ -1,18 +1,7 @@
 """ Bot Class """
 
 import hashlib
-from lib.coin import Coin
-from typing import Any, Dict, List, Tuple
-from tenacity import retry, wait_exponential
-from filelock import SoftFileLock
-from binance.exceptions import BinanceAPIException
-import yaml
-from isal import igzip
-import requests
-from lz4.frame import open as lz4open
-from tenacity import retry, wait_exponential
 import json
-import udatetime
 import logging
 import pickle  # nosec
 import pprint
@@ -20,20 +9,29 @@ import sys
 import traceback
 from datetime import datetime
 from itertools import islice
+from multiprocessing import Manager, Process, Queue
 from os import fsync, unlink
 from os.path import basename, exists
 from time import sleep
 from typing import Any, Dict, List, Tuple
-from multiprocessing import Process, Queue
 
+import requests
+import udatetime
+import yaml
+from binance.exceptions import BinanceAPIException
+from filelock import SoftFileLock
+from isal import igzip
+from lz4.frame import open as lz4open
+from tenacity import retry, wait_exponential
 
+from lib.coin import Coin
 from lib.helpers import (
     add_100,
     c_date_from,
     c_from_timestamp,
     floor_value,
-    percent,
     mean,
+    percent,
     requests_with_backoff,
 )
 
@@ -1558,29 +1556,30 @@ class Bot:
         if not self.cfg["TICKERS"]:
             logging.warning("no tickers to backtest")
         else:
-            q_klines: Queue = Queue()
-            Process(
-                target=self.place_klines_into_q,
-                args=(
-                    self.cfg,
-                    q_klines,
-                ),
-            ).start()
+            with Manager() as manager:
+                q_klines = manager.Queue()
+                Process(
+                    target=self.place_klines_into_q,
+                    args=(
+                        self.cfg,
+                        q_klines,
+                    ),
+                ).start()
 
-            finished = False
-            while True:
-                self.process_control_flags()
-                if self.quit:
-                    break
-                if finished:
-                    break
-                payload = q_klines.get()
-                for item in payload:
-                    symbol, date, market_price = item
-                    if symbol == "QUIT":
-                        finished = True
+                finished = False
+                while True:
+                    self.process_control_flags()
+                    if self.quit:
                         break
-                    self.process_line(symbol, date, market_price)
+                    if finished:
+                        break
+                    payload = q_klines.get()
+                    for item in payload:
+                        symbol, date, market_price = item
+                        if symbol == "QUIT":
+                            finished = True
+                            break
+                        self.process_line(symbol, date, market_price)
 
         # now that we are done, lets record our results
         with open(
