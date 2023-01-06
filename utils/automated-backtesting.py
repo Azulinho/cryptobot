@@ -483,9 +483,17 @@ def gather_best_results_from_run(coinfiles, sortby, results_dir):
         with open(results_txt) as f:
             run_results = f.read()
 
-        wins, losses, stales, holds = re.search(wins_re, run_results).groups()
-
-        balance = float(re.search(balance_re, run_results).groups()[0])
+        try:
+            wins, losses, stales, holds = re.search(
+                wins_re, run_results
+            ).groups()
+            balance = float(re.search(balance_re, run_results).groups()[0])
+        except AttributeError as e:
+            log_msg(f"Exception while collecting results from {results_txt}")
+            log_msg(e)
+            log_msg(f"Contents of file below: \n{run_results}")
+            wins, losses, stales, holds = [0, 0, 0, 0]
+            balance = 0
 
         if sortby == "wins":
             if (int(losses) + int(stales) + int(holds)) == 0:
