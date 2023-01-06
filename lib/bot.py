@@ -1,37 +1,36 @@
 """ Bot Class """
 
 import hashlib
-from lib.coin import Coin
-from typing import Any, Dict, List, Tuple
-from tenacity import retry, wait_exponential
-from filelock import SoftFileLock
-from binance.exceptions import BinanceAPIException
-import yaml
-from isal import igzip
-import requests
-from lz4.frame import open as lz4open
-from tenacity import retry, wait_exponential
 import json
-import udatetime
 import logging
 import pickle  # nosec
 import pprint
 from datetime import datetime
 from itertools import islice
-from os import fsync, unlink
+from multiprocessing import Process
+from os import fsync, unlink, getpid
 from os.path import basename, exists
 from time import sleep
 from typing import Any, Dict, List, Tuple
-from multiprocessing import Process, Queue
 
+import requests
+import udatetime
+import yaml
+import zmq
+from binance.exceptions import BinanceAPIException
+from filelock import SoftFileLock
+from isal import igzip
+from lz4.frame import open as lz4open
+from tenacity import retry, wait_exponential
 
+from lib.coin import Coin
 from lib.helpers import (
     add_100,
     c_date_from,
     c_from_timestamp,
     floor_value,
-    percent,
     mean,
+    percent,
     requests_with_backoff,
 )
 
@@ -1521,11 +1520,15 @@ class Bot:
         # and finally run through the strategy for our coin.
         self.run_strategy(self.coins[symbol])
 
-    def place_klines_into_q(self, cfg: Dict, q_klines: Queue):
+    def place_klines_into_q(self, cfg: Dict, addr: str):
         """reads all price.logs spliting out symbol, date, price, placing
         the data into a queue.
         This function is called through a mp.Process()
         """
+        context = zmq.Context()
+        push = context.socket(zmq.PUSH)
+        push.bind(addr)
+        sleep(0.1)
         for logfile in cfg["PRICE_LOGS"]:
             logging.info(f"backtesting: {logfile}")
             logging.info(f"wallet: {self.wallet}")
@@ -1538,7 +1541,7 @@ class Bot:
             else:
                 f = igzip.open(logfile, "rt")
             while True:
-                next_n_lines = list(islice(f, 131070))
+                next_n_lines = list(islice(f, 1024))
                 if not next_n_lines:
                     f.close()
                     break
@@ -1546,14 +1549,10 @@ class Bot:
                 for line in next_n_lines:
                     if cfg["PAIRING"] not in line:
                         continue
-                    symbol, date, market_price = self.split_logline(str(line))
-                    # symbol will be False if we fail to process the line fields
-                    if not symbol:
-                        continue
-                    payload.append((symbol, date, market_price))
-                q_klines.put(payload)
+                    payload.append(line)
+                push.send_pyobj(payload)
 
-        q_klines.put([("QUIT", "QUIT", "QUIT")])
+        push.send_pyobj(["QUIT"])
 
     def backtesting(self) -> None:
         """the bot Backtesting main loop"""
@@ -1565,30 +1564,38 @@ class Bot:
         if not self.cfg["TICKERS"]:
             logging.warning("no tickers to backtest")
         else:
-            q_klines: Queue = Queue()
+            # on automated-backtesting we need dedicated filepaths for each proc
+            addr = f"ipc:///tmp/{getpid()}"
+
             Process(
                 target=self.place_klines_into_q,
-                args=(
-                    self.cfg,
-                    q_klines,
-                ),
+                args=(self.cfg, addr),
             ).start()
+
+            context = zmq.Context()
+            pull = context.socket(zmq.PULL)
+            pull.connect(addr)
+            # sleep(0.1)
 
             finished = False
             while True:
                 self.process_control_flags()
-                if self.quit:
-                    break
                 if finished:
                     break
-                payload = q_klines.get()
-                for item in payload:
-                    symbol, date, market_price = item
-                    if symbol == "QUIT":
+                lines = pull.recv_pyobj()
+                for line in lines:
+                    if line == "QUIT":
                         finished = True
                         break
+                    symbol, date, market_price = self.split_logline(str(line))
+                    # symbol will be False if we fail to process the line fields
+                    if not symbol:
+                        continue
                     self.process_line(symbol, date, market_price)
-
+        try:
+            unlink(f"/tmp/{getpid()}")
+        except:  # pylint: disable=bare-except
+            pass
         # now that we are done, lets record our results
         with open(
             f"{self.logs_dir}/backtesting.log", "a", encoding="utf-8"
