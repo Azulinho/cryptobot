@@ -32,104 +32,100 @@ def control_center() -> None:
 
 
 if __name__ == "__main__":
-    try:
-        parser = argparse.ArgumentParser()
-        parser.add_argument("-c", "--config", help="config.yaml file")
-        parser.add_argument("-s", "--secrets", help="secrets.yaml file")
-        parser.add_argument(
-            "-m", "--mode", help='bot mode ["live", "backtesting", "testnet"]'
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--config", help="config.yaml file")
+    parser.add_argument("-s", "--secrets", help="secrets.yaml file")
+    parser.add_argument(
+        "-m", "--mode", help='bot mode ["live", "backtesting", "testnet"]'
+    )
+    parser.add_argument(
+        "-ld", "--logs-dir", help="logs directory", default="log"
+    )
+    args = parser.parse_args()
+
+    with open(args.config, encoding="utf-8") as _f:
+        cfg = yaml.safe_load(_f.read())
+    with open(args.secrets, encoding="utf-8") as _f:
+        secrets = yaml.safe_load(_f.read())
+    cfg["MODE"] = args.mode
+
+    PID = getpid()
+    c_handler = colorlog.StreamHandler(sys.stdout)
+    c_handler.setFormatter(
+        colorlog.ColoredFormatter(
+            "%(log_color)s[%(levelname)s] %(message)s",
+            log_colors={
+                "WARNING": "yellow",
+                "ERROR": "red",
+                "CRITICAL": "red,bg_white",
+            },
         )
-        parser.add_argument(
-            "-ld", "--logs-dir", help="logs directory", default="log"
+    )
+    c_handler.setLevel(logging.INFO)
+
+    if cfg["DEBUG"]:
+        f_handler = logging.FileHandler(f"{args.logs_dir}/debug.log")
+        f_handler.setLevel(logging.DEBUG)
+
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format=" ".join(
+                [
+                    "(%(asctime)s)",
+                    f"({PID})",
+                    "(%(lineno)d)",
+                    "(%(funcName)s)",
+                    "[%(levelname)s]",
+                    "%(message)s",
+                ]
+            ),
+            handlers=[f_handler, c_handler],
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
-        args = parser.parse_args()
-
-        with open(args.config, encoding="utf-8") as _f:
-            cfg = yaml.safe_load(_f.read())
-        with open(args.secrets, encoding="utf-8") as _f:
-            secrets = yaml.safe_load(_f.read())
-        cfg["MODE"] = args.mode
-
-        PID = getpid()
-        c_handler = colorlog.StreamHandler(sys.stdout)
-        c_handler.setFormatter(
-            colorlog.ColoredFormatter(
-                "%(log_color)s[%(levelname)s] %(message)s",
-                log_colors={
-                    "WARNING": "yellow",
-                    "ERROR": "red",
-                    "CRITICAL": "red,bg_white",
-                },
-            )
-        )
-        c_handler.setLevel(logging.INFO)
-
-        if cfg["DEBUG"]:
-            f_handler = logging.FileHandler(f"{args.logs_dir}/debug.log")
-            f_handler.setLevel(logging.DEBUG)
-
-            logging.basicConfig(
-                level=logging.DEBUG,
-                format=" ".join(
-                    [
-                        "(%(asctime)s)",
-                        f"({PID})",
-                        "(%(lineno)d)",
-                        "(%(funcName)s)",
-                        "[%(levelname)s]",
-                        "%(message)s",
-                    ]
-                ),
-                handlers=[f_handler, c_handler],
-                datefmt="%Y-%m-%d %H:%M:%S",
-            )
-        else:
-            logging.basicConfig(
-                level=logging.INFO,
-                handlers=[c_handler],
-            )
-
-        if args.mode == "backtesting":
-            client = cached_binance_client(
-                secrets["ACCESS_KEY"], secrets["SECRET_KEY"]
-            )
-        else:
-            client = Client(secrets["ACCESS_KEY"], secrets["SECRET_KEY"])
-
-        module = importlib.import_module(f"strategies.{cfg['STRATEGY']}")
-        Strategy = getattr(module, "Strategy")
-
-        bot = Strategy(client, args.config, cfg)  # type: ignore
-
-        logging.info(
-            f"running in {bot.mode} mode with "
-            + f"{json.dumps(args.config, indent=4)}"
+    else:
+        logging.basicConfig(
+            level=logging.INFO,
+            handlers=[c_handler],
         )
 
-        # clean up any stale control/STOP files
-        if exists("control/STOP"):
-            unlink("control/STOP")
+    if args.mode == "backtesting":
+        client = cached_binance_client(
+            secrets["ACCESS_KEY"], secrets["SECRET_KEY"]
+        )
+    else:
+        client = Client(secrets["ACCESS_KEY"], secrets["SECRET_KEY"])
 
-        if bot.mode in ["testnet", "live"]:
-            # start command-control-center (ipdb on port 5555)
-            t = threading.Thread(target=control_center)
-            t.daemon = True
-            t.start()
+    module = importlib.import_module(f"strategies.{cfg['STRATEGY']}")
+    Strategy = getattr(module, "Strategy")
 
-        if bot.mode == "backtesting":
-            bot.backtesting()
+    bot = Strategy(client, args.config, cfg)  # type: ignore
 
-        if bot.mode == "logmode":
-            bot.logmode()
+    logging.info(
+        f"running in {bot.mode} mode with "
+        + f"{json.dumps(args.config, indent=4)}"
+    )
 
-        if bot.mode == "testnet":
-            bot.client.API_URL = "https://testnet.binance.vision/api"
-            bot.run()
+    # clean up any stale control/STOP files
+    if exists("control/STOP"):
+        unlink("control/STOP")
 
-        if bot.mode == "live":
-            bot.run()
+    if bot.mode in ["testnet", "live"]:
+        # start command-control-center (ipdb on port 5555)
+        t = threading.Thread(target=control_center)
+        t.daemon = True
+        t.start()
 
-        bot.print_final_balance_report()
+    if bot.mode == "backtesting":
+        bot.backtesting()
 
-    except Exception:  # pylint: disable=broad-except
-        logging.error(traceback.format_exc())
+    if bot.mode == "logmode":
+        bot.logmode()
+
+    if bot.mode == "testnet":
+        bot.client.API_URL = "https://testnet.binance.vision/api"
+        bot.run()
+
+    if bot.mode == "live":
+        bot.run()
+
+    bot.print_final_balance_report()
