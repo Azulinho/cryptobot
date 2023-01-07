@@ -7,7 +7,7 @@ import shutil
 import subprocess
 from collections import OrderedDict
 from datetime import datetime
-from multiprocessing import get_context
+from multiprocessing import Pool
 from string import Template
 from typing import Optional
 
@@ -73,7 +73,7 @@ def split_logs_into_coins(filename, cfg, filterby, logs_dir="log"):
 
     log_msg("compressing logfiles....")
     tasks = []
-    with get_context("spawn").Pool(processes=N_TASKS) as pool:
+    with Pool(processes=N_TASKS) as pool:
         for coin_filename in coinfiles:
             job = pool.apply_async(compress_file, (coin_filename,))
             tasks.append(job)
@@ -315,7 +315,7 @@ def generate_config_for_tuned_strategy(strategy, cfg, results, logfile):
 def run_tuned_config(strategies, config_dir, results_dir):
     """run final tuned config"""
     # run_tuned_config
-    with get_context("spawn").Pool(processes=N_TASKS) as pool:
+    with Pool(processes=N_TASKS) as pool:
         tasks = []
         for strategy in strategies:
             # first check if our config to test actually contain any tickers
@@ -370,7 +370,7 @@ def process_all_coin_files(
 ):
     """process all coin files"""
     tasks = []
-    with get_context("spawn").Pool(processes=N_TASKS) as pool:
+    with Pool(processes=N_TASKS) as pool:
         for coin in coinfiles:
             symbol = coin.split(".")[1]
             # then we backtesting this strategy run against each coin
