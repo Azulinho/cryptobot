@@ -1540,6 +1540,7 @@ class Bot:
             while True:
                 next_n_lines = list(islice(f, 131070))
                 if not next_n_lines:
+                    f.close()
                     break
                 payload = []
                 for line in next_n_lines:
