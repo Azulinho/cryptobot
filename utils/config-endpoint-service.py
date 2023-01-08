@@ -8,7 +8,7 @@ import subprocess
 import threading
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Tuple
+from typing import Dict
 
 import pandas  # pylint: disable=E0401
 import yaml
@@ -39,7 +39,7 @@ def backtesting_dates(days):
 
 
 def create_zipped_logfile(
-    dates, pairing, logs_dir="log", work_dir="work", symbols=[]
+    dates, pair, logs_dir="log", work_dir=None, symbols=None
 ):
     """
     generates lastfewdays.log.gz from the provided list of price.log files
@@ -47,11 +47,15 @@ def create_zipped_logfile(
     also if symbols[] is provided, then only symbols in that list is used
     to generate the lastfewdays.log.gz
     """
+    if symbols is None:
+        symbols = []
+
+    if work_dir is None:
+        work_dir = logs_dir
+
     log_msg("creating gzip lastfewdays.log.gz")
 
-    today = datetime.now().strftime("%Y%m%d")
-
-    with open(f"{logs_dir}/lastfewdays.log", "wt") as w:
+    with open(f"{work_dir}/lastfewdays.log", "wt") as w:
         for day in dates:
             log = f"{logs_dir}/{day}.log.gz"
 
@@ -60,62 +64,69 @@ def create_zipped_logfile(
                 continue
             with igzip.open(log, "rt") as r:
                 for line in r:
-                    if pairing not in line:
+                    if pair not in line:
                         continue
                     # don't process any BEAR/BULL/UP/DOWN lines
                     excluded = [
-                        f"DOWN{pairing}",
-                        f"UP{pairing}",
-                        f"BEAR{pairing}",
-                        f"BULL{pairing}",
+                        f"DOWN{pair}",
+                        f"UP{pair}",
+                        f"BEAR{pair}",
+                        f"BULL{pair}",
                     ]
-                    if any(symbol in line for symbol in excluded):
+                    if any(symbol in str(line) for symbol in excluded):
                         continue
 
                     if symbols:
                         if not any(symbol in line for symbol in symbols):
                             continue
-                    w.write(line)
-    with igzip.open(f"{logs_dir}/lastfewdays.log.gz", "wt") as compressed:
-        with open(f"{logs_dir}/lastfewdays.log", "rt") as uncompressed:
+                    w.write(str(line))
+    with igzip.open(f"{work_dir}/lastfewdays.log.gz", "wt") as compressed:
+        with open(f"{work_dir}/lastfewdays.log", "rt") as uncompressed:
             shutil.copyfileobj(uncompressed, compressed)
 
 
-def run_automated_backtesting(config, min_profit, sortby, logs_dir="log"):
+def run_automated_backtesting(
+    config_file, minimum_profit, sort_by, logs_dir="log"
+):
     """calls automated-backtesting"""
     subprocess.run(
         "python -u utils/automated-backtesting.py "
         + f"-l {logs_dir}/lastfewdays.log.gz "
-        + f"-c configs/{config} "
-        + f"-m {min_profit} "
+        + f"-c configs/{config_file} "
+        + f"-m {minimum_profit} "
         + "-f '' "
-        + f"-s {sortby} "
+        + f"-s {sort_by} "
         + "--run-final-backtest=False",
         shell=True,
         check=False,
     )
 
 
-def run(backtrack, pairing, min_profit, config, sortby):
-    dates = backtesting_dates(backtrack)
-    create_zipped_logfile(dates, pairing, logs_dir="log", symbols=[])
-    run_automated_backtesting(config, min_profit, sortby, logs_dir="log")
+def run(backtrack_days, pair, minimum_profit, config_file, sort_by):
+    """main block"""
+    dates = backtesting_dates(backtrack_days)
+    create_zipped_logfile(dates, pair, logs_dir="log", symbols=[])
+    run_automated_backtesting(
+        config_file, minimum_profit, sort_by, logs_dir="log"
+    )
 
 
 @app.route("/")
 def root():
-    tuned_config = g["tuned_config"]
+    """Flask / handler"""
+    _tuned_config = g["tuned_config"]
 
-    with open(f"configs/{tuned_config}") as f:
-        config = yaml.safe_load(f.read())
-        hash = hashlib.md5(
+    with open(f"configs/{_tuned_config}") as f:
+        cfg = yaml.safe_load(f.read())
+        hashstr = hashlib.md5(
             (json.dumps(config["TICKERS"], sort_keys=True)).encode("utf-8")
         ).hexdigest()
-        config["md5"] = hash
-    return jsonify(config)
+        config["md5"] = hashstr
+    return jsonify(cfg)
 
 
 def api_endpoint():
+    """runs Flask"""
     app.run(debug=True, use_reloader=False, host="0.0.0.0", port=5883)
 
 

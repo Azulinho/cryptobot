@@ -6,7 +6,6 @@ import json
 import logging
 import sys
 import threading
-import traceback
 from os import getpid, unlink
 from os.path import exists
 
@@ -19,8 +18,8 @@ from lib.helpers import cached_binance_client
 
 # allow migration from old pickle format to new format
 # old pickle cointains app.Bot, app.Coin
-from lib.bot import Bot
-from lib.coin import Coin
+from lib.bot import Bot  # pylint: disable=unused-import
+from lib.coin import Coin  # pylint: disable=unused-import
 
 
 def control_center() -> None:
