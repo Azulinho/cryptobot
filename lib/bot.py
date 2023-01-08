@@ -7,16 +7,18 @@ import pickle  # nosec
 import pprint
 from datetime import datetime
 from itertools import islice
-from multiprocessing import Manager, Process, Queue
+from multiprocessing import Process
 from os import fsync, unlink
 from os.path import basename, exists
 from time import sleep
 from typing import Any, Dict, List, Tuple
 
+import faster_fifo_reduction  # pylint: disable=unused-import
 import requests
 import udatetime
 import yaml
 from binance.exceptions import BinanceAPIException
+from faster_fifo import Queue  # pylint: disable=no-name-in-module
 from filelock import SoftFileLock
 from isal import igzip
 from lz4.frame import open as lz4open
@@ -1544,14 +1546,10 @@ class Bot:
                 for line in next_n_lines:
                     if cfg["PAIRING"] not in line:
                         continue
-                    symbol, date, market_price = self.split_logline(str(line))
-                    # symbol will be False if we fail to process the line fields
-                    if not symbol:
-                        continue
-                    payload.append((symbol, date, market_price))
+                    payload.append(line)
                 q_klines.put(payload)
 
-        q_klines.put([("QUIT", "QUIT", "QUIT")])
+        q_klines.put([("QUIT")])
 
     def backtesting(self) -> None:
         """the bot Backtesting main loop"""
@@ -1563,30 +1561,32 @@ class Bot:
         if not self.cfg["TICKERS"]:
             logging.warning("no tickers to backtest")
         else:
-            with Manager() as manager:
-                q_klines = manager.Queue()
-                Process(
-                    target=self.place_klines_into_q,
-                    args=(
-                        self.cfg,
-                        q_klines,
-                    ),
-                ).start()
+            q_klines = Queue(max_size_bytes=8 * 1024 * 1024)
+            Process(
+                target=self.place_klines_into_q,
+                args=(
+                    self.cfg,
+                    q_klines,
+                ),
+            ).start()
 
-                finished = False
-                while True:
-                    self.process_control_flags()
-                    if self.quit:
+            finished = False
+            while True:
+                self.process_control_flags()
+                if self.quit:
+                    break
+                if finished:
+                    break
+                payload = q_klines.get()
+                for line in payload:
+                    if line == "QUIT":
+                        finished = True
                         break
-                    if finished:
-                        break
-                    payload = q_klines.get()
-                    for item in payload:
-                        symbol, date, market_price = item
-                        if symbol == "QUIT":
-                            finished = True
-                            break
-                        self.process_line(symbol, date, market_price)
+                    symbol, date, market_price = self.split_logline(str(line))
+                    # symbol will be False if we fail to process the line fields
+                    if not symbol:
+                        continue
+                    self.process_line(symbol, date, market_price)
 
         # now that we are done, lets record our results
         with open(
