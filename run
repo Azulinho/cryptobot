@@ -346,7 +346,7 @@ function tests() { # CI and pre-commit tests
 	echo "running black..."
 	black --check app.py strategies/ lib/ tests/ utils/
 	echo "running pylint..."
-	ls strategies/*.py |grep -v Local | xargs pylint -E app.py lib/*.py utils/*.py
+	ls strategies/*.py |grep -v Local | xargs pylint app.py lib/*.py utils/*.py
 	echo "running mypy..."
 	ls strategies/*.py |grep -v Local | xargs mypy app.py lib/*.py utils/*.py
 	echo "running pytest..."
