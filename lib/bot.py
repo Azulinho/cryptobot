@@ -25,15 +25,8 @@ from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 
 from lib.coin import Coin
-from lib.helpers import (
-    add_100,
-    c_date_from,
-    c_from_timestamp,
-    floor_value,
-    mean,
-    percent,
-    requests_with_backoff,
-)
+from lib.helpers import (add_100, c_date_from, c_from_timestamp, floor_value,
+                         mean, percent, requests_with_backoff)
 
 
 class Bot:
@@ -1538,7 +1531,8 @@ class Bot:
             else:
                 f = igzip.open(logfile, "rt")
             while True:
-                next_n_lines = list(islice(f, 131070))
+                # next_n_lines = list(islice(f, 131070))
+                next_n_lines = list(islice(f, 65535))
                 if not next_n_lines:
                     f.close()
                     break
@@ -1550,6 +1544,26 @@ class Bot:
                 q_klines.put(payload)
 
         q_klines.put([("QUIT")])
+
+    def parse_klines_into_q(self, q_klines: Queue, q_parsed_klines: Queue):
+        """pulls from q_klines, splits into symbol, date, price into Q"""
+        finished = False
+        while True:
+            payload = []
+            if finished:
+                break
+            lines = q_klines.get()
+            for line in lines:
+                if line == "QUIT":
+                    finished = True
+                    break
+                symbol, date, market_price = self.split_logline(str(line))
+                # symbol will be False if we fail to process the line fields
+                if not symbol:
+                    continue
+                payload.append((symbol, date, market_price))
+            q_parsed_klines.put(payload)
+        q_parsed_klines.put([("QUIT", "QUIT", "QUIT")])
 
     def backtesting(self) -> None:
         """the bot Backtesting main loop"""
@@ -1570,6 +1584,15 @@ class Bot:
                 ),
             ).start()
 
+            q_parsed_klines = Queue(max_size_bytes=8 * 1024 * 1024)
+            Process(
+                target=self.parse_klines_into_q,
+                args=(
+                    q_klines,
+                    q_parsed_klines,
+                ),
+            ).start()
+
             finished = False
             while True:
                 self.process_control_flags()
@@ -1577,15 +1600,12 @@ class Bot:
                     break
                 if finished:
                     break
-                payload = q_klines.get()
-                for line in payload:
-                    if line == "QUIT":
+                payload = q_parsed_klines.get()
+                for item in payload:
+                    symbol, date, market_price = item
+                    if symbol == "QUIT":
                         finished = True
                         break
-                    symbol, date, market_price = self.split_logline(str(line))
-                    # symbol will be False if we fail to process the line fields
-                    if not symbol:
-                        continue
                     self.process_line(symbol, date, market_price)
 
         # now that we are done, lets record our results
