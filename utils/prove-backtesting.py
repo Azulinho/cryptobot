@@ -122,12 +122,15 @@ def run_prove_backtesting(config, results_dir):
 
 
 def run_automated_backtesting(
-    config, min_profit, sortby, logs_dir="log", env={}, filterby=""
+    config, min_profit, sortby, logs_dir="log", env=None, filterby=""
 ):
     """calls automated-backtesting"""
+    if env is None:
+        env = {}
     subprocess.run(
         f"python -u utils/automated-backtesting.py -l {logs_dir}/lastfewdays.log.gz "
-        + f"-c configs/{config} -m {min_profit} -f '{filterby}' -s {sortby} --run-final-backtest=False",
+        + f"-c configs/{config} -m {min_profit} -f '{filterby}' -s {sortby}"
+        + " --run-final-backtest=False",
         shell=True,
         check=False,
         env=env,
@@ -135,7 +138,7 @@ def run_automated_backtesting(
 
 
 def create_zipped_logfile(
-    dates, pairing, logs_dir="log", symbols=[], filterby=""
+    dates, pairing, logs_dir="log", symbols=None, filterby=""
 ):
     """
     generates lastfewdays.log.gz from the provided list of price.log files
@@ -143,6 +146,8 @@ def create_zipped_logfile(
     also if symbols[] is provided, then only symbols in that list is used
     to generate the lastfewdays.log.gz
     """
+    if symbols is None:
+        symbols = []
     log_msg("creating gzip lastfewdays.log.gz")
 
     with open(f"{logs_dir}/lastfewdays.log", "wt") as w:

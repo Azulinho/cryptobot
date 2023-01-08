@@ -5,8 +5,6 @@ import json
 import logging
 import pickle  # nosec
 import pprint
-import sys
-import traceback
 from datetime import datetime
 from itertools import islice
 from multiprocessing import Manager, Process, Queue
@@ -168,9 +166,7 @@ class Bot:
             "KLINES_CACHING_SERVICE_URL", "http://klines:8999"
         )
 
-    def extract_order_data(  # pylint: disable=no-self-use
-        self, order_details, coin
-    ) -> Dict[str, Any]:
+    def extract_order_data(self, order_details, coin) -> Dict[str, Any]:
         """calculate average price and volume for a buy order"""
 
         # Each order will be fullfilled by different traders, and made of
@@ -809,7 +805,7 @@ class Bot:
             if coin_symbol in self.wallet:
                 self.log_debug_coin(self.coins[coin_symbol])
 
-    def target_sell(self, coin: Coin) -> bool:  # pylint: disable=R0201
+    def target_sell(self, coin: Coin) -> bool:
         """
         Check for a coin we HOLD if we reached the SELL_AT_PERCENTAGE
         and mark that coin as TARGET_SELL if we have.
@@ -1199,9 +1195,15 @@ class Bot:
             logging.warning("found coins.json, loading coins")
             with open("state/coins.json", "rt") as f:
                 objects = dict(json.loads(f.read()))
-                for symbol in objects.keys():
+                for (
+                    symbol
+                ) in (
+                    objects.keys()
+                ):  # pylint: disable=consider-using-dict-items
                     self.init_or_update_coin(objects[symbol])
-                    for k, v in objects[symbol].items():
+                    for k, v in objects[
+                        symbol
+                    ].items():  # pylint: disable=consider-using-dict-items
                         # we load the klines from the init_or_update_coin()
                         # above so we should skip the data from the .json file
                         if k in ["lowest", "averages", "highest"]:
@@ -1391,7 +1393,7 @@ class Bot:
         return (False, "HOLD")
 
     def buy_strategy(
-        self, coin: Coin  # pylint: disable=unused-argument,R0201
+        self, coin: Coin  # pylint: disable=unused-argument
     ) -> bool:
         """buy strategy"""
         return False
@@ -1518,6 +1520,10 @@ class Bot:
         self.run_strategy(self.coins[symbol])
 
     def place_klines_into_q(self, cfg: Dict, q_klines: Queue):
+        """reads all price.logs spliting out symbol, date, price, placing
+        the data into a queue.
+        This function is called through a mp.Process()
+        """
         for logfile in cfg["PRICE_LOGS"]:
             logging.info(f"backtesting: {logfile}")
             logging.info(f"wallet: {self.wallet}")
@@ -1618,7 +1624,8 @@ class Bot:
                 + f"?symbol={coin.symbol}"
                 + f"&date={coin.date}"
                 + f"&mode={self.mode}"
-                + f"&debug={self.debug}"
+                + f"&debug={self.debug}",
+                timeout=30,
             )
             data = response.json()
         # TODO: rework this
@@ -1845,7 +1852,7 @@ class Bot:
     def refresh_config_from_config_endpoint_service(self) -> None:
         """updates the bot config (ticker list) from the config endpoint"""
         try:
-            r = requests.get(self.pull_config_address).json()
+            r = requests.get(self.pull_config_address, timeout=1).json()
             if r["md5"] == self.pull_config_md5:
                 return
 
@@ -1976,23 +1983,46 @@ class Bot:
 
         if unit != "m":
             coin.lowest[unit].append(
-                (date, min([v for _, v in coin.lowest[previous]]))
+                (
+                    date,
+                    min(  # pylint: disable=consider-using-generator
+                        [v for _, v in coin.lowest[previous]]
+                    ),
+                )
             )
             coin.averages[unit].append(
-                (date, mean([v for _, v in coin.averages[previous]]))
+                (
+                    date,
+                    mean([v for _, v in coin.averages[previous]]),
+                )  # pylint: disable=consider-using-generator
             )
             coin.highest[unit].append(
-                (date, max([v for _, v in coin.highest[previous]]))
+                (
+                    date,
+                    max(  # pylint: disable=consider-using-generator
+                        [v for _, v in coin.highest[previous]]
+                    ),
+                )
             )
         else:
             coin.lowest["m"].append(
-                (date, min([v for _, v in coin.averages["s"]]))
+                (
+                    date,
+                    min(  # pylint: disable=consider-using-generator
+                        [v for _, v in coin.averages["s"]]
+                    ),
+                )
             )
             coin.averages["m"].append(
                 (date, mean([v for _, v in coin.averages["s"]]))
             )
             coin.highest["m"].append(
-                (date, max([v for _, v in coin.averages["s"]]))
+                (
+                    date,
+                    max(  # pylint: disable=consider-using-generator
+                        [v for _, v in coin.averages["s"]]
+                    ),
+                )
             )
 
     def consolidate_averages(

@@ -457,7 +457,7 @@ def cli():
         args.config_dir,
         args.results_dir,
         args.logs_dir,
-        False if args.run_final_backtest != "True" else True,
+        not args.run_final_backtest != "True",
     ]
 
 
