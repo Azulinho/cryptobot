@@ -356,6 +356,7 @@ function tests() { # CI and pre-commit tests
 
 function github_actions_ci_pr_docker_tests() {
 	set -ex
+  ./run down
   ./run build TAG=pr
   ./run klines-caching-service RUN_IN_BACKGROUND=yes TAG=pr
 
@@ -432,6 +433,7 @@ function github_actions_ci_pr_docker_tests() {
 	md5sum ${CONFIG_DIR}/BuyOnRecoveryAfterDropFromAverageStrategy.yaml \
 		|cut -f1 -d " " | grep 'dbb69758a3d2eb24041ec70cd4494a1e'
 
+  ./run down
 }
 
 function compress_logs() { # compresses the latest price logs
