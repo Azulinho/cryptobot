@@ -885,7 +885,7 @@ This will generate a config.yaml with the coins sorted by which strategy
 returned the highest profit for each coin.
 
 ```
-./run automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG_FILE=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='profit'
+./run automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG_FILE=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='greed'
 ```
 
 This will generate a config.yaml with the coins sorted by which strategy
@@ -893,8 +893,18 @@ returned the highest number of clean wins for each coin. We call clean wins as
 bot runs that don't contain any losses, holds or stales, only wins.
 
 ```
-./run automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG_FILE=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='wins'
+./run automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG_FILE=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='number_of_clean_wins'
 ```
+
+This will generate a config.yaml with the coins sorted by which strategy
+returned the highest profit for each coin, where there weren't any stales,
+losses, or coins left in the wallet at the end of the run.
+
+```
+./run automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG_FILE=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='max_profit_on_clean_wins'
+```
+
+
 
 ## Prove automated-backtesting results
 
@@ -908,7 +918,7 @@ It then repeats this process starting the day after the last logfile
 backtested through the tuned config, all the way until the end date provided.
 
 ```
- ./run prove-backtesting FROM=20220801 BACKTRACK=90 MIN=9 CONFIG_FILE=backtesting.yaml TO=20220831 FORWARD=7 SORTBY=wins
+ ./run prove-backtesting FROM=20220801 BACKTRACK=90 MIN=9 CONFIG_FILE=backtesting.yaml TO=20220831 FORWARD=7 SORTBY=greed
 ```
 
 ## config-endpoint-service
@@ -918,7 +928,7 @@ automated-backtesting periodically, and having the LIVE bot pull that optimized
 config as soon automated-backtesting completes.
 
 ```
-./run config-endpoint-service BIND=0.0.0.0 CONFIG_FILE=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=wins|profit
+./run config-endpoint-service BIND=0.0.0.0 CONFIG_FILE=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=number_of_clean_wins
 ```
 
 see [PULL_CONFIG_ADDRESS]#pull_config_address and
