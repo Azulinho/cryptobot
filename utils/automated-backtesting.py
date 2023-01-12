@@ -115,7 +115,10 @@ def gather_best_results_from_backtesting_log(log, minimum, kind, word, sortby):
                 w, l, s, h = [int(x[1:]) for x in wls.split(",")]
 
                 # drop any results containing losses, stales, or holds
-                if sortby == "wins":
+                if sortby in [
+                    "number_of_clean_wins",
+                    "max_profit_on_clean_wins",
+                ]:
                     if l != 0 or s != 0 or h != 0 or w == 0:
                         continue
 
@@ -133,7 +136,7 @@ def gather_best_results_from_backtesting_log(log, minimum, kind, word, sortby):
                     }
 
                 if coin in coins:
-                    if sortby == "profit":
+                    if sortby in ["greed", "max_profit_on_clean_wins"]:
                         if profit > coins[coin]["profit"]:
                             coins[coin] = {
                                 "profit": profit,
@@ -145,7 +148,7 @@ def gather_best_results_from_backtesting_log(log, minimum, kind, word, sortby):
                                 "cfgname": cfgname,
                                 "coincfg": coincfg,
                             }
-                    else:
+                    if sortby == "number_of_clean_wins":
                         if w >= coins[coin]["w"]:
                             # if this run has the same amount of wins but higher
                             # profit, then keep this one.
@@ -357,7 +360,7 @@ def generate_all_coin_config_files(
         symbol = coin.split(".")[1]
         # on 'wins' we don't want to keep on processing our logfiles
         # when we hit a STOP_LOSS
-        if sortby == "wins":
+        if sortby in ["number_of_clean_wins", "max_profit_on_clean_wins"]:
             config["STOP_BOT_ON_LOSS"] = True
             config["STOP_BOT_ON_STALE"] = True
 
@@ -497,7 +500,7 @@ def gather_best_results_from_run(coinfiles, sortby, results_dir):
             wins, losses, stales, holds = [0, 0, 0, 0]
             balance = 0
 
-        if sortby == "wins":
+        if sortby in ["number_of_clean_wins", "max_profit_on_clean_wins"]:
             if (int(losses) + int(stales) + int(holds)) == 0:
                 run["total_wins"] += int(wins)
                 run["total_losses"] += int(losses)
@@ -505,6 +508,7 @@ def gather_best_results_from_run(coinfiles, sortby, results_dir):
                 run["total_holds"] += int(holds)
                 run["total_profit"] += float(balance)
         else:
+            # greed
             run["total_wins"] += int(wins)
             run["total_losses"] += int(losses)
             run["total_stales"] += int(stales)
@@ -512,11 +516,12 @@ def gather_best_results_from_run(coinfiles, sortby, results_dir):
             run["total_profit"] += float(balance)
 
         if balance > highest_profit:
-            if sortby == "wins":
+            if sortby in ["number_of_clean_wins", "max_profit_on_clean_wins"]:
                 if (int(losses) + int(stales) + int(holds)) == 0:
                     coin_with_highest_profit = symbol
                     highest_profit = balance
             else:
+                # greed
                 coin_with_highest_profit = symbol
                 highest_profit = balance
 

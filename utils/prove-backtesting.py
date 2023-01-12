@@ -29,7 +29,10 @@ def cli():
     parser.add_argument("-m", "--min", help="min coin profit")
     parser.add_argument("-e", "--enddate", help="test until this date")
     parser.add_argument(
-        "-s", "--sortby", help="sortby results by profit/wins", default="wins"
+        "-s",
+        "--sortby",
+        help="sortby results by [greed|number_of_clean_wins|max_profit_on_clean_wins]",
+        default="number_of_clean_wins",
     )
     parser.add_argument(
         "-x", "--filter", help="filter coins by word", default=""

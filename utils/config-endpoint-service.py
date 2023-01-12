@@ -137,7 +137,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "-b", "--backtrack", help="number of days to backtrack"
     )
-    parser.add_argument("-s", "--sortby", help="wins|profit")
+    parser.add_argument(
+        "-s",
+        "--sortby",
+        help="greed|number_of_clean_wins|max_profit_on_clean_wins",
+    )
     parser.add_argument(
         "-t",
         "--tuned-config",
