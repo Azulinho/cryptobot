@@ -217,7 +217,9 @@ def generate_coin_template_config_file(coin, strategy, cfg, config_dir):
                     "COIN": coin,
                     "PAUSE_FOR": cfg["PAUSE_FOR"],
                     "INITIAL_INVESTMENT": cfg["INITIAL_INVESTMENT"],
-                    "MAX_COINS": cfg["MAX_COINS"],
+                    # each coin backtesting run should only use one coin
+                    # MAX_COINS will only be applied to the final tuned run
+                    "MAX_COINS": "1",
                     "PAIRING": cfg["PAIRING"],
                     "CLEAR_COIN_STATS_AT_BOOT": cfg[
                         "CLEAR_COIN_STATS_AT_BOOT"
