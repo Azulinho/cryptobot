@@ -1529,6 +1529,7 @@ class Bot:
         push = context.socket(zmq.PUSH)
         push.bind(addr)
         sleep(0.1)
+        socket_retries = 0
         for logfile in cfg["PRICE_LOGS"]:
             logging.info(f"backtesting: {logfile}")
             logging.info(f"wallet: {self.wallet}")
@@ -1541,18 +1542,25 @@ class Bot:
             else:
                 f = igzip.open(logfile, "rt")
             while True:
+                if socket_retries > 10:
+                    f.close()
+                    break
                 next_n_lines = list(islice(f, 1024))
                 if not next_n_lines:
                     f.close()
                     break
                 payload = []
-                for line in next_n_lines:
-                    if cfg["PAIRING"] not in line:
-                        continue
-                    payload.append(line)
-                push.send_pyobj(payload)
+                if push.poll(timeout=1000, flags=zmq.POLLOUT) != 0:
+                    for line in next_n_lines:
+                        if cfg["PAIRING"] not in line:
+                            continue
+                        payload.append(line)
+                    push.send_pyobj(payload, flags=zmq.NOBLOCK)
+                else:
+                    socket_retries = socket_retries + 1
 
-        push.send_pyobj(["QUIT"])
+        if socket_retries < 10:
+            push.send_pyobj(["QUIT"])
 
     def backtesting(self) -> None:
         """the bot Backtesting main loop"""
@@ -1572,26 +1580,32 @@ class Bot:
                 args=(self.cfg, addr),
             ).start()
 
-            context = zmq.Context()
+            context = zmq.Context(2)
             pull = context.socket(zmq.PULL)
             pull.connect(addr)
-            # sleep(0.1)
+            sleep(0.1)
 
             finished = False
+            socket_retries = 0
             while True:
                 self.process_control_flags()
-                if finished:
+                if finished or socket_retries > 10:
                     break
-                lines = pull.recv_pyobj()
-                for line in lines:
-                    if line == "QUIT":
-                        finished = True
-                        break
-                    symbol, date, market_price = self.split_logline(str(line))
-                    # symbol will be False if we fail to process the line fields
-                    if not symbol:
-                        continue
-                    self.process_line(symbol, date, market_price)
+                if pull.poll(timeout=1000, flags=zmq.POLLIN) != 0:
+                    lines = pull.recv_pyobj(flags=zmq.NOBLOCK)
+                    for line in lines:
+                        if line == "QUIT":
+                            finished = True
+                            break
+                        symbol, date, market_price = self.split_logline(
+                            str(line)
+                        )
+                        # symbol will be False if we fail to process the line fields
+                        if not symbol:
+                            continue
+                        self.process_line(symbol, date, market_price)
+                else:
+                    socket_retries = socket_retries + 1
         try:
             unlink(f"/tmp/{getpid()}")
         except:  # pylint: disable=bare-except
@@ -1616,6 +1630,7 @@ class Bot:
             )
 
             f.write(f"{log_entry}\n")
+            sleep(0.1)
 
     def load_klines_for_coin(self, coin) -> bool:
         """fetches from binance or a local cache klines for a coin"""
