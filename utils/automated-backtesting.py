@@ -10,6 +10,8 @@ from datetime import datetime
 from multiprocessing import Pool
 from string import Template
 from typing import Optional
+from os.path import exists
+from time import sleep
 
 import yaml
 from isal import igzip
@@ -599,6 +601,9 @@ def main():
         top_results_per_run[strategy] = {}
 
         for run in cfgs["STRATEGIES"][strategy]:
+            while exists("control/PAUSE"):
+                log_msg("control/PAUSE flag found. Sleeping 1min.")
+                sleep(60)
             process_strategy_run(
                 run, strategy, min_profit, sortby, cfgs, coinfiles, config_dir
             )
