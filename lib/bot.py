@@ -1947,9 +1947,6 @@ class Bot:
             self.quit = True
             unlink("control/STOP")
             return
-        while exists("control/PAUSE"):
-            logging.warning("control/PAUSE flag found. Sleeping 1min.")
-            sleep(60)
 
     def update(self, coin: Coin, date: float, market_price: float) -> None:
         """updates a coin object with latest market values"""
