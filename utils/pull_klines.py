@@ -3,6 +3,7 @@
 import argparse
 import gzip
 import os
+import json
 import time
 from datetime import datetime, timedelta
 
@@ -46,6 +47,48 @@ def daterange(date1, date2):
     for item in range(int((date2 - date1).days) + 1):
         dates.append(date1 + timedelta(item))
     return dates
+
+
+def generate_index(log_dir="log"):
+    """generates index.json with dates <- [coins]"""
+    date_list = set()
+    symbols_list = set()
+    index = {}
+
+    # gather all date.log.gz logs and
+    # all symbol dirs
+    for item in sorted(os.listdir(log_dir)):
+        if (
+            os.path.isfile(f"{log_dir}/{item}")
+            and item.startswith("20")
+            and ".log." in item
+        ):
+            date = item.split(".")[0]
+            date_list.add(date)
+        if os.path.isdir(f"{log_dir}/{item}"):
+            symbols_list.add(item)
+
+    # we'll store all symbol logs in each date
+    for date in sorted(date_list):
+        index[date] = set()
+
+    # iterate over all the symbols and gather all the
+    # logfiles in in each one of those symbol dirs
+    for _symbol in sorted(symbols_list):
+        logs = os.listdir(f"{log_dir}/{_symbol}")
+        for _log in sorted(logs):
+            if not os.path.isfile(f"{log_dir}/{_symbol}/{_log}"):
+                continue
+            date = _log.split(".")[0]
+            index[date].add(_symbol)
+
+    tmp = index
+    index = {}
+    for date in tmp.keys():  # pylint: disable=C0206,C0201
+        index[date] = list(tmp[date])
+
+    with open(f"{log_dir}/index.json", "w", encoding="utf-8") as index_json:
+        index_json.write(json.dumps(index, indent=4))
 
 
 if __name__ == "__main__":
@@ -125,7 +168,7 @@ if __name__ == "__main__":
                 _,
                 _,
             ) in results:
-                klines_date = str(
+                klines_date = str(  # pylint: disable=invalid-name
                     datetime.fromtimestamp(float(closetime) / 1000)
                 )  # pylint: disable=C0103
                 log.append(
@@ -136,7 +179,7 @@ if __name__ == "__main__":
                 os.mkdir(f"log/{ticker}")
             # write down log/ ticker / day.log
             with open(f"log/{ticker}/{day}.log", "w", encoding="utf-8") as f:
-                oldprice = 0
+                oldprice = 0  # pylint: disable=invalid-name
                 for line in log:
                     parts = line.split(" ")
                     symbol = parts[2]
@@ -181,3 +224,7 @@ if __name__ == "__main__":
                 z.write(f.read())
         if os.path.exists(f"log/{day}.log"):
             os.remove(f"log/{day}.log")
+
+    # and generate and index.json for all the dates and which coin files
+    # are available for those dates
+    generate_index("log")
