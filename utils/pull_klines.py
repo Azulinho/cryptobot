@@ -87,7 +87,9 @@ def generate_index(log_dir="log"):
     for date in tmp.keys():  # pylint: disable=C0206,C0201
         index[date] = list(tmp[date])
 
-    with open(f"{log_dir}/index.json", "w", encoding="utf-8") as index_json:
+    with gzip.open(
+        f"{log_dir}/index.json.gz", "wt", encoding="utf-8"
+    ) as index_json:
         index_json.write(json.dumps(index, indent=4))
 
 
