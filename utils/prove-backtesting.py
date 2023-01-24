@@ -234,7 +234,7 @@ def main():
             + f" days from end of {start_date}"
         )
         dates = backtesting_dates(end_date=start_date, days=backtrack_days)
-        log_msg(dates)
+        log_msg(f"{dates[0]}...{dates[-1]}")
         create_zipped_logfile(dates, pairing, logs_dir, filterby=filterby)
         log_msg(
             f"starting automated_backtesting using {config_file} for {min_profit}"
@@ -284,7 +284,7 @@ def main():
         log_msg(
             f"forwardtesting next {forward_days} days from end of {start_date}"
         )
-        log_msg(dates)
+        log_msg(f"{dates[0]}...{dates[-1]}")
 
         create_zipped_logfile(
             dates, pairing, logs_dir, symbols, filterby=filterby
