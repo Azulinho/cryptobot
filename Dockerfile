@@ -76,5 +76,6 @@ ADD utils/pull_klines.py utils/pull_klines.py
 ADD utils/config-endpoint-service.py utils/config-endpoint-service.py
 ADD utils/config-endpoint-service.sh utils/config-endpoint-service.sh
 ADD klines_caching_service.py klines_caching_service.py
+ADD price_log_service.py price_log_service.py
 ADD app.py .
 
