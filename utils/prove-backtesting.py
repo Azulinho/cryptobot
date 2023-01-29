@@ -246,14 +246,14 @@ def main():
             with open("control/SMP_MULTIPLIER") as f:
                 concurrency = f.read().strip()
                 log_msg(f"control/SMP_MULTIPLIER contains {concurrency}")
-            os.unlink("control/SMP_MULTIPLIER")
 
+        environment: dict = os.environ | {"SMP_MULTIPLIER": concurrency}
         # runs automated_backtesting on all strategies
         run_automated_backtesting(
             config=config_file,
             min_profit=min_profit,
             sortby=sortby,
-            env={**os.environ, "SMP_MULTIPLIER": concurrency},
+            env=environment,
             filterby=filterby,
         )
 
