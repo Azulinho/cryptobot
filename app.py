@@ -14,12 +14,11 @@ import epdb
 import yaml
 from binance.client import Client
 
-from lib.helpers import cached_binance_client
-
 # allow migration from old pickle format to new format
 # old pickle cointains app.Bot, app.Coin
 from lib.bot import Bot  # pylint: disable=unused-import
 from lib.coin import Coin  # pylint: disable=unused-import
+from lib.helpers import cached_binance_client
 
 
 def control_center() -> None:

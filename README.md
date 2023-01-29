@@ -74,6 +74,8 @@ There are multiple tools in this repo, for example:
     the provided by this service as soon as it becomes available. We can for
     example trigger a run of the automated-backtesting just after 00:00 and the
     bot will then consume a config that is optimized up to the last few minutes.
+* A price_log http server, this can be used to serve price.log files from a
+    central location to the different backtesting runners.
 
 ### How does it work
 

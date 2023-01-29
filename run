@@ -13,6 +13,7 @@ function usage() {
 	echo "./run prove-backtesting CONFIG_FILE=myconfig.yaml FROM=20220101 BACKTRACK=90 MIN=20 FORWARD=30 TO=20220901 SORTBY=greed|number_of_clean_wins|max_profit_on_clean_wins FILTER=''"
 	echo "./run config-endpoint-service BIND=0.0.0.0 CONFIG_FILE=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=greed|number_of_clean_wins|max_profit_on_clean_wins"
 	echo "./run klines-caching-service BIND=0.0.0.0"
+	echo "./run price_log_service BIND=0.0.0.0"
 	echo "./run download_price_logs FROM=20220101 TO=20220131"
 }
 
@@ -322,6 +323,31 @@ function klines_caching_service() { # runs the klines caching service
 			--bind 0.0.0.0:8999  klines_caching_service:app
 }
 
+function price_log_service() { # runs the klines caching service
+	if [ -z "$PORT" ]; then
+		export PORT=$( cat ${STATE_DIR}/.${MODE}.port )
+	fi
+
+	if [ -n "${RUN_IN_BACKGROUND}" ]; then
+		docker ps | grep "price_log_service-${CONTAINER_SUFFIX}" \
+			|awk '{ print $1 }' | xargs -i docker kill {} >/dev/null 2>&1
+	fi
+
+	docker run --rm \
+		${USE_TTY} \
+		${DOCKER_RUN_AS} \
+		${DOCKER_NAME} \
+		${DOCKER_MOUNTS} \
+		${DOCKER_NETWORK} \
+		--network-alias price_log_service \
+		${RUN_IN_BACKGROUND} \
+    -p ${BIND}:${PORT}:8998 \
+		${IMAGE}:${TAG} \
+    /cryptobot/.venv/bin/gunicorn --preload --workers=4 --threads=4 \
+			--worker-class=gthread \
+			--bind 0.0.0.0:8998  price_log_service:app
+}
+
 function setup() { # local setup for development
 	which pyenv >/dev/null 2>&1 ||  curl https://pyenv.run | bash
 	export PATH=~/.pyenv/bin:$PATH
@@ -344,11 +370,11 @@ function tests() { # CI and pre-commit tests
 	export PATH=~/.pyenv/bin:$PATH
 	source .venv/bin/activate
 	echo "running black..."
-	black --check app.py strategies/ lib/ tests/ utils/
+	black --check app.py klines_caching_service.py price_log_service.py strategies/ lib/ tests/ utils/
 	echo "running pylint..."
-	ls strategies/*.py |grep -v Local | xargs pylint app.py lib/*.py utils/*.py
+	ls strategies/*.py |grep -v Local | xargs pylint app.py klines_caching_service.py price_log_service.py lib/*.py utils/*.py
 	echo "running mypy..."
-	ls strategies/*.py |grep -v Local | xargs mypy app.py lib/*.py utils/*.py
+	ls strategies/*.py |grep -v Local | xargs mypy app.py klines_caching_service.py price_log_service.py lib/*.py utils/*.py
 	echo "running pytest..."
 	pytest --quiet -W ignore --disable-pytest-warnings tests/
 	deactivate
@@ -359,6 +385,7 @@ function github_actions_ci_pr_docker_tests() {
   ./run down
   ./run build TAG=pr
   ./run klines-caching-service RUN_IN_BACKGROUND=yes TAG=pr
+  ./run price-log-service RUN_IN_BACKGROUND=yes TAG=pr
 
 	sleep 5
 
@@ -433,6 +460,9 @@ function github_actions_ci_pr_docker_tests() {
 	md5sum ${CONFIG_DIR}/BuyOnRecoveryAfterDropFromAverageStrategy.yaml \
 		|cut -f1 -d " " | grep 'dbb69758a3d2eb24041ec70cd4494a1e'
 
+	export PRICE_LOG_PORT=$( cat ${STATE_DIR}/.price_log_service.port)
+	touch log/test.log
+	curl http://${DOCKER_IP}:${PRICE_LOG_PORT}/test.log
   ./run down
 }
 
@@ -569,7 +599,7 @@ function main() { # main innit?
 
 	checks
 	docker_network
-  set_service_ports klines_caching_service config_endpoint_service live testnet
+  set_service_ports klines_caching_service config_endpoint_service live testnet price_log_service
 	${MODE}
 }
 
