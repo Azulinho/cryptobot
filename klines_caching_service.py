@@ -8,7 +8,6 @@ from functools import lru_cache
 from hashlib import md5
 from os import getpid, mkdir
 from os.path import exists
-from shutil import move
 from time import sleep
 
 import colorlog  # pylint: disable=E0401
@@ -79,7 +78,7 @@ def c_from_timestamp(date: float) -> datetime:
 @limiter.ratelimit("binance", delay=True)
 def requests_with_backoff(query: str):
     """retry wrapper for requests calls"""
-    response = requests.get(query)
+    response = requests.get(query, timeout=30)
 
     # 418 is a binance api limits response
     # don't raise a HTTPError Exception straight away but block until we are
