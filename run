@@ -329,7 +329,7 @@ function price_log_service() { # runs the klines caching service
 	fi
 
 	if [ -n "${RUN_IN_BACKGROUND}" ]; then
-		docker ps | grep "price_log_service-${CONTAINER_SUFFIX}" \
+		docker ps | grep "price-log-service-${CONTAINER_SUFFIX}" \
 			|awk '{ print $1 }' | xargs -i docker kill {} >/dev/null 2>&1
 	fi
 
@@ -339,7 +339,7 @@ function price_log_service() { # runs the klines caching service
 		${DOCKER_NAME} \
 		${DOCKER_MOUNTS} \
 		${DOCKER_NETWORK} \
-		--network-alias price_log_service \
+		--network-alias price-log-service \
 		${RUN_IN_BACKGROUND} \
     -p ${BIND}:${PORT}:8998 \
 		${IMAGE}:${TAG} \
@@ -392,8 +392,9 @@ function github_actions_ci_pr_docker_tests() {
 	# don't worry if we can't push, as when running locally this will fail anyway
 	docker push ghcr.io/azulinho/cryptobot:pr || true
 	# TODO: review where these are being consumed in the tests
-  cp tests/fake.yaml secrets/binance.prod.yaml
-  cp tests/fake.yaml secrets/fake.yaml
+	cp tests/fake.yaml secrets/binance.prod.yaml
+	cp tests/fake.yaml secrets/fake.yaml
+	cp tests/price.log.gz log/tests.price.log.gz
 
 	echo BuyMoonSellRecoveryStrategy.yaml
 	cp tests/BuyMoonSellRecoveryStrategy.yaml configs/
