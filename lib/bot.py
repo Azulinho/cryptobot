@@ -6,9 +6,7 @@ import logging
 import pickle  # nosec
 import pprint
 from datetime import datetime
-from itertools import islice
-from multiprocessing import Process
-from os import fsync, unlink, getpid
+from os import fsync, unlink
 from os.path import basename, exists
 from time import sleep
 from typing import Any, Dict, List, Tuple
@@ -16,11 +14,8 @@ from typing import Any, Dict, List, Tuple
 import requests
 import udatetime
 import yaml
-import zmq
 from binance.exceptions import BinanceAPIException
 from filelock import SoftFileLock
-from isal import igzip
-from lz4.frame import open as lz4open
 from tenacity import retry, wait_exponential
 
 from lib.coin import Coin
@@ -166,6 +161,8 @@ class Bot:
         self.klines_caching_service_url: str = config.get(
             "KLINES_CACHING_SERVICE_URL", "http://klines:8999"
         )
+        # price.log service
+        self.price_log_service: str = config["PRICE_LOG_SERVICE_URL"]
 
     def extract_order_data(self, order_details, coin) -> Dict[str, Any]:
         """calculate average price and volume for a buy order"""
@@ -1520,48 +1517,6 @@ class Bot:
         # and finally run through the strategy for our coin.
         self.run_strategy(self.coins[symbol])
 
-    def place_klines_into_q(self, cfg: Dict, addr: str):
-        """reads all price.logs spliting out symbol, date, price, placing
-        the data into a queue.
-        This function is called through a mp.Process()
-        """
-        context = zmq.Context()
-        push = context.socket(zmq.PUSH)
-        push.bind(addr)
-        sleep(0.1)
-        socket_retries = 0
-        for logfile in cfg["PRICE_LOGS"]:
-            logging.info(f"backtesting: {logfile}")
-            logging.info(f"wallet: {self.wallet}")
-            logging.info(f"exposure: {self.calculates_exposure()}")
-            # we support .lz4 and .gz for our price.log files.
-            # gzip -3 files provide the fastest decompression times I was able
-            # to measure.
-            if logfile.endswith(".lz4"):
-                f = lz4open(logfile, mode="rt")
-            else:
-                f = igzip.open(logfile, "rt")
-            while True:
-                if socket_retries > 10:
-                    f.close()
-                    break
-                next_n_lines = list(islice(f, 1024))
-                if not next_n_lines:
-                    f.close()
-                    break
-                payload = []
-                if push.poll(timeout=1000, flags=zmq.POLLOUT) != 0:
-                    for line in next_n_lines:
-                        if cfg["PAIRING"] not in line:
-                            continue
-                        payload.append(line)
-                    push.send_pyobj(payload, flags=zmq.NOBLOCK)
-                else:
-                    socket_retries = socket_retries + 1
-
-        if socket_retries < 10:
-            push.send_pyobj(["QUIT"])
-
     def backtesting(self) -> None:
         """the bot Backtesting main loop"""
         logging.info(json.dumps(self.cfg, indent=4))
@@ -1571,45 +1526,29 @@ class Bot:
         # main backtesting block
         if not self.cfg["TICKERS"]:
             logging.warning("no tickers to backtest")
+
         else:
-            # on automated-backtesting we need dedicated filepaths for each proc
-            addr = f"ipc:///tmp/{getpid()}"
+            for logfile in self.cfg["PRICE_LOGS"]:
+                logging.info(f"backtesting: {logfile}")
+                logging.info(f"wallet: {self.wallet}")
+                logging.info(f"exposure: {self.calculates_exposure()}")
+                # pull the file in one go to avoid blocking the price_log_service
+                # for very long.
+                # TODO: change this to a session and iter_lines and update
+                # price_log_service to use gevent
+                response = requests_with_backoff(
+                    f"{self.cfg['PRICE_LOG_SERVICE_URL']}/{logfile}"
+                )
+                for item in (response.content).splitlines():
+                    line = item.decode()
+                    if self.cfg["PAIRING"] not in line:
+                        continue
+                    symbol, date, market_price = self.split_logline(str(line))
+                    # symbol will be False if we fail to process the line fields
+                    if not symbol:
+                        continue
+                    self.process_line(symbol, date, market_price)
 
-            Process(
-                target=self.place_klines_into_q,
-                args=(self.cfg, addr),
-            ).start()
-
-            context = zmq.Context(2)
-            pull = context.socket(zmq.PULL)
-            pull.connect(addr)
-            sleep(0.1)
-
-            finished = False
-            socket_retries = 0
-            while True:
-                self.process_control_flags()
-                if finished or socket_retries > 10:
-                    break
-                if pull.poll(timeout=1000, flags=zmq.POLLIN) != 0:
-                    lines = pull.recv_pyobj(flags=zmq.NOBLOCK)
-                    for line in lines:
-                        if line == "QUIT":
-                            finished = True
-                            break
-                        symbol, date, market_price = self.split_logline(
-                            str(line)
-                        )
-                        # symbol will be False if we fail to process the line fields
-                        if not symbol:
-                            continue
-                        self.process_line(symbol, date, market_price)
-                else:
-                    socket_retries = socket_retries + 1
-        try:
-            unlink(f"/tmp/{getpid()}")
-        except:  # pylint: disable=bare-except
-            pass
         # now that we are done, lets record our results
         with open(
             f"{self.logs_dir}/backtesting.log", "a", encoding="utf-8"
@@ -1630,7 +1569,6 @@ class Bot:
             )
 
             f.write(f"{log_entry}\n")
-            sleep(0.1)
 
     def load_klines_for_coin(self, coin) -> bool:
         """fetches from binance or a local cache klines for a coin"""

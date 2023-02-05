@@ -8,6 +8,7 @@ CLEAR_COIN_STATS_AT_SALE: True
 DEBUG: True
 TRADING_FEE: 0.1
 SELL_AS_SOON_IT_DROPS: False # <-- HERE SCALPING MODE
+PRICE_LOG_SERVICE_URL: "http://price-log-service:8998/"
 
 STRATEGY: BuyDropSellRecoveryStrategy
 
@@ -32,5 +33,5 @@ TICKERS:
     <<: *defaults
 
 PRICE_LOGS: [
-  "tests/price.log.gz",
+  "tests.price.log.gz",
 ]
