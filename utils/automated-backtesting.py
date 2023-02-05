@@ -197,6 +197,7 @@ def generate_coin_template_config_file(coin, strategy, cfg, config_dir):
     "STOP_BOT_ON_STALE": $STOP_BOT_ON_STALE,
     "ENABLE_NEW_LISTING_CHECKS": False,
     "KLINES_CACHING_SERVICE_URL": $KLINES_CACHING_SERVICE_URL,
+    "PRICE_LOG_SERVICE_URL": $PRICE_LOG_SERVICE_URL,
     "TICKERS": {
       "$COIN": {
           "BUY_AT_PERCENTAGE": $BUY_AT_PERCENTAGE,
@@ -254,6 +255,10 @@ def generate_coin_template_config_file(coin, strategy, cfg, config_dir):
                     "KLINES_CACHING_SERVICE_URL": cfg.get(
                         "KLINES_CACHING_SERVICE_URL", "http://klines:8999"
                     ),
+                    "PRICE_LOG_SERVICE_URL": cfg.get(
+                        "PRICE_LOG_SERVICE_URL",
+                        "http://price-log-service:8998",
+                    ),
                     "STRATEGY": strategy,
                     "STOP_BOT_ON_LOSS": cfg.get("STOP_BOT_ON_LOSS", False),
                     "STOP_BOT_ON_STALE": cfg.get("STOP_BOT_ON_STALE", False),
@@ -279,6 +284,7 @@ def generate_config_for_tuned_strategy(strategy, cfg, results, logfile):
     "SELL_AS_SOON_IT_DROPS": $SELL_AS_SOON_IT_DROPS,
     "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS": $ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS,
     "KLINES_CACHING_SERVICE_URL": $KLINES_CACHING_SERVICE_URL,
+    "PRICE_LOG_SERVICE_URL": $PRICE_LOG_SERVICE_URL,
     "TICKERS": $RESULTS,
     "PRICE_LOGS": $LOGFILE
     }"""
@@ -306,6 +312,10 @@ def generate_config_for_tuned_strategy(strategy, cfg, results, logfile):
                     "SELL_AS_SOON_IT_DROPS": cfg["SELL_AS_SOON_IT_DROPS"],
                     "KLINES_CACHING_SERVICE_URL": cfg.get(
                         "KLINES_CACHING_SERVICE_URL", "http://klines:8999"
+                    ),
+                    "PRICE_LOG_SERVICE_URL": cfg.get(
+                        "PRICE_LOG_SERVICE_URL",
+                        "http://price-log-service:8998",
                     ),
                     "STRATEGY": strategy,
                     "RESULTS": results,
