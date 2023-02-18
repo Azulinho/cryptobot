@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+#
 
 function usage() {
 	echo "USAGE:"
@@ -8,9 +9,8 @@ function usage() {
 	echo "./run live CONFIG_FILE=< config.yaml >"
 	echo "./run compress-logs"
 	echo "./run lastfewdays DAYS=3 PAIR=USDT"
-	echo "./run automated-backtesting LOGFILE=lastfewdays.log.gz CONFIG_FILE=backtesting.yaml MIN=10 FILTER='' SORTBY='greed|number_of_clean_wins|max_profit_on_clean_wins'"
 	echo "./run download-price-logs FROM=20210101 TO=20211231"
-	echo "./run prove-backtesting CONFIG_FILE=myconfig.yaml FROM=20220101 BACKTRACK=90 MIN=20 FORWARD=30 TO=20220901 SORTBY=greed|number_of_clean_wins|max_profit_on_clean_wins FILTER=''"
+	echo "./run prove-backtesting CONFIG_FILE=myconfig.yaml"
 	echo "./run config-endpoint-service BIND=0.0.0.0 CONFIG_FILE=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=greed|number_of_clean_wins|max_profit_on_clean_wins"
 	echo "./run klines-caching-service BIND=0.0.0.0"
 	echo "./run price_log_service BIND=0.0.0.0"
@@ -163,68 +163,14 @@ function backtesting() { # runs in backtesting mode
 		-m backtesting > ${RESULTS_DIR}/backtesting.${CONFIG_FILE}.txt 2>&1
 }
 
-function automated_backtesting() { # runs the automated backtesting
-	RESULTS_LOG="${RESULTS_DIR}/automated-backtesting"
-	RESULTS_LOG="${RESULTS_LOG}.${CONFIG_FILE}"
-	RESULTS_LOG="${RESULTS_LOG}.min${MIN}"
-	RESULTS_LOG="${RESULTS_LOG}.${SORTBY}.txt"
-
-	docker run --rm \
-		${USE_TTY} \
-		${DOCKER_RUN_AS} \
-		${DOCKER_NAME} \
-		${DOCKER_MOUNTS} \
-		${DOCKER_NETWORK} \
-		-e LOGFILE=/cryptobot/log/${LOGFILE} \
-		-e CONFIG_FILE=/cryptobot/configs/${CONFIG_FILE} \
-		-e MIN=${MIN} \
-		-e FILTER=${FILTER} \
-		-e SORTBY=${SORTBY} \
-		-e SMP_MULTIPLIER=${SMP_MULTIPLIER} \
-		${IMAGE}:${TAG} \
-		/usr/bin/eatmydata /cryptobot/utils/automated-backtesting.sh \
-		> ${RESULTS_LOG}
-}
-
 function prove_backtesting() { # runs the prove backtesting
-	if [ -z "$FROM" ]; then
-		echo "FROM env variable not set"
-		exit 1
-	fi
-	if [ -z "$BACKTRACK" ]; then
-		echo "BACKTRACK env variable not set"
-		exit 1
-	fi
 	if [ -z "$CONFIG_FILE" ]; then
 		echo "CONFIG_FILE env variable not set"
 		exit 1
 	fi
-	if [ -z "$MIN" ]; then
-		echo "MIN env variable not set"
-		exit 1
-	fi
-	if [ -z "$FORWARD" ]; then
-		echo "FORWARD env variable not set"
-		exit 1
-	fi
-	if [ -z "$TO" ]; then
-		echo "TO env variable not set"
-		exit 1
-	fi
-	if [ -z "$SORTBY" ]; then
-		export SORTBY=number_of_clean_wins
-	fi
-	if [ -z "$SMP_MULTIPLIER" ]; then
-		export SMP_MULTIPLIER=1
-	fi
 
 	RESULTS_LOG="${RESULTS_DIR}/prove-backtesting"
-	RESULTS_LOG="${RESULTS_LOG}.${CONFIG_FILE}"
-	RESULTS_LOG="${RESULTS_LOG}.min${MIN}"
-	RESULTS_LOG="${RESULTS_LOG}.${SORTBY}"
-	RESULTS_LOG="${RESULTS_LOG}.${FROM}_${TO}"
-	RESULTS_LOG="${RESULTS_LOG}.f${FORWARD}d"
-	RESULTS_LOG="${RESULTS_LOG}.b${BACKTRACK}d.txt"
+	RESULTS_LOG="${RESULTS_LOG}.${CONFIG_FILE}.txt"
 	docker run --rm \
 		${USE_TTY} \
 		${DOCKER_RUN_AS} \
@@ -232,15 +178,7 @@ function prove_backtesting() { # runs the prove backtesting
 		${DOCKER_MOUNTS} \
 		${DOCKER_NETWORK} \
 		${RUN_IN_BACKGROUND} \
-		-e FROM=${FROM} \
-		-e BACKTRACK=${BACKTRACK} \
 		-e CONFIG_FILE=${CONFIG_FILE} \
-		-e MIN=${MIN} \
-		-e FORWARD=${FORWARD} \
-		-e TO=${TO} \
-		-e FILTER=${FILTER} \
-		-e SORTBY=${SORTBY} \
-		-e SMP_MULTIPLIER=${SMP_MULTIPLIER} \
 		${IMAGE}:${TAG} \
 		/usr/bin/eatmydata /cryptobot/utils/prove-backtesting.sh \
 		> ${RESULTS_LOG}
@@ -431,35 +369,19 @@ function github_actions_ci_pr_docker_tests() {
 	./run backtesting CONFIG_FILE=BuyOnRecoveryAfterDropFromAverageStrategy.yaml TAG=pr
 	grep 'wins:184 losses:4 stales:596 holds:0' results/backtesting.BuyOnRecoveryAfterDropFromAverageStrategy.yaml.txt
 
-	echo automated-tests
-	LOGFILE=tests/price.log.gz
-	CONFIG_FILE=tests/automated-backtesting.yaml
-	MIN=0
-	FILTER=""
-	cp $CONFIG_FILE configs/
-	cp $LOGFILE log/lastfewdays.log.gz
-	./run automated-backtesting \
-		TAG=pr \
-		LOGFILE=lastfewdays.log.gz \
-		CONFIG_FILE=automated-backtesting.yaml \
-		MIN=0 FILTER='' SORTBY=profit
-
-	md5sum ${CONFIG_DIR}/BuyOnRecoveryAfterDropFromAverageStrategy.yaml \
-		|cut -f1 -d " " | grep '681edf96c543130fc3de3c7d6779cf9a'
-
 	echo prove-backtesting
 	for ta in 01 02 03 04 05 06 07 08 09
 	do
 		cat tests/price.log.gz | grep 2021-12-${ta}  |gzip -1 > log/202112${ta}.log.gz
 	done
+	cp tests/index.json.gz log/
 
+	cp tests/prove-backtesting.yaml configs/
 	./run prove-backtesting \
-		TAG=pr \
-		FROM=20211201 TO=20211209 BACKTRACK=1 FORWARD=1 MIN=1 \
-		CONFIG_FILE=automated-backtesting.yaml
+		TAG=pr CONFIG_FILE=prove-backtesting.yaml
 
-	md5sum ${CONFIG_DIR}/BuyOnRecoveryAfterDropFromAverageStrategy.yaml \
-		|cut -f1 -d " " | grep 'dbb69758a3d2eb24041ec70cd4494a1e'
+	md5sum ${CONFIG_DIR}/BuyDropSellRecoveryStrategy.yaml \
+		|cut -f1 -d " " | grep '8e4a7b58c6194d9eafba0d1006da0e7a'
 
 	export PRICE_LOG_PORT=$( cat ${STATE_DIR}/.price_log_service.port)
 	touch log/test.log

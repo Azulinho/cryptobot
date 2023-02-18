@@ -68,8 +68,6 @@ RUN eatmydata /cryptobot/.venv/bin/pip install -r requirements.txt && \
   rm -rf /tmp/*
 
 ADD lib/ lib/
-ADD utils/automated-backtesting.py utils/automated-backtesting.py
-ADD utils/automated-backtesting.sh utils/automated-backtesting.sh
 ADD utils/prove-backtesting.py utils/prove-backtesting.py
 ADD utils/prove-backtesting.sh utils/prove-backtesting.sh
 ADD utils/pull_klines.py utils/pull_klines.py
