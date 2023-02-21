@@ -54,3 +54,4 @@ Werkzeug==2.2.2
 yarl==1.8.2
 zipp==3.8.1
 pyzmq==24.0.1
+gevent==22.10.2
