@@ -281,8 +281,11 @@ function price_log_service() { # runs the klines caching service
 		${RUN_IN_BACKGROUND} \
     -p ${BIND}:${PORT}:8998 \
 		${IMAGE}:${TAG} \
-    /cryptobot/.venv/bin/gunicorn --preload --workers=4 --threads=4 \
-			--worker-class=gthread \
+    /cryptobot/.venv/bin/gunicorn --preload \
+			--workers=4 \
+			--worker-class=gevent \
+			--worker-connections=256 \
+			--worker-tmp-dir /dev/shm \
 			--bind 0.0.0.0:8998  price_log_service:app
 }
 
