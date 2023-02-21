@@ -61,7 +61,7 @@ class ProveBacktesting:
 
     def __init__(self, cfg) -> None:
         """init"""
-        self.min: str = cfg["MIN"]
+        self.min: float = float(cfg["MIN"])
         self.filter_by: str = cfg["FILTER_BY"]
         self.from_date: datetime = datetime.fromisoformat(
             str(cfg["FROM_DATE"])
@@ -70,9 +70,10 @@ class ProveBacktesting:
         self.roll_backwards: int = int(cfg["ROLL_BACKWARDS"])
         self.roll_forward: int = int(cfg["ROLL_FORWARD"])
         self.strategy: str = cfg["STRATEGY"]
-        self.runs: Dict = cfg["RUNS"]
+        self.runs: Dict = dict(cfg["RUNS"])
         self.pause_for: float = float(cfg["PAUSE_FOR"])
         self.initial_investment: float = float(cfg["INITIAL_INVESTMENT"])
+        self.re_invest_percentage: float = float(cfg["RE_INVEST_PERCENTAGE"])
         self.max_coins: int = int(cfg["MAX_COINS"])
         self.pairing: str = str(cfg["PAIRING"])
         self.clear_coin_stats_at_boot: bool = bool(
@@ -158,37 +159,38 @@ class ProveBacktesting:
 
         tmpl: Template = Template(
             """{
-        "PAUSE_FOR": $PAUSE_FOR,
-        "INITIAL_INVESTMENT": $INITIAL_INVESTMENT,
-        "RE_INVEST_PERCENTAGE": "100",
-        "MAX_COINS": 1,
-        "PAIRING": "$PAIRING",
         "CLEAR_COIN_STATS_AT_BOOT": $CLEAR_COIN_STATS_AT_BOOT,
         "CLEAR_COIN_STATS_AT_SALE": $CLEAR_COIN_STATS_AT_SALE,
         "DEBUG": $DEBUG,
-        "TRADING_FEE": $TRADING_FEE,
+        "ENABLE_NEW_LISTING_CHECKS": $ENABLE_NEW_LISTING_CHECKS,
+        "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS": $ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS,
+        "INITIAL_INVESTMENT": $INITIAL_INVESTMENT,
+        "KLINES_CACHING_SERVICE_URL": "$KLINES_CACHING_SERVICE_URL",
+        "MAX_COINS": 1,
+        "PAIRING": "$PAIRING",
+        "PAUSE_FOR": $PAUSE_FOR,
+        "PRICE_LOGS": $PRICE_LOGS,
+        "PRICE_LOG_SERVICE_URL": "$PRICE_LOG_SERVICE_URL",
+        "RE_INVEST_PERCENTAGE": $RE_INVEST_PERCENTAGE,
         "SELL_AS_SOON_IT_DROPS": $SELL_AS_SOON_IT_DROPS,
         "STOP_BOT_ON_LOSS": $STOP_BOT_ON_LOSS,
         "STOP_BOT_ON_STALE": $STOP_BOT_ON_STALE,
-        "ENABLE_NEW_LISTING_CHECKS": False,
-        "KLINES_CACHING_SERVICE_URL": $KLINES_CACHING_SERVICE_URL,
-        "PRICE_LOG_SERVICE_URL": $PRICE_LOG_SERVICE_URL,
-        "STRATEGY": $STRATEGY,
+        "STRATEGY": "$STRATEGY",
         "TICKERS": {
           "$COIN": {
-              "BUY_AT_PERCENTAGE": $BUY_AT_PERCENTAGE,
-              "SELL_AT_PERCENTAGE": $SELL_AT_PERCENTAGE,
-              "STOP_LOSS_AT_PERCENTAGE": $STOP_LOSS_AT_PERCENTAGE,
-              "TRAIL_TARGET_SELL_PERCENTAGE": $TRAIL_TARGET_SELL_PERCENTAGE,
-              "TRAIL_RECOVERY_PERCENTAGE": $TRAIL_RECOVERY_PERCENTAGE,
-              "SOFT_LIMIT_HOLDING_TIME": $SOFT_LIMIT_HOLDING_TIME,
-              "HARD_LIMIT_HOLDING_TIME": $HARD_LIMIT_HOLDING_TIME,
-              "NAUGHTY_TIMEOUT": $NAUGHTY_TIMEOUT,
+              "BUY_AT_PERCENTAGE": "$BUY_AT_PERCENTAGE",
+              "SELL_AT_PERCENTAGE": "$SELL_AT_PERCENTAGE",
+              "STOP_LOSS_AT_PERCENTAGE": "$STOP_LOSS_AT_PERCENTAGE",
+              "TRAIL_TARGET_SELL_PERCENTAGE": "$TRAIL_TARGET_SELL_PERCENTAGE",
+              "TRAIL_RECOVERY_PERCENTAGE": "$TRAIL_RECOVERY_PERCENTAGE",
+              "SOFT_LIMIT_HOLDING_TIME": "$SOFT_LIMIT_HOLDING_TIME",
+              "HARD_LIMIT_HOLDING_TIME": "$HARD_LIMIT_HOLDING_TIME",
+              "NAUGHTY_TIMEOUT": "$NAUGHTY_TIMEOUT",
               "KLINES_TREND_PERIOD": "$KLINES_TREND_PERIOD",
-              "KLINES_SLICE_PERCENTAGE_CHANGE": $KLINES_SLICE_PERCENTAGE_CHANGE
+              "KLINES_SLICE_PERCENTAGE_CHANGE": "$KLINES_SLICE_PERCENTAGE_CHANGE"
           }
          },
-        "PRICE_LOGS": $PRICE_LOGS
+        "TRADING_FEE": $TRADING_FEE,
         }"""
         )
 
@@ -196,23 +198,27 @@ class ProveBacktesting:
             c.write(
                 tmpl.substitute(
                     {
-                        "COIN": symbol,
-                        "PAUSE_FOR": self.pause_for,
-                        "INITIAL_INVESTMENT": self.initial_investment,
-                        # each coin backtesting run should only use one coin
-                        # MAX_COINS will only be applied to the final optimized run
-                        "MAX_COINS": "1",
-                        "PAIRING": self.pairing,
                         "CLEAR_COIN_STATS_AT_BOOT": self.clear_coin_stats_at_boot,
                         "CLEAR_COIN_STATS_AT_SALE": self.clear_coin_stats_at_sale,
+                        "COIN": symbol,
                         "DEBUG": self.debug,
-                        "TRADING_FEE": self.trading_fee,
-                        "SELL_AS_SOON_IT_DROPS": self.sell_as_soon_it_drops,
+                        "ENABLE_NEW_LISTING_CHECKS": False,
+                        "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS": 1,
+                        "INITIAL_INVESTMENT": self.initial_investment,
                         "KLINES_CACHING_SERVICE_URL": self.klines_caching_service_url,
+                        # each coin backtesting run should only use one coin
+                        # MAX_COINS will only be applied to the final optimized run
+                        "MAX_COINS": 1,
+                        "PAIRING": self.pairing,
+                        "PAUSE_FOR": self.pause_for,
+                        "PRICE_LOGS": _price_logs,
                         "PRICE_LOG_SERVICE_URL": self.price_log_service_url,
-                        "STRATEGY": self.strategy,
+                        "RE_INVEST_PERCENTAGE": 100,
+                        "SELL_AS_SOON_IT_DROPS": self.sell_as_soon_it_drops,
                         "STOP_BOT_ON_LOSS": self.stop_bot_on_loss,
                         "STOP_BOT_ON_STALE": self.stop_bot_on_stale,
+                        "STRATEGY": self.strategy,
+                        "TRADING_FEE": self.trading_fee,
                         "BUY_AT_PERCENTAGE": thisrun["BUY_AT_PERCENTAGE"],
                         "SELL_AT_PERCENTAGE": thisrun["SELL_AT_PERCENTAGE"],
                         "STOP_LOSS_AT_PERCENTAGE": thisrun[
@@ -235,7 +241,6 @@ class ProveBacktesting:
                         "KLINES_SLICE_PERCENTAGE_CHANGE": thisrun[
                             "KLINES_SLICE_PERCENTAGE_CHANGE"
                         ],
-                        "PRICE_LOGS": _price_logs,
                     }
                 )
             )
@@ -247,25 +252,25 @@ class ProveBacktesting:
 
         tmpl: Template = Template(
             """{
-        "STRATEGY": "$STRATEGY",
-        "PAUSE_FOR": $PAUSE_FOR,
-        "INITIAL_INVESTMENT": $INITIAL_INVESTMENT,
-        "RE_INVEST_PERCENTAGE": "100",
-        "MAX_COINS": $MAX_COINS,
-        "PAIRING": "$PAIRING",
         "CLEAR_COIN_STATS_AT_BOOT": $CLEAR_COIN_STATS_AT_BOOT,
         "CLEAR_COIN_STATS_AT_SALE": $CLEAR_COIN_STATS_AT_SALE,
         "DEBUG": $DEBUG,
-        "TRADING_FEE": $TRADING_FEE,
+        "ENABLE_NEW_LISTING_CHECKS": $ENABLE_NEW_LISTING_CHECKS,
+        "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS": $ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS,
+        "INITIAL_INVESTMENT": $INITIAL_INVESTMENT,
+        "KLINES_CACHING_SERVICE_URL": "$KLINES_CACHING_SERVICE_URL",
+        "MAX_COINS": $MAX_COINS,
+        "PAIRING": "$PAIRING",
+        "PAUSE_FOR": $PAUSE_FOR,
+        "PRICE_LOGS": $PRICE_LOGS,
+        "PRICE_LOG_SERVICE_URL": "$PRICE_LOG_SERVICE_URL",
+        "RE_INVEST_PERCENTAGE": $RE_INVEST_PERCENTAGE,
         "SELL_AS_SOON_IT_DROPS": $SELL_AS_SOON_IT_DROPS,
         "STOP_BOT_ON_LOSS": $STOP_BOT_ON_LOSS,
         "STOP_BOT_ON_STALE": $STOP_BOT_ON_STALE,
-        "ENABLE_NEW_LISTING_CHECKS": False,
-        "KLINES_CACHING_SERVICE_URL": $KLINES_CACHING_SERVICE_URL,
-        "PRICE_LOG_SERVICE_URL": $PRICE_LOG_SERVICE_URL,
-        "STRATEGY": $STRATEGY,
+        "STRATEGY": "$STRATEGY",
         "TICKERS": $TICKERS,
-        "PRICE_LOGS": $PRICE_LOGS
+        "TRADING_FEE": $TRADING_FEE
         }"""
         )
 
@@ -273,24 +278,27 @@ class ProveBacktesting:
             c.write(
                 tmpl.substitute(
                     {
-                        "PAUSE_FOR": self.pause_for,
-                        "INITIAL_INVESTMENT": s_balance,
-                        # each coin backtesting run should only use one coin
-                        # MAX_COINS will only be applied to the final optimized run
-                        "MAX_COINS": "1",
-                        "PAIRING": self.pairing,
                         "CLEAR_COIN_STATS_AT_BOOT": self.clear_coin_stats_at_boot,
                         "CLEAR_COIN_STATS_AT_SALE": self.clear_coin_stats_at_sale,
                         "DEBUG": self.debug,
-                        "TRADING_FEE": self.trading_fee,
-                        "SELL_AS_SOON_IT_DROPS": self.sell_as_soon_it_drops,
+                        "ENABLE_NEW_LISTING_CHECKS": self.enable_new_listing_checks,
+                        "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS": self.enable_new_listing_checks_age_in_days,  # pylint: disable=line-too-long
+                        "INITIAL_INVESTMENT": s_balance,
                         "KLINES_CACHING_SERVICE_URL": self.klines_caching_service_url,
+                        # each coin backtesting run should only use one coin
+                        # MAX_COINS will only be applied to the final optimized run
+                        "MAX_COINS": 1,
+                        "PAIRING": self.pairing,
+                        "PAUSE_FOR": self.pause_for,
+                        "PRICE_LOGS": _price_logs,
                         "PRICE_LOG_SERVICE_URL": self.price_log_service_url,
+                        "RE_INVEST_PERCENTAGE": self.re_invest_percentage,
+                        "SELL_AS_SOON_IT_DROPS": self.sell_as_soon_it_drops,
                         "STOP_BOT_ON_LOSS": self.stop_bot_on_loss,
                         "STOP_BOT_ON_STALE": self.stop_bot_on_stale,
                         "STRATEGY": self.strategy,
                         "TICKERS": _tickers,
-                        "PRICE_LOGS": _price_logs,
+                        "TRADING_FEE": self.trading_fee,
                     }
                 )
             )
@@ -447,9 +455,14 @@ class ProveBacktesting:
                         if l != 0 or s != 0 or h != 0 or w == 0:
                             continue
 
-                    coincfg = json.loads(_cfg)["TICKERS"][
-                        coin
-                    ]  # pylint: disable=W0123
+                    blob = json.loads(_cfg)
+                    if "TICKERS" in blob.keys():
+                        coincfg = blob["TICKERS"][
+                            coin
+                        ]  # pylint: disable=W0123
+                    else:
+                        print(blob)
+
                     if coin not in coins:
                         coins[coin] = {
                             "profit": profit,
