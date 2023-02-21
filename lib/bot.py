@@ -1564,7 +1564,7 @@ class Bot:
                     f"days:{len(self.price_logs)}",
                     f"w{self.wins},l{self.losses},s{self.stales},h{len(self.wallet)}",
                     f"cfg:{basename(self.config_file)}",
-                    str(self.cfg),
+                    json.dumps(self.cfg),
                 ]
             )
 
