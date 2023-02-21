@@ -314,16 +314,18 @@ class ProveBacktesting:
         # TODO: REVIEW THESE TWO BLOCKS BELOW
         coins: set = set()
         for day in dates:
-            for coin in coinfiles[day]:
-                if self.filter_by in coin:
-                    coins.add(coin)
+            if day in coinfiles.keys():
+                for coin in coinfiles[day]:
+                    if self.filter_by in coin and self.pairing in coin:
+                        coins.add(coin)
 
         for coin in coins:
             _price_logs: list = []
-            if self.filter_by in coin:
+            if self.filter_by in coin and self.pairing in coin:
                 for day in dates:
-                    if coin in coinfiles[day]:
-                        _price_logs.append(f"{coin}/{day}.log.gz")
+                    if day in coinfiles.keys():
+                        if coin in coinfiles[day]:
+                            _price_logs.append(f"{coin}/{day}.log.gz")
 
             self.write_single_coin_config(coin, _price_logs, thisrun)
         return coins
@@ -334,14 +336,15 @@ class ProveBacktesting:
         tasks: list = []
         with Pool(processes=n_tasks) as pool:
             for coin in _coin_list:
-                # then we backtesting this strategy run against each coin
-                # ocasionally we get stuck runs, so we timeout a coin run
-                # to a maximum of 15 minutes
-                job: AsyncResult = pool.apply_async(
-                    wrap_subprocessing,
-                    (f"coin.{coin}.yaml",),
-                )
-                tasks.append(job)
+                if self.filter_by in coin and self.pairing in coin:
+                    # then we backtesting this strategy run against each coin
+                    # ocasionally we get stuck runs, so we timeout a coin run
+                    # to a maximum of 15 minutes
+                    job: AsyncResult = pool.apply_async(
+                        wrap_subprocessing,
+                        (f"coin.{coin}.yaml",),
+                    )
+                    tasks.append(job)
 
             for t in tasks:
                 try:
