@@ -26,14 +26,14 @@ def mean(values: list) -> float:
 @lru_cache(1024)
 def percent(part: float, whole: float) -> float:
     """returns the percentage value of a number"""
-    result = whole / 100 * part
+    result = float(whole) / 100 * float(part)
     return result
 
 
 @lru_cache(1024)
 def add_100(number: float) -> float:
     """adds 100 to a number"""
-    return 100 + number
+    return 100 + float(number)
 
 
 @lru_cache(64)
