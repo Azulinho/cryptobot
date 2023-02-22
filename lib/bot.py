@@ -1547,6 +1547,13 @@ class Bot:
                     # symbol will be False if we fail to process the line fields
                     if not symbol:
                         continue
+
+                    if any(
+                        f"{w}{self.cfg['PAIRING']}" in symbol
+                        for w in ["UP", "DOWN", "BULL", "BEAR"]
+                    ):
+                        continue
+
                     self.process_line(symbol, date, market_price)
 
         # now that we are done, lets record our results
