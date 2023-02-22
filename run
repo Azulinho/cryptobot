@@ -189,32 +189,9 @@ function config_endpoint_service() { # runs the config endpoint service
 		export PORT=$( cat ${STATE_DIR}/.${MODE}.port )
 	fi
 
-	if [ -z "$PAIRING" ]; then
-		echo "PAIRING env variable not set"
-		exit 1
-	fi
-	if [ -z "$TUNED_CONFIG" ]; then
-		echo "TUNED_CONFIG env variable not set"
-		exit 1
-	fi
-
-	if [ -z "$BACKTRACK" ]; then
-		echo "BACKTRACK env variable not set"
-		exit 1
-	fi
 	if [ -z "$CONFIG_FILE" ]; then
 		echo "CONFIG_FILE env variable not set"
 		exit 1
-	fi
-	if [ -z "$MIN" ]; then
-		echo "MIN env variable not set"
-		exit 1
-	fi
-	if [ -z "$SORTBY" ]; then
-		export SORTBY=number_of_clean_wins
-	fi
-	if [ -z "$SMP_MULTIPLIER" ]; then
-		export SMP_MULTIPLIER=1
 	fi
 
 	docker run --rm \
@@ -224,13 +201,7 @@ function config_endpoint_service() { # runs the config endpoint service
 		${DOCKER_MOUNTS} \
 		${DOCKER_NETWORK} \
 		${RUN_IN_BACKGROUND} \
-		-e BACKTRACK=${BACKTRACK} \
 		-e CONFIG_FILE=${CONFIG_FILE} \
-		-e MIN=${MIN} \
-		-e SORTBY=${SORTBY} \
-		-e PAIRING=${PAIRING} \
-		-e TUNED_CONFIG=${TUNED_CONFIG} \
-		-e SMP_MULTIPLIER=${SMP_MULTIPLIER} \
     -p ${BIND}:${PORT}:5883 \
 		${IMAGE}:${TAG} \
     /cryptobot/utils/config-endpoint-service.sh
