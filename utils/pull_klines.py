@@ -144,11 +144,14 @@ if __name__ == "__main__":
         for ticker in tickers:
             if ticker in ignore_list:
                 continue
+
             print(f"getting klines for {ticker} on {day}")
-            results = []
+
+            ticker_klines: list = []
             for line in pull_klines(ticker, start, end):
-                results.append(line)
-            if not results:
+                ticker_klines.append(line)
+
+            if not ticker_klines:
                 # this ticker doesn't exist at this date and dates before this
                 # let's add it to the ignore list
                 print(f"no data found for {ticker}, ignoring coin from now on")
@@ -169,28 +172,36 @@ if __name__ == "__main__":
                 _,
                 _,
                 _,
-            ) in results:
-                klines_date = str(  # pylint: disable=invalid-name
+            ) in ticker_klines:
+                klines_date: str = str(  # pylint: disable=invalid-name
                     datetime.fromtimestamp(float(closetime) / 1000)
                 )  # pylint: disable=C0103
                 log.append(
                     f"{klines_date} {ticker} {(float(high) + float(low))/2}\n"
                 )
+
             # create a directory for each symbol to keep its logfiles
             if not os.path.exists(f"log/{ticker}"):
                 os.mkdir(f"log/{ticker}")
+
             # write down log/ ticker / day.log
             with open(f"log/{ticker}/{day}.log", "w", encoding="utf-8") as f:
                 oldprice = 0  # pylint: disable=invalid-name
                 for line in log:
                     parts = line.split(" ")
                     symbol = parts[2]
-                    price = parts[3]
 
+                    # we are consuming lines from log which contains all klines
+                    # from today.
+                    if ticker != symbol:
+                        continue
+
+                    price = parts[3]
                     # dedup identical price log lines
                     if price != oldprice:
                         oldprice = price
                         f.write(line)
+
             # and compress to log/ ticker / day.log.gz
             with gzip.open(f"log/{ticker}/{day}.log.gz", "wt") as z:
                 with open(f"log/{ticker}/{day}.log", encoding="utf-8") as f:
