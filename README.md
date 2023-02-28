@@ -7,7 +7,11 @@ A python based trading bot for Binance, which relies heavily on backtesting.
  2. [Discord](#discord)
  3. [Getting started](#getting-started)
  4. [Usage](#usage)
- 5. [Config settings](#config-settings)
+ 5. [Automated Backtesting](#automated-backtesting)
+ 6. [Prove automated-backtesting results](#prove-automated-backtesting-results)
+ 7. [config-endpoint-service](#config-endpoint-service)
+ 8. [Control Flags](#control-flags)
+ 9. [Config settings](#config-settings)
     * [PAIRING](#pairing)
     * [INITIAL_INVESTMENT](#initial_investment)
     * [RE_INVEST_PERCENTAGE](#re_invest_percentage)
@@ -42,22 +46,23 @@ A python based trading bot for Binance, which relies heavily on backtesting.
     * [ORDER_TYPE](#order_type)
     * [PULL_CONFIG_ADDRESS](#pull_config_address)
     * [SELL_ALL_ON_PULL_CONFIG_CHANGE](#sell_all_on_pull_config_change)
- 6. [Bot command center](#bot-command-center)
- 7. [Control Flags](#control-flags)
- 8. [Automated Backtesting](#automated-backtesting)
- 9. [Prove automated-backtesting results](#prove-automated-backtesting-results)
-10. [config-endpoint-service](#config-endpoint-service)
-11. [Obtaining old price log files](#obtaining-old-price-log-files)
-12. [Development/New features](#development/new-features)
+    * [PRICE_LOG_SERVICE_URL](#price_log_service_url)
+    * [KLINES_CACHING_SERVICE_URL](#klines_caching_service_url)
+    * [CONCURRENCY](#concurrency)
+    * [SORT_BY](#sort_by)
+      * [maximum_profit_on_clean_wins](#maximum_profit_on_clean_wins)
+      * [number_of_clean_wins](#number_of_clean_wins)
+      * [greed](#greed)
+10. [Bot command center](#bot-command-center)
+11. [Development/New features](#development/new-features)
+
 
 ## Overview
 
 A cryptobot designed to work across different trends of the market.
 
-This bot along with the tooling provided allows for different strategies to
-be backtested against different trading pairs.
+There are multiple tool or services in this repo, for example:
 
-There are multiple tools in this repo, for example:
 * Downloading old klines price log files
 * Automating backtesting multiple strategies against a number of kline
     *price.logs*, and producing an optimized strategy to use going forward.
@@ -92,10 +97,7 @@ In order to understand what are the best percentages on when to buy and sell for
 each one of the coins available in binance, we use backtesting strategies
 against a number of logfiles containing dated coin prices. Let's call them
 klines price.logs.
-These *price.logs* can be generated while the bot is running in a *logmode* mode
-where it records prices for all the available binance coins every 1 second or
-any other chosen interval.
-Or we can obtain 1 min interval klines from binance using a
+These *price.logs* can be downloaded in 1 min interval klines from binance using a
 [tool available in this repository](#obtaining-old-price-log-files).
 
 With these price.log files we can run the bot in *backtesting* mode
@@ -105,23 +107,17 @@ of the market.
 
 In order to help us identify the best buy/sell percentages for each coin, there
 is a helper tool in this repo which runs a form of
-[automated-backtesting](#automated-backtesting) against
+[automated-backtesting](#prove-backtesting) against
 all the coins in binance and a number of buy/sell percentages and strategies
-and returns the best config for each one of those coins. Use it as a starting
-point for your own strategy.
-
-An additional tool [prove-backtesting](#prove-automated-backtesting-results) can
-then be used to mitigate the risk, by using the input strategies given to the
-*automated-backtesting* tool and apply them over multiple time frames in order
-to understand how the strategy works in different market conditions, and how
-well the bot adapts to changing markets.
+and returns the best config for each one of those coins for a specific period in
+time.
+This tool can be used to verify how a strategy behaves across changing markets
+conditions and how well the bot adapts to those changes.
 
 The way the bot chooses when to buy is based on a set of strategies which are
 defined in the [strategies/](./strategies/) folder in this repo.
 You can choose to build your own strategy and place it on the
 [strategies/](./strategies) folder,
-then either rebuild the bot docker image or just map the file as a volume mount
-in the [docker-compose file](./docker-compose.yaml).
 
 This bot currently provides different strategies:
 
@@ -140,7 +136,7 @@ While the price for every available coin is recorded in the *price.log*
 logfiles, the bot will only act to buy or sell coins for coins listed
 specifically on its configuration.
 
-Each coin is defined in the configuration with a set of values for when to
+Each coin needs to be added to the configuration with a set of values for when to
 buy and sell. This allows us to tell the Bot how it handles different coins
 regarding their current state. For example, a high volatile coin that drops 10%
 in price is likely to continue dropping further, versus a coin like BTCUSDT that
@@ -209,51 +205,7 @@ TICKERS:
 In order to test the different 'profiles' for different coins, we would then
 run this bot in backtesting mode.
 
-There are 4 modes of execution: live, testnet, backtesting, logmode.
-
-For backtesting, we use two modes of operation:
-
-* logmode
-* backtesting
-
-In the *logmode* it records **the current price** for all available binance coins
-in daily *price.logs* and stores them in the log directory.
-These logs can then be consumed in *backtesting* mode.
-
-The bot doesn't retrieve historic klines from binance, which are limited to a
-minimum of 1 min granularity. If you want to pull historic klines from binance,
-use the [tool available in this repo](#obtaining-old-price-log-files)
-
-Just to get started, here is a
-[logfile](https://www.dropbox.com/s/dqpma82vc4ug7l9/MYCOINS.log.gz?dl=0)
-for testing containing a small set of coins
-
-Don't bother decompressing these files, as the bot consumes them compressed
-in the .gz format.
-
-Processing each daily logfile on a 1sec interval, takes around 30 seconds,
-so for numerous price log files this can take a long time to run backtesting simulations.
-A workaround is to test out each coin individually by generating a price.log
-file containing just the coins we care about.
-
-```
-rm -f log/MYCOINS.log
-ls *.log.gz| xargs -i gzcat {} |egrep -E 'BTCUSDT|ETHUSDT|BNBUSDT|DOTUSDT' >> MYCOINS.log"
-gzip MYCOINS.log
-```
-
-Then we can use that *MYCOINS.log.gz* in the *PRICE_LOGS* configuration setting.
-This way each simulation takes just a few seconds.
-
-```
-PRICE_LOGS:
-  - "log/MYCOINS.log.gz"
-
-```
-
-So that we can review the different backtesting results according to their
-applied configurations, all backtests are logged into a file called *log/backtesting.log*.
-
+There are 3 modes of execution: live, testnet, backtesting
 
 ## Discord
 
@@ -285,9 +237,7 @@ Or get your hands dirty by,
 
 1. Install docker as per https://docs.docker.com/get-docker/
 
-2. Install docker-compose as per: https://docs.docker.com/compose/install/
-
-3. Clone this repository:
+2. Clone this repository:
 
 ```
 git clone https://github.com/Azulinho/cryptobot.git
@@ -296,7 +246,10 @@ git clone https://github.com/Azulinho/cryptobot.git
 4. generate a *config.yaml*, see the example configs in the
 [examples](https://github.com/Azulinho/cryptobot/tree/master/examples) folder.
 
-Place your new config.yaml file into the *configs/* folder.
+Or the configs used for tests in the
+[tests](https://github.com/Azulinho/cryptobot/tree/master/tests) folder
+
+Place your new *my_newly_named_config.yaml* file into the *configs/* folder.
 
 5. Add your Binance credentials to */secrets/binance.prod.yaml*.
    See the [example
@@ -309,42 +262,54 @@ SECRET_KEY: "SECRET_KEY"
 
 ```
 
-When running the bot for the first time, you'll need to generate some
+
+6. When running the bot for the first time, you'll need to obtain some
    *price.log* files for backtesting.
 
-You can use the sample
-[logfile](https://www.dropbox.com/s/dqpma82vc4ug7l9/MYCOINS.log.gz?dl=0)
-for testing containing a small set of coins
-
-6. Run the bot in *logmode* only, which will generate price logs while its
-running. But not buy or sell anything.
-
 ```
-./run logmode CONFIG_FILE=config.yaml
+./run download-price-logs FROM=20210101 TO=20211231
 ```
 
-You can also look into the [obtaining old price.log files
-tool](#obtaining-old-price-log-files)
+  And wait, as this will take a while to run.
+  If it fails, you can restart it from the day that failed.
 
-When there is enough data for backtesting in our price.log files, we can now
-run a new instance of the bot in *backtesting* mode.
+  All logs will be downloaded to the logs/ directory.
 
-5. Compress all the logs, except for the current live logfile in *gz* format.
+7. Run a local price-log server to serve the downloaded price log files
 
 ```
-ls *.log| xargs -i gzip -3 {}"
+./run price_log_service BIND=0.0.0.0 PORT=8998
 ```
 
-6. Update the config.yaml file and include the list of logfiles we are using for
+8. Run a local klines-caching server
+
+```
+ ./run klines-caching-service BIND=0.0.0.0 PORT=8999
+```
+
+9. Update your config.yaml file and include the dates we are using for
 our backtesting.
 
 ```
 PRICE_LOGS:
-  - "log/20210922.log.gz"
-  - "log/20210923.log.gz"
+ - "log/20210101.log.gz"
+ - "log/20210102.log.gz"
+ - "log/20210103.log.gz"
+ - "log/20210104.log.gz"
+ - "log/20210105.log.gz"
 ```
 
-7. run the bot in backtesting mode, which will perform simulated buys/sells on
+Also update the urls for the PRICE_LOG_SERVICE_URL, KLINES_CACHING_SERVICE_URL.
+
+Examples as per the *./run* commands above:
+
+
+```
+PRICE_LOG_SERVICE_URL: "http://< insert my ip here >:8998"
+KLINES_CACHING_SERVICE_URL: "http://< insert my ip here >:8999"
+```
+
+10. run the bot in backtesting mode, which will perform simulated buys/sells on
 all collected price logs based on the provided config.yaml.
 
 
@@ -352,7 +317,7 @@ all collected price logs based on the provided config.yaml.
 ./run backtesting CONFIG_FILE=config.yaml
 ```
 
-8. Update your config.yaml until you are happy with the results and re-run the
+11. Update your config.yaml until you are happy with the results and re-run the
    backtesting.
 
    Some pointers:
@@ -375,10 +340,143 @@ all collected price logs based on the provided config.yaml.
    * BUY_AT_PERCENTAGE
    * TRAIL_RECOVERY_PERCENTAGE
 
-9. Finally, when happy run in live trading mode,
+12. Finally, when happy run in live trading mode,
 
 ```
 ./run live CONFIG_FILE=config.yaml
+```
+
+
+## Automated Backtesting
+
+The iterative approach used above is good enough for testing out strategies for
+a small group of coins, and for an isolated period in time (market
+conditions).
+We can automate a lot of these iterations and identify the best profiles for
+each coin by using prove-backtesting.
+
+Bundled with the bot there is a python script to automate backtesting of the
+different coins over a period of days. It works by parsing a number of price.log file
+for a number of days, and running a set of different defined strategies
+(config.yamls) against each coin individually. Then gathering the best config
+for each coin and combining them into a single tuned config for that particular
+strategy. Before running a normal backtesting session using all the coins listed
+in that new config.yaml.
+
+Use it as:
+
+1. Create a backtesting file in configs/my-prove-backtesting.yaml
+   see the [test/prove-backtesting.yaml](./test/prove-backtesting.yaml).
+
+
+2. Update the config in my-prove-backtesting.yaml to only consume coins that
+returned at least 10% in profit.
+
+ ```
+ MIN: 10
+ ```
+
+3. Update the dates to test against, for example:
+
+For a single backtest run, tipically used to get the best config for today.
+
+backtest from the begining of 20230101 to yesterday 20230201.
+
+ ```
+FROM_DATE: 20230201
+END_DATE: 20230201
+ROLL_BACKWARDS: 30
+ROLL_FORWARD: 1
+ ```
+
+Above we're stating that we want the FROM_DATE and END_DATE to be the same, and
+that we want to look back 30 days, and only run forward 1 day (which would be
+today's date)
+
+
+This will generate a config.yaml with the coins sorted by which strategy
+returned the highest profit for each coin.
+
+```
+./run prove-backtesting CONFIG_FILE=my-prove-backtesting.yaml
+```
+
+## Prove automated-backtesting results
+
+With the automated-backtesting above we found a set of strategies that have
+returned some good profits over the course of those last 30 days.
+We now need to understand how some of those strategies would work over different
+market conditions, or over time.
+
+Create a copy of the *my-prove-backtesting* as *long-run.yaml* and update the
+dates as follow:
+
+ ```
+FROM_DATE: 20220101
+END_DATE: 20230201
+ROLL_BACKWARDS: 30
+ROLL_FORWARD: 14
+ ```
+
+Then run prove-backtesting using the config above,
+
+```
+ ./run prove-backtesting CONFIG_FILE=long-run.yaml
+```
+
+Which will run backtesting from 20220101 to 20230201, looking back at the
+previous 30 days of price.logs, generating an optimized config for those days,
+and running the following 14 days using that new config, before repeating the
+cycle all the way until 20230201.
+
+
+## config-endpoint-service
+
+Use this service to provide fresh ticker configs to a LIVE bot by running
+automated-backtesting periodically, and having the LIVE bot pull that optimized
+config as soon automated-backtesting completes.
+
+```
+./run config-endpoint-service BIND=0.0.0.0 CONFIG_FILE=myconfig.yaml
+```
+
+see [PULL_CONFIG_ADDRESS]#pull_config_address and
+[SELL_ALL_ON_PULL_CONFIG_CHANGE]#sell_all_on_pull_config_change
+
+Trigger the execution of the automated-backtesting run by creating a *RUN* file
+in the control/ folder.
+
+```
+touch control/RUN
+```
+
+This service use the *ROLL_BACKWARDS* for the number of backtesting days to use
+when generating a new config.
+
+```
+FROM_DATE: 19700101
+END_DATE: 19700101
+ROLL_BACKWARDS: 30
+ROLL_FORWARD: 1
+```
+
+The FROM and END DATE are irrelevant for this service as the service will always
+use yesterday's date.
+
+
+## Control Flags
+
+The *control/* directory is monitored by the Bot for files, directing the Bot
+to take certain actions.
+
+*control/STOP* causes the bot to quit.
+
+*control/SELL* causes the bot to sell all coins listed in the SELL file.
+
+```
+cat control/SELL
+BTCUSDT
+ETHUSDT
 ```
 
 
@@ -715,7 +813,8 @@ operation.
 ```
 PRICE_LOGS: [""]
 ```
-The list of price logs to be used for backtesting.
+The list of price logs to be used for backtesting. Note that this is relative
+to the url used in the PRICE_LOG_SERVICE_URL.
 
 
 ### ENABLE_PUMP_AND_DUMP_CHECKS
@@ -729,6 +828,7 @@ defaults to True
 Checks the price of a coin over the last 2 hours and prevents the bot from
 buying if the price 2 hours ago was lower than 1 hour ago (pump) and the current
 price is higher than 2 hours ago (dump pending).
+Don't rely too much on this.
 
 ### ENABLE_NEW_LISTING_CHECKS
 
@@ -793,6 +893,63 @@ SELL_ALL_ON_PULL_CONFIG_CHANGE: True
 
 Defaults to False
 
+### PRICE_LOG_SERVICE_URL
+
+Tells the bot the http endpoint from where it can download price.log files from.
+
+```
+PRICE_LOG_SERVICE_URL: "http://price-log-service:8998"
+```
+
+### KLINES_CACHING_SERVICE_URL
+
+Tells the bot the http endpoint from where it can download klines data
+
+```
+KLINES_CACHING_SERVICE_URL: "http://klines-caching-service:8999"
+```
+
+
+### CONCURRENCY
+
+The number of parallel backtesting processes to run.
+
+```
+CONCURRENCY: 4
+```
+
+### SORT_BY
+
+How to order results from the different test runs in automated-backtesting in
+order to choose the best config for each coin.
+
+
+#### maximum_profit_on_clean_wins
+
+Use the config that provided the best profit for this coin and did not result
+in any STOP_LOSSES or STALES or HOLDS at the end of the runs.
+
+```
+SORT_BY: "maximum_profit_on_clean_wins"
+```
+
+#### number_of_clean_wins
+
+Use the config that returned the highest number of wins for this coin and did
+not result in any STOP_LOSSES or STALES or HOLDS at the end of the runs
+
+```
+SORT_BY: "number_of_clean_wins"
+```
+
+#### greed
+
+Use the config that returned the highest profit for this coin.
+```
+SORT_BY: "greed
+```
+
+
 ## Bot command center
 
 The bot is running a *pdb* endpoint on container port 5555.
@@ -833,132 +990,6 @@ close
 
 Do not Control-D as it will hang the debugger, and you won't be able to
 reconnect.
-
-
-## Control Flags
-
-The *control/* directory is monitored by the Bot for files, directing the Bot
-to take certain actions.
-
-*control/STOP* causes the bot to quit.
-
-*control/SELL* causes the bot to sell all coins listed in the SELL file.
-
-```
-cat control/SELL
-BTCUSDT
-ETHUSDT
-```
-
-## Automated Backtesting
-
-In the utils/ directory there's a python script to automate backtesting of the
-different coins over a period of days. It works by parsing a price.log file
-combining a number of days, and running a set of different defined strategies
-(config.yamls) against each coin individually. Then gathering the best config
-for each coin and combining them into a single tuned config for that particular
-strategy. Before running a normal backtesting session using all the coins listed
-in that new config.yaml.
-
-Use it as:
-
-1. First compress all non-active logs
-
-```
-./run compress-logs
-```
-
-2. Generate a logfile for the last days we want to test
-
-```
-./run lastfewdays DAYS=14 PAIR=USDT
-mv lastfewdays.USDT.log.gz log/
-```
-
-3. Create a backtesting file in configs/automated-backtesting.yaml
-   see the examples/automated-backtesting.yaml.
-
-
-4. Run backtesting on all scenarios listed in automated-backtesting.yaml using
- the lastfewdays.USDT.log.gz created above, and only consume coins that returned
- at least 10% in profit.
-
-This will generate a config.yaml with the coins sorted by which strategy
-returned the highest profit for each coin.
-
-```
-./run automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG_FILE=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='greed'
-```
-
-This will generate a config.yaml with the coins sorted by which strategy
-returned the highest number of clean wins for each coin. We call clean wins as
-bot runs that don't contain any losses, holds or stales, only wins.
-
-```
-./run automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG_FILE=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='number_of_clean_wins'
-```
-
-This will generate a config.yaml with the coins sorted by which strategy
-returned the highest profit for each coin, where there weren't any stales,
-losses, or coins left in the wallet at the end of the run.
-
-```
-./run automated-backtesting LOGFILE=lastfewdays.USDT.log.gz CONFIG_FILE=automated-backtesting.yaml MIN=10 FILTER='' SORTBY='max_profit_on_clean_wins'
-```
-
-
-
-## Prove automated-backtesting results
-
-Using the same config file provided to *automated-backtesting*, this tool runs
-multiple iterations of *automated-testing.py* from a start date to an end date.
-It begins by grabbing a set of logfiles from the days prior to the start date,
-and running automated-backtesting using those logfiles. Then using the newly
-generated tuned config, runs backtesting for a number of days and logs following the
-start date.
-It then repeats this process starting the day after the last logfile
-backtested through the tuned config, all the way until the end date provided.
-
-```
- ./run prove-backtesting FROM=20220801 BACKTRACK=90 MIN=9 CONFIG_FILE=backtesting.yaml TO=20220831 FORWARD=7 SORTBY=greed
-```
-
-## config-endpoint-service
-
-Use this tool/service to provide fresh ticker configs to a LIVE bot by running
-automated-backtesting periodically, and having the LIVE bot pull that optimized
-config as soon automated-backtesting completes.
-
-```
-./run config-endpoint-service BIND=0.0.0.0 CONFIG_FILE=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=number_of_clean_wins
-```
-
-see [PULL_CONFIG_ADDRESS]#pull_config_address and
-[SELL_ALL_ON_PULL_CONFIG_CHANGE]#sell_all_on_pull_config_change
-
-Trigger the execution of the automated-backtesting run by creating a *RUN* file
-in the control/ folder.
-
-```
-touch control/RUN
-```
-
-
-## Obtaining old price log files
-
-In the utils/ directory there's a python script that pulls klines from binance
-in the format used by this bot.
-
-Use it as:
-
-```
-./run download-price-logs FROM=20210101 TO=20211231
-```
-
-And wait, as this will take a while to run.
-If it fails, you can restart it from the day that failed.
-
-All logs will be downloaded to the logs/ directory.
 
 
 ## Development/New features
