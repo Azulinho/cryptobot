@@ -393,6 +393,7 @@ class ProveBacktesting:
                 "number_of_clean_wins",
                 "max_profit_on_clean_wins",
             ]:
+                print(f"HERE1: {self.sort_by}")
                 if (int(losses) + int(stales) + int(holds)) == 0:
                     _run["total_wins"] += int(wins)
                     _run["total_losses"] += int(losses)
@@ -401,6 +402,7 @@ class ProveBacktesting:
                     _run["total_profit"] += float(balance)
             else:
                 # greed
+                print(f"HERE2: {self.sort_by}")
                 _run["total_wins"] += int(wins)
                 _run["total_losses"] += int(losses)
                 _run["total_stales"] += int(stales)
@@ -412,11 +414,13 @@ class ProveBacktesting:
                     "number_of_clean_wins",
                     "max_profit_on_clean_wins",
                 ]:
+                    print(f"HERE3: {self.sort_by}")
                     if (int(losses) + int(stales) + int(holds)) == 0:
                         coin_with_highest_profit = symbol
                         highest_profit = float(balance)
                 else:
                     # greed
+                    print(f"HERE4: {self.sort_by}")
                     coin_with_highest_profit = symbol
                     highest_profit = balance
 
