@@ -256,6 +256,8 @@ function price_log_service() { # runs the klines caching service
 			--workers=4 \
 			--worker-class=gevent \
 			--worker-connections=256 \
+			--max-requests=64 \
+			--max-requests-jitter=64 \
 			--worker-tmp-dir /dev/shm \
 			--bind 0.0.0.0:8998  price_log_service:app
 }
