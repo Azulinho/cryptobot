@@ -285,9 +285,7 @@ class ProveBacktesting:
                         "ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS": self.enable_new_listing_checks_age_in_days,  # pylint: disable=line-too-long
                         "INITIAL_INVESTMENT": s_balance,
                         "KLINES_CACHING_SERVICE_URL": self.klines_caching_service_url,
-                        # each coin backtesting run should only use one coin
-                        # MAX_COINS will only be applied to the final optimized run
-                        "MAX_COINS": 1,
+                        "MAX_COINS": self.max_coins,
                         "PAIRING": self.pairing,
                         "PAUSE_FOR": self.pause_for,
                         "PRICE_LOGS": _price_logs,
