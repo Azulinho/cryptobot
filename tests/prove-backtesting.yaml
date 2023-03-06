@@ -19,7 +19,7 @@ CONCURRENCY: 1
 
 MIN: 1
 FILTER_BY: "ETH"
-SORT_BY: "maximum_profit_on_clean_wins"
+SORT_BY: "greed"
 FROM_DATE: 20211201
 END_DATE: 20211209
 ROLL_BACKWARDS: 3
