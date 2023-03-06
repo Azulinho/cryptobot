@@ -103,6 +103,17 @@ class ProveBacktesting:
         )
         self.sort_by: str = cfg["SORT_BY"]
 
+    def check_for_invalid_values(self):
+        """check for invalid values in the config"""
+
+        if self.sort_by not in [
+            "max_profit_on_clean_wins",
+            "number_of_clean_wins",
+            "greed",
+        ]:
+            log_msg("SORT_BY set to invalid value")
+            sys.exit(1)
+
     def generate_start_dates(self, start_date, end_date, jump=7) -> list:
         """returns a list of dates, with a gap in 'jump' days"""
         dates = pd.date_range(start_date, end_date, freq="d").strftime(
@@ -579,6 +590,8 @@ if os.path.exists("cache/binance.client"):
 n_cpus: Optional[int] = os.cpu_count()
 
 pv: ProveBacktesting = ProveBacktesting(config)
+pv.check_for_invalid_values()
+
 
 # generate start_dates
 log_msg(

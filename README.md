@@ -50,7 +50,7 @@ A python based trading bot for Binance, which relies heavily on backtesting.
     * [KLINES_CACHING_SERVICE_URL](#klines_caching_service_url)
     * [CONCURRENCY](#concurrency)
     * [SORT_BY](#sort_by)
-      * [maximum_profit_on_clean_wins](#maximum_profit_on_clean_wins)
+      * [max_profit_on_clean_wins](#max_profit_on_clean_wins)
       * [number_of_clean_wins](#number_of_clean_wins)
       * [greed](#greed)
 10. [Bot command center](#bot-command-center)
@@ -924,13 +924,13 @@ How to order results from the different test runs in automated-backtesting in
 order to choose the best config for each coin.
 
 
-#### maximum_profit_on_clean_wins
+#### max_profit_on_clean_wins
 
 Use the config that provided the best profit for this coin and did not result
 in any STOP_LOSSES or STALES or HOLDS at the end of the runs.
 
 ```
-SORT_BY: "maximum_profit_on_clean_wins"
+SORT_BY: "max_profit_on_clean_wins"
 ```
 
 #### number_of_clean_wins
