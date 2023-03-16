@@ -1530,6 +1530,8 @@ class Bot:
 
         else:
             for logfile in self.cfg["PRICE_LOGS"]:
+                if self.quit:
+                    return
                 logging.info(f"backtesting: {logfile}")
                 logging.info(f"wallet: {self.wallet}")
                 logging.info(f"exposure: {self.calculates_exposure()}")
