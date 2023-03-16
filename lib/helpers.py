@@ -12,7 +12,10 @@ import udatetime
 from binance.client import Client
 from filelock import SoftFileLock
 from pyrate_limiter import Duration, Limiter, RequestRate
-from tenacity import retry, wait_exponential
+from tenacity import (
+    retry,
+    wait_exponential,
+)
 
 rate = RequestRate(600, Duration.MINUTE)  # 600 requests per minute
 limiter = Limiter(rate)
@@ -69,16 +72,22 @@ def requests_with_backoff(query: str):
     return response
 
 
-@retry(wait=wait_exponential(multiplier=1, max=3))
 def get_price_log(query: str):
     """retry wrapper for requests calls"""
-    response = requests.get(query, timeout=5)
-    status = response.status_code
-    if status != 200:
+
+    for w in [1, 2, 3]:
+        response: requests.Response = requests.get(query, timeout=5)
+        status: int = response.status_code
+        if status == 200:
+            return response
+
         with open("log/price_log_service.response.log", "at") as f:
             f.write(f"{query} {status} {response}\n")
-        response.raise_for_status()
-    return response
+        if status == 404:
+            response.raise_for_status()
+        sleep(6 * w)
+    response.raise_for_status()
+    return None
 
 
 def cached_binance_client(access_key: str, secret_key: str) -> Client:

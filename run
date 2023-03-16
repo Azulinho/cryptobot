@@ -308,6 +308,20 @@ function github_actions_ci_pr_docker_tests() {
 	cp tests/fake.yaml secrets/fake.yaml
 	cp tests/price.log.gz log/tests.price.log.gz
 
+	mkdir -p log/ETHUSDT
+	mkdir -p log/BTCUSDT
+	for ta in 01 02 03 04 05 06 07 08 09
+	do
+		cat tests/price.log.gz | grep 2021-12-${ta}  |gzip -1 > log/202112${ta}.log.gz
+		cat tests/price.log.gz | grep ETHUSDT | grep 2021-12-${ta}  |gzip -1 > log/ETHUSDT/202112${ta}.log.gz
+		cat tests/price.log.gz | grep BTCUSDT | grep 2021-12-${ta}  |gzip -1 > log/BTCUSDT/202112${ta}.log.gz
+	done
+	cp tests/index.json.gz log/
+
+	export PRICE_LOG_PORT=$( cat ${STATE_DIR}/.price_log_service.port)
+	touch log/test.log
+	curl http://${DOCKER_IP}:${PRICE_LOG_PORT}/test.log
+
 	echo BuyMoonSellRecoveryStrategy.yaml
 	cp tests/BuyMoonSellRecoveryStrategy.yaml configs/
 	./run backtesting CONFIG_FILE=BuyMoonSellRecoveryStrategy.yaml TAG=pr
@@ -344,22 +358,21 @@ function github_actions_ci_pr_docker_tests() {
 	grep 'wins:184 losses:4 stales:596 holds:0' results/backtesting.BuyOnRecoveryAfterDropFromAverageStrategy.yaml.txt
 
 	echo prove-backtesting
-	for ta in 01 02 03 04 05 06 07 08 09
-	do
-		cat tests/price.log.gz | grep 2021-12-${ta}  |gzip -1 > log/202112${ta}.log.gz
-	done
-	cp tests/index.json.gz log/
-
 	cp tests/prove-backtesting.yaml configs/
 	./run prove-backtesting \
 		TAG=pr CONFIG_FILE=prove-backtesting.yaml
 
-	md5sum ${CONFIG_DIR}/BuyDropSellRecoveryStrategy.yaml \
-		|cut -f1 -d " " | grep '8e4a7b58c6194d9eafba0d1006da0e7a'
+	wc -l results/prove-backtesting.prove-backtesting.yaml.txt \
+		| grep '29'
 
-	export PRICE_LOG_PORT=$( cat ${STATE_DIR}/.price_log_service.port)
-	touch log/test.log
-	curl http://${DOCKER_IP}:${PRICE_LOG_PORT}/test.log
+	for ta in 01 02 03 04 05 06 07 08 09
+	do
+		rm -f log/202112${ta}.log.gz
+		rm -f log/ETHUSDT/202112${ta}.log.gz
+		rm -f log/BTCUSDT/202112${ta}.log.gz
+	done
+	rm -f log/index.json.gz
+
   ./run down
 }
 
