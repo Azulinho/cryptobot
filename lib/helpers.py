@@ -69,6 +69,18 @@ def requests_with_backoff(query: str):
     return response
 
 
+@retry(wait=wait_exponential(multiplier=1, max=3))
+def get_price_log(query: str):
+    """retry wrapper for requests calls"""
+    response = requests.get(query, timeout=5)
+    status = response.status_code
+    if status != 200:
+        with open("log/price_log_service.response.log", "at") as f:
+            f.write(f"{query} {status} {response}\n")
+        response.raise_for_status()
+    return response
+
+
 def cached_binance_client(access_key: str, secret_key: str) -> Client:
     """retry wrapper for binance client first call"""
 
