@@ -27,6 +27,7 @@ from lib.helpers import (
     mean,
     percent,
     requests_with_backoff,
+    get_price_log,
 )
 
 
@@ -1532,11 +1533,7 @@ class Bot:
                 logging.info(f"backtesting: {logfile}")
                 logging.info(f"wallet: {self.wallet}")
                 logging.info(f"exposure: {self.calculates_exposure()}")
-                # pull the file in one go to avoid blocking the price_log_service
-                # for very long.
-                # TODO: change this to a session and iter_lines and update
-                # price_log_service to use gevent
-                response = requests_with_backoff(
+                response: requests.Response = get_price_log(
                     f"{self.cfg['PRICE_LOG_SERVICE_URL']}/{logfile}"
                 )
                 for item in (response.content).splitlines():
