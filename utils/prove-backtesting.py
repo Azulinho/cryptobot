@@ -19,6 +19,20 @@ import pandas as pd
 import requests
 import yaml
 
+from tenacity import retry, wait_exponential
+
+
+@retry(wait=wait_exponential(multiplier=2, min=1, max=30))
+def get_index_json(query: str) -> requests.Response:
+    """retry wrapper for requests calls"""
+    response: requests.Response = requests.get(query, timeout=5)
+    status: int = response.status_code
+    if status != 200:
+        with open("log/price_log_service.response.log", "at") as l:
+            l.write(f"{query} {status} {response}\n")
+        response.raise_for_status()
+    return response
+
 
 def log_msg(msg) -> None:
     """logs out message prefixed with timestamp"""
@@ -324,8 +338,8 @@ class ProveBacktesting:
     def write_all_coin_configs(self, dates, thisrun):
         """generate all coinfiles"""
 
-        r: requests.Response = requests.get(
-            f"{self.price_log_service_url}/index.json.gz", timeout=30
+        r: requests.Response = get_index_json(
+            f"{self.price_log_service_url}/index.json.gz"
         )
         coinfiles: Any = json.loads(r.content)
 
