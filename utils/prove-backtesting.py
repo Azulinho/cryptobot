@@ -205,6 +205,15 @@ class ProveBacktesting:
         }"""
         )
 
+        # on our coin backtesting runs, we want to quit early if we are using
+        # a sort_by mode that discards runs with STALES or LOSSES
+        if self.sort_by == "greed":
+            stop_bot_on_loss = False
+            stop_bot_on_stale = False
+        else:
+            stop_bot_on_loss = True
+            stop_bot_on_stale = True
+
         with open(f"configs/coin.{symbol}.yaml", "wt") as c:
             c.write(
                 tmpl.substitute(
@@ -226,8 +235,8 @@ class ProveBacktesting:
                         "PRICE_LOG_SERVICE_URL": self.price_log_service_url,
                         "RE_INVEST_PERCENTAGE": 100,
                         "SELL_AS_SOON_IT_DROPS": self.sell_as_soon_it_drops,
-                        "STOP_BOT_ON_LOSS": self.stop_bot_on_loss,
-                        "STOP_BOT_ON_STALE": self.stop_bot_on_stale,
+                        "STOP_BOT_ON_LOSS": stop_bot_on_loss,
+                        "STOP_BOT_ON_STALE": stop_bot_on_stale,
                         "STRATEGY": self.strategy,
                         "TRADING_FEE": self.trading_fee,
                         "BUY_AT_PERCENTAGE": thisrun["BUY_AT_PERCENTAGE"],
