@@ -334,6 +334,15 @@ class ProveBacktesting:
         for day in dates:
             if day in coinfiles.keys():
                 for coin in coinfiles[day]:
+                    # discard any BULL/BEAR tokens
+                    if any(
+                        f"{w}{self.pairing}" in coin
+                        for w in ["UP", "DOWN", "BULL", "BEAR"]
+                    ) or any(
+                        f"{self.pairing}{w}" in coin
+                        for w in ["UP", "DOWN", "BULL", "BEAR"]
+                    ):
+                        continue
                     if self.filter_by in coin and self.pairing in coin:
                         coins.add(coin)
 
