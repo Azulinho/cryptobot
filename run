@@ -330,7 +330,7 @@ function github_actions_ci_pr_docker_tests() {
 	echo BuyOnGrowthTrendAfterDropStrategy.yaml
 	cp tests/BuyOnGrowthTrendAfterDropStrategy.yaml configs/
 	./run backtesting CONFIG_FILE=BuyOnGrowthTrendAfterDropStrategy.yaml TAG=pr
-	grep 'wins:19 losses:1 stales:75 holds:2' results/backtesting.BuyOnGrowthTrendAfterDropStrategy.yaml.txt
+	grep 'wins:23 losses:3 stales:87 holds:2' results/backtesting.BuyOnGrowthTrendAfterDropStrategy.yaml.txt
 
   echo BuyDropSellRecoveryStrategy.yaml
 	cp tests/BuyDropSellRecoveryStrategy.yaml configs/
@@ -340,22 +340,22 @@ function github_actions_ci_pr_docker_tests() {
 	echo BuyDropSellRecoveryStrategyWhenBTCisUp.yaml
 	cp tests/BuyDropSellRecoveryStrategyWhenBTCisUp.yaml configs/
 	./run backtesting CONFIG_FILE=BuyDropSellRecoveryStrategyWhenBTCisUp.yaml TAG=pr
-	grep 'wins:199 losses:2 stales:637 holds:0' results/backtesting.BuyDropSellRecoveryStrategyWhenBTCisUp.yaml.txt
+	grep 'wins:209 losses:2 stales:674 holds:0' results/backtesting.BuyDropSellRecoveryStrategyWhenBTCisUp.yaml.txt
 
 	echo BuyDropSellRecoveryStrategyWhenBTCisDown.yaml
 	cp tests/BuyDropSellRecoveryStrategyWhenBTCisDown.yaml configs/
 	./run backtesting CONFIG_FILE=BuyDropSellRecoveryStrategyWhenBTCisDown.yaml TAG=pr
-	grep 'wins:9 losses:0 stales:97 holds:0' results/backtesting.BuyDropSellRecoveryStrategyWhenBTCisDown.yaml.txt
+	grep 'wins:10 losses:0 stales:125 holds:0' results/backtesting.BuyDropSellRecoveryStrategyWhenBTCisDown.yaml.txt
 
 	echo BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml
 	cp tests/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml configs/
 	./run backtesting CONFIG_FILE=BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml TAG=pr
-	grep 'wins:112 losses:0 stales:351 holds:0' results/backtesting.BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml.txt
+	grep 'wins:131 losses:0 stales:411 holds:0' results/backtesting.BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.yaml.txt
 
 	echo BuyOnRecoveryAfterDropFromAverageStrategy.yaml
 	cp tests/BuyOnRecoveryAfterDropFromAverageStrategy.yaml configs/
 	./run backtesting CONFIG_FILE=BuyOnRecoveryAfterDropFromAverageStrategy.yaml TAG=pr
-	grep 'wins:184 losses:4 stales:596 holds:0' results/backtesting.BuyOnRecoveryAfterDropFromAverageStrategy.yaml.txt
+	grep 'wins:195 losses:4 stales:621 holds:0' results/backtesting.BuyOnRecoveryAfterDropFromAverageStrategy.yaml.txt
 
 	echo prove-backtesting
 	cp tests/prove-backtesting.yaml configs/
