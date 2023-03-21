@@ -487,6 +487,10 @@ function main() { # main innit?
 		export FILTER=''
 	fi
 
+	if [ -z "$TMP_DIR" ]; then
+		export TMP_DIR="$(pwd)/tmp"
+	fi
+
 
 	export DOCKER_MOUNTS=""
 	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v /etc/timezone:/etc/timezone:ro"
@@ -500,6 +504,7 @@ function main() { # main innit?
 	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $CONTROL_DIR:/cryptobot/control:rw "
 	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $CACHE_DIR:/cryptobot/cache:rw "
 	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $TESTS_DIR:/cryptobot/tests:rw "
+	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v $TMP_DIR:/cryptobot/tmp:rw "
 
 	export DOCKER_RUN_AS="--user $(id -u):$(id -g)"
 	export DOCKER_PREFIX_VARS="U=`id -u` G=`id -g` BIND=${BIND_ADDRESS} "
