@@ -1121,14 +1121,16 @@ class Bot:
             coin.min = coin.price
             coin.max = coin.price
 
-    def save_coins(self) -> None:
+    def save_coins(
+        self, state_coins="state/coins.json", state_wallet="state/wallet.json"
+    ) -> None:
         """saves coins and wallet to a local pickle file"""
 
         # in LIVE and TESTNET mode we save our local self.coins and self.wallet
         # objects to a local file on disk, so that we can pick from where we
         # left next time we start the bot.
 
-        for statefile in ["state/coins.pickle", "state/wallet.pickle"]:
+        for statefile in [state_coins, state_wallet]:
             if exists(statefile):
                 with open(statefile, "rb") as f:
                     # as these files are important to the bot, we keep a
@@ -1141,29 +1143,7 @@ class Bot:
                         b.flush()
                         fsync(b.fileno())
 
-        for statefile in ["state/coins.json", "state/wallet.json"]:
-            if exists(statefile):
-                with open(statefile, "rb") as f:
-                    # as these files are important to the bot, we keep a
-                    # backup file in case there is a failure that could
-                    # corrupt the live .pickle files.
-                    # in case or corruption, simply copy the .backup files over
-                    # the .pickle files.
-                    with open(f"{statefile}.backup", "wb") as b:
-                        b.write(f.read())
-                        b.flush()
-                        fsync(b.fileno())
-
-        with open("state/coins.pickle", "wb") as f:
-            pickle.dump(self.coins, f)
-            f.flush()
-            fsync(f.fileno())
-        with open("state/wallet.pickle", "wb") as f:
-            pickle.dump(self.wallet, f)
-            f.flush()
-            fsync(f.fileno())
-
-        with open("state/coins.json", "wt") as f:
+        with open(state_coins, "wt") as f:
             objects = {}
             for symbol in self.coins.keys():
                 objects[symbol] = self.coins[symbol].__dict__
@@ -1172,7 +1152,7 @@ class Bot:
             f.flush()
             fsync(f.fileno())
 
-        with open("state/wallet.json", "wt") as f:
+        with open(state_wallet, "wt") as f:
             f.write(json.dumps(self.wallet))
             f.flush()
             fsync(f.fileno())
@@ -1529,6 +1509,8 @@ class Bot:
 
         self.clear_all_coins_stats()
 
+        backtesting_results = {}
+
         # main backtesting block
         if not self.cfg["TICKERS"]:
             logging.warning("no tickers to backtest")
@@ -1564,6 +1546,25 @@ class Bot:
 
                     self.process_line(symbol, date, market_price)
 
+                current_exposure = float(0)
+                for symbol in self.wallet:
+                    current_exposure = (
+                        current_exposure + self.coins[symbol].profit
+                    )
+
+                backtesting_results = {
+                    "exposure": current_exposure,
+                    "profit": self.profit,
+                    "initial_investment": self.initial_investment,
+                    "days": len(self.price_logs),
+                    "wins": self.wins,
+                    "losses": self.losses,
+                    "stales": self.stales,
+                    "wallet": self.wallet,
+                    "config_filename": basename(self.config_file),
+                    "cfg": self.cfg,
+                }
+
         # now that we are done, lets record our results
         with open(
             f"{self.logs_dir}/backtesting.log", "a", encoding="utf-8"
@@ -1584,6 +1585,17 @@ class Bot:
             )
 
             f.write(f"{log_entry}\n")
+
+        with open(
+            f"tmp/backtesting.{basename(self.config_file)}.results.json",
+            "wt",
+        ) as f:
+            f.write(json.dumps(backtesting_results))
+
+        self.save_coins(
+            f"tmp/backtesting.{basename(self.config_file)}.coins.json",
+            f"tmp/backtesting.{basename(self.config_file)}.wallet.json",
+        )
 
     def load_klines_for_coin(self, coin) -> bool:
         """fetches from binance or a local cache klines for a coin"""
