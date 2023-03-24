@@ -1075,7 +1075,7 @@ class Bot:
         # was considerably higher like 40K, the bot would keep on buying BTC
         # for as long BTC was below 36K.
         if self.clean_coin_stats_at_sale:
-            for coin in self.coins:
+            for coin in self.coins:  # pylint: disable=C0206
                 if coin not in self.wallet:
                     self.clear_coin_stats(self.coins[coin])
 
@@ -1142,9 +1142,10 @@ class Bot:
                         b.flush()
                         fsync(b.fileno())
 
+        # convert .pyobject to a .json compatible format
         with open(state_coins, "wt") as f:
-            objects = {}
-            for symbol in self.coins.keys():
+            objects: dict = {}
+            for symbol in self.coins.keys():  # pylint: disable=C0206,C0201
                 objects[symbol] = self.coins[symbol].__dict__
 
             f.write(json.dumps(objects))
@@ -1208,9 +1209,9 @@ class Bot:
             self.coins.pop(coin)
 
         # finally apply the current settings in the config file
-        symbols = " ".join(self.coins.keys())
+        symbols: str = " ".join(self.coins.keys())
         logging.warning(f"overriding values from config for: {symbols}")
-        for symbol in self.coins:
+        for symbol in self.coins:  # pylint: disable=C0206
             self.coins[symbol].buy_at_percentage = add_100(
                 self.tickers[symbol]["BUY_AT_PERCENTAGE"]
             )
@@ -1502,14 +1503,18 @@ class Bot:
             for logfile in self.cfg["PRICE_LOGS"]:
                 if self.quit:
                     return
-                logging.info(f"backtesting: {logfile}")
-                logging.info(f"wallet: {self.wallet}")
-                logging.info(f"exposure: {self.calculates_exposure()}")
+                for w, v in [
+                    ("backtesting:", logfile),
+                    ("wallet:", self.wallet),
+                    ("exposure:", self.calculates_exposure()),
+                ]:
+                    logging.info(f"{w} {v}")
+
                 response: requests.Response = get_price_log(
                     f"{self.cfg['PRICE_LOG_SERVICE_URL']}/{logfile}"
                 )
                 for item in (response.content).splitlines():
-                    line = item.decode()
+                    line: str = item.decode()
                     if self.cfg["PAIRING"] not in line:
                         continue
                     symbol, date, market_price = self.split_logline(str(line))
