@@ -424,9 +424,11 @@ class ProveBacktesting:
                     re.search(balance_re, run_results).groups()[0]  # type: ignore
                 )
             except AttributeError as e:
-                print(f"Exception while collecting results from {results_txt}")
-                print(e)
-                print(f"Contents of file below: \n{run_results}")
+                log_msg(
+                    f"Exception while collecting results from {results_txt}"
+                )
+                log_msg(e)
+                log_msg(f"Contents of file below: \n{run_results}")
                 wins, losses, stales, holds = [0, 0, 0, 0]
                 balance = float(0)
 
@@ -581,7 +583,7 @@ class ProveBacktesting:
         with open(f"configs/optimized.{self.strategy}.yaml") as cf:
             _tickers = yaml.safe_load(cf.read())["TICKERS"]
         if not _tickers:
-            print(
+            log_msg(
                 f"automated-backtesting: no tickers in {self.strategy} yaml, skipping run"
             )
             return s_balance
