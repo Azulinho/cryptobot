@@ -284,6 +284,37 @@ class ProveBacktesting:
     ):
         """generates a config.yaml for a coin"""
 
+        # we keep "state" between optimized runs, by soaking up an existing
+        # optimized config file and an existing wallet.json file
+        # while this could cause the bot as it starts to run  to pull old
+        # optimized config files from old runs, we only consume those for
+        # matching ticker info to the contents of our wallet.json, and we clean
+        # up the json files at the start and end of the prove-backtesting.
+        # so we don't expect to ever consume old tickers info from an old
+        # config file.
+        old_tickers = {}
+        old_wallet = []
+        if os.path.exists(f"configs/optimized.{self.strategy}.yaml"):
+            with open(
+                f"configs/optimized.{self.strategy}.yaml", encoding="utf-8"
+            ) as c:
+                old_tickers = yaml.safe_load(c.read())["TICKERS"]
+
+        if os.path.exists(f"tmp/optimized.{self.strategy}.yaml.wallet.json"):
+            with open(f"tmp/optimized.{self.strategy}.yaml.wallet.json") as w:
+                old_wallet = json.load(w)
+
+        # now generate tickers from the contents of our wallet and the previous
+        # config file, we will merge this with a new config file.
+        x = {}
+        for symbol in old_wallet:
+            x[symbol] = old_tickers[symbol]
+
+        log_msg(f" wallet: {old_wallet}")
+
+        z = x | _tickers
+        _tickers = z
+
         tmpl: Template = Template(
             """{
         "CLEAR_COIN_STATS_AT_BOOT": $CLEAR_COIN_STATS_AT_BOOT,
@@ -391,9 +422,17 @@ class ProveBacktesting:
                 try:
                     t.get()
                 except subprocess.TimeoutExpired as excp:
-                    print(f"timeout while running: {excp}")
+                    log_msg(f"timeout while running: {excp}")
 
-            return self.gather_best_results_from_run(_coin_list, _run)
+        for coin in _coin_list:
+            try:
+                os.remove(f"tmp/coin.{coin}.yaml.coins.json")
+                os.remove(f"tmp/coin.{coin}.yaml.wallet.json")
+                os.remove(f"tmp/coin.{coin}.yaml.results.json")
+            except:  # pylint: disable=bare-except
+                pass
+
+        return self.gather_best_results_from_run(_coin_list, _run)
 
     def gather_best_results_from_run(self, _coin_list, run_id) -> dict:
         """finds the best results from run"""
