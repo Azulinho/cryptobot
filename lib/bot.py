@@ -1165,48 +1165,58 @@ class Bot:
         # and update our bot dictionaries with the data on them.
         # Overriding and deleting any data we might not want to keep.
 
+        if self.mode in ["live", "testnet"]:
+            coins_state_file = "state/coins.json"
+            wallet_state_file = "state/wallet.json"
+        else:
+            # during backtesting
+            config_file = basename(self.config_file)
+            coins_state_file = f"tmp/{config_file}.coins.json"
+            wallet_state_file = f"tmp/{config_file}.wallet.json"
+
+        # load existing wallet
+        if exists(wallet_state_file):
             logging.warning("found wallet.json, loading wallet")
-            with open("state/wallet.json", "rt") as f:
+            with open(wallet_state_file, "rt") as f:
                 self.wallet = json.loads(f.read())
             logging.warning(f"wallet contains {self.wallet}")
 
-        if exists("state/coins.json"):
+        # load existing coins stats
+        if exists(coins_state_file):
             logging.warning("found coins.json, loading coins")
-            with open("state/coins.json", "rt") as f:
-                objects = dict(json.loads(f.read()))
-                for (
-                    symbol
-                ) in (
-                    objects.keys()
-                ):  # pylint: disable=consider-using-dict-items
-                    self.init_or_update_coin(objects[symbol])
-                    for k, v in objects[
-                        symbol
-                    ].items():  # pylint: disable=consider-using-dict-items
-                        # we load the klines from the init_or_update_coin()
-                        # above so we should skip the data from the .json file
-                        if k in ["lowest", "averages", "highest"]:
-                            print(
-                                f"ignoring likely stale {k} data from .json for {symbol}"
-                            )
-                            continue
-                        setattr(self.coins[symbol], k, v)
+            with open(coins_state_file, "rt") as f:
+                objects: dict[str, Any] = dict(json.loads(f.read()))
+                for symbol in objects.keys():  # pylint: disable=C0206
+                    # discard any coins for which we don't have tickers info
+                    # if we don't, init_or_update_coin() would raise and error
+                    # as we would be missing the BUY/SELL percentages
+                    if symbol in self.tickers:
+                        self.init_or_update_coin(objects[symbol])
+
+                        # pylint: disable=consider-using-dict-items
+                        for k, v in objects[symbol].items():
+                            # we load the klines from the init_or_update_coin()
+                            # above so we should skip the data from the .json file
+                            # as this data might be very old
+                            if k in ["lowest", "averages", "highest"]:
+                                print(
+                                    f"ignoring likely stale {k} data from"
+                                    + f".json for {symbol}"
+                                )
+                                continue
+                            setattr(self.coins[symbol], k, v)
 
             logging.warning(f"coins contains {str(self.coins.keys())}")
-
 
         # sync our coins state with the list of coins we want to use.
         # but keep using coins we currently have on our wallet
         coins_to_remove: List = []
-        # TODO: do we want to remove these coins, or should we just let the bot
-        # keep on updating their stats, even if we don't buy them ?
-        # there are places in the codebase where this is expected.
         for coin in self.coins:
             if coin not in self.tickers and coin not in self.wallet:
                 coins_to_remove.append(coin)
 
         for coin in coins_to_remove:
-            self.coins.pop(coin)
+            del self.coins[coin]
 
         # finally apply the current settings in the config file
         symbols: str = " ".join(self.coins.keys())
@@ -1491,7 +1501,8 @@ class Bot:
         """the bot Backtesting main loop"""
         logging.info(json.dumps(self.cfg, indent=4))
 
-        self.clear_all_coins_stats()
+        # first load all our state from disk
+        self.load_coins()
 
         backtesting_results = {}
 
@@ -1575,14 +1586,14 @@ class Bot:
             f.write(f"{log_entry}\n")
 
         with open(
-            f"tmp/backtesting.{basename(self.config_file)}.results.json",
+            f"tmp/{basename(self.config_file)}.results.json",
             "wt",
         ) as f:
             f.write(json.dumps(backtesting_results))
 
         self.save_coins(
-            f"tmp/backtesting.{basename(self.config_file)}.coins.json",
-            f"tmp/backtesting.{basename(self.config_file)}.wallet.json",
+            f"tmp/{basename(self.config_file)}.coins.json",
+            f"tmp/{basename(self.config_file)}.wallet.json",
         )
 
     def load_klines_for_coin(self, coin) -> bool:
