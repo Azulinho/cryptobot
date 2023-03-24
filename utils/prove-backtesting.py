@@ -646,73 +646,83 @@ class ProveBacktesting:
         return end_balance
 
 
-parser: ArgumentParser = ArgumentParser()
-parser.add_argument("-c", "--cfgs", help="backtesting cfg")
-args: Namespace = parser.parse_args()
+if __name__ == "__main__":
+    for f in glob.glob("tmp/*"):
+        os.remove(f)
 
-with open(args.cfgs, "rt") as f:
-    config: Any = yaml.safe_load(f.read())
+    parser: ArgumentParser = ArgumentParser()
+    parser.add_argument("-c", "--cfgs", help="backtesting cfg")
+    args: Namespace = parser.parse_args()
 
-if config["KIND"] != "PROVE_BACKTESTING":
-    print("Incorrect KIND: type")
-    sys.exit(1)
+    with open(args.cfgs, encoding="utf-8") as _c:
+        config: Any = yaml.safe_load(_c.read())
 
-if os.path.exists("cache/binance.client"):
-    os.remove("cache/binance.client")
+    if config["KIND"] != "PROVE_BACKTESTING":
+        log_msg("Incorrect KIND: type")
+        sys.exit(1)
 
-n_cpus: Optional[int] = os.cpu_count()
+    if os.path.exists("cache/binance.client"):
+        os.remove("cache/binance.client")
 
-pv: ProveBacktesting = ProveBacktesting(config)
-pv.check_for_invalid_values()
+    n_cpus: Optional[int] = os.cpu_count()
 
+    pv: ProveBacktesting = ProveBacktesting(config)
+    pv.check_for_invalid_values()
 
-# generate start_dates
-log_msg(
-    f"running from {pv.start_dates[0]} to {pv.start_dates[-1]} "
-    + f"backtesting previous {pv.roll_backwards} days every {pv.roll_forward} days"
-)
-final_balance = pv.initial_investment
-starting_balance: float = pv.initial_investment
-for date in pv.start_dates:
-    cleanup()
-
-    rollbackward_dates: list = pv.rollback_dates_from(date)
+    # generate start_dates
     log_msg(
-        f"now backtesting {rollbackward_dates[0]}...{rollbackward_dates[-1]}"
+        f"running from {pv.start_dates[0]} to {pv.start_dates[-1]} "
+        + f"backtesting previous {pv.roll_backwards} days every {pv.roll_forward} days"
     )
+    final_balance = pv.initial_investment
+    starting_balance: float = pv.initial_investment
+    for date in pv.start_dates:
+        cleanup()
 
-    results: dict = {}
-    for run in pv.runs:
-        flag_checks()
-        # TODO: do we consume the price_logs ?
-        coin_list = pv.write_all_coin_configs(rollbackward_dates, pv.runs[run])
-        results[run] = pv.parallel_backtest_all_coins(
-            coin_list, pv.concurrency, run
+        rollbackward_dates: list = pv.rollback_dates_from(date)
+        log_msg(
+            f"now backtesting {rollbackward_dates[0]}...{rollbackward_dates[-1]}"
         )
 
-    # TODO: this simply prints out the best run
-    pv.gather_best_results_per_strategy(results)
-    rollforward_dates: list = pv.rollforward_dates_from(date)
-    price_logs = pv.generate_price_log_list(rollforward_dates)
-    tickers = pv.gather_best_results_from_backtesting_log("coincfg")
+        results: dict = {}
+        for run in pv.runs:
+            flag_checks()
+            # TODO: do we consume the price_logs ?
+            coin_list = pv.write_all_coin_configs(
+                rollbackward_dates, pv.runs[run]
+            )
+            results[run] = pv.parallel_backtest_all_coins(
+                coin_list, pv.concurrency, run
+            )
 
-    # if our backtesting gave us no tickers,
-    # we'll skip this forward testing run
-    if not tickers:
-        log_msg("forwardtesting config contains no tickers, skipping run")
-        continue
+        # TODO: this simply prints out the best run
+        pv.gather_best_results_per_strategy(results)
+        rollforward_dates: list = pv.rollforward_dates_from(date)
+        price_logs = pv.generate_price_log_list(rollforward_dates)
+        tickers = pv.gather_best_results_from_backtesting_log("coincfg")
 
-    log_msg(
-        f"now forwardtesting {rollforward_dates[0]}...{rollforward_dates[-1]}"
-    )
-    log_msg(f" starting balance for {pv.strategy}: {starting_balance}")
-    pv.write_optimized_strategy_config(price_logs, tickers, starting_balance)
-    final_balance = pv.run_optimized_config(starting_balance)
-    starting_balance = final_balance
+        # if our backtesting gave us no tickers,
+        # we'll skip this forward testing run
+        if not tickers:
+            log_msg("forwardtesting config contains no tickers, skipping run")
+            continue
 
-log_msg("COMPLETED WITH RESULTS:")
-diff = str(int(100 - ((pv.initial_investment / final_balance) * 100)))
-if int(diff) > 0:
-    diff = f"+{diff}"
-log_msg(f" {pv.strategy}: {final_balance} {diff}%")
-log_msg("PROVE-BACKTESTING: FINISHED")
+        log_msg(
+            f"now forwardtesting {rollforward_dates[0]}...{rollforward_dates[-1]}"
+        )
+        log_msg(f" starting balance for {pv.strategy}: {starting_balance}")
+
+        pv.write_optimized_strategy_config(
+            price_logs, tickers, starting_balance
+        )
+        final_balance = pv.run_optimized_config(starting_balance)
+        starting_balance = final_balance
+
+    log_msg("COMPLETED WITH RESULTS:")
+    diff = str(int(100 - ((pv.initial_investment / final_balance) * 100)))
+    if int(diff) > 0:
+        diff = f"+{diff}"
+    log_msg(f" {pv.strategy}: {final_balance} {diff}%")
+    for f in glob.glob("tmp/*"):
+        os.remove(f)
+    log_msg("PROVE-BACKTESTING: FINISHED")
