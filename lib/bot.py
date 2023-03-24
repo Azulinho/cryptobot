@@ -1250,55 +1250,6 @@ class Bot:
                 self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"]
             )
 
-            # deal with missing coin properties, types after a bot upgrade
-            # the earlier versions of this bot didn't contain or used all the
-            # existing properties used today, the bot would fail as attempting
-            # to consume them. Here we make sure we can safely upgrade from
-            # a version missing those properties by initializing them if they
-            # don't exist.
-            #
-            # TODO: consider deprecating this as for this to happen today,
-            # someone would be jumping bot versions considerably
-            if isinstance(self.coins[symbol].date, str):
-                self.coins[symbol].date = float(
-                    datetime.fromisoformat(
-                        str(self.coins[symbol].date)
-                    ).timestamp()
-                )
-            if "naughty" not in dir(self.coins[symbol]):
-                if self.coins[symbol].naughty_timeout != 0:
-                    self.coins[symbol].naughty = True
-                    self.coins[symbol].naughty_date = (
-                        self.coins[symbol].naughty_date
-                        - self.coins[symbol].naughty_timeout
-                    )
-                else:
-                    self.coins[symbol].naughty = False
-                    self.coins[symbol].naughty_date = None  # type: ignore
-
-            if "bought_date" not in dir(self.coins[symbol]):
-                if symbol in self.wallet:
-                    self.coins[symbol].bought_date = (
-                        self.coins[symbol].date
-                        - self.coins[symbol].holding_time
-                    )
-                else:
-                    self.coins[symbol].bought_date = None  # type: ignore
-
-            if "lowest" not in dir(self.coins[symbol]):
-                self.coins[symbol].lowest = {"m": [], "h": [], "d": []}
-
-            if "averages" not in dir(self.coins[symbol]):
-                self.coins[symbol].averages = {
-                    "s": [],
-                    "m": [],
-                    "h": [],
-                    "d": [],
-                }
-
-            if "highest" not in dir(self.coins[symbol]):
-                self.coins[symbol].highest = {"m": [], "h": [], "d": []}
-
             self.coins[symbol].naughty_timeout = int(
                 self.tickers[symbol]["NAUGHTY_TIMEOUT"]
             )
