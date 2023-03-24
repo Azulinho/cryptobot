@@ -3,7 +3,6 @@
 import hashlib
 import json
 import logging
-import pickle  # nosec
 import pprint
 from datetime import datetime
 from os import fsync, unlink
@@ -1158,18 +1157,13 @@ class Bot:
             fsync(f.fileno())
 
     def load_coins(self) -> None:
-        """loads coins and wallet from a local pickle file"""
+        """loads coins and wallet from a local state file"""
 
         # in save_coins() we save the current state of our wallet and coins
-        # to pickle file on disk. Here we soak up those files after a boot
+        # to json on disk. Here we soak up those files after a boot
         # and update our bot dictionaries with the data on them.
         # Overriding and deleting any data we might not want to keep.
 
-        # TODO: look into a fallback mechanism to the .backup files if
-        # the .pickle are corrupted.
-        json_mode = False
-        if exists("state/wallet.json"):
-            json_mode = True
             logging.warning("found wallet.json, loading wallet")
             with open("state/wallet.json", "rt") as f:
                 self.wallet = json.loads(f.read())
@@ -1199,17 +1193,6 @@ class Bot:
 
             logging.warning(f"coins contains {str(self.coins.keys())}")
 
-        # only load .pickle if .json is not available
-        if not json_mode:
-            if exists("state/coins.pickle"):
-                logging.warning("found coins.pickle, loading coins")
-                with open("state/coins.pickle", "rb") as f:
-                    self.coins = pickle.load(f)  # nosec
-            if exists("state/wallet.pickle"):
-                logging.warning("found wallet.pickle, loading wallet")
-                with open("state/wallet.pickle", "rb") as f:
-                    self.wallet = pickle.load(f)  # nosec
-                logging.warning(f"wallet contains {self.wallet}")
 
         # sync our coins state with the list of coins we want to use.
         # but keep using coins we currently have on our wallet
