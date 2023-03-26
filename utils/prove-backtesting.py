@@ -77,10 +77,12 @@ class ProveBacktesting:
         """init"""
         self.min: float = float(cfg["MIN"])
         self.filter_by: str = cfg["FILTER_BY"]
-        self.from_date: datetime = datetime.fromisoformat(
-            str(cfg["FROM_DATE"])
+        self.from_date: datetime = datetime.strptime(
+            str(cfg["FROM_DATE"]), "%Y%m%d"
         )
-        self.end_date: datetime = datetime.fromisoformat(str(cfg["END_DATE"]))
+        self.end_date: datetime = datetime.strptime(
+            str(cfg["END_DATE"]), "%Y%m%d"
+        )
         self.roll_backwards: int = int(cfg["ROLL_BACKWARDS"])
         self.roll_forward: int = int(cfg["ROLL_FORWARD"])
         self.strategy: str = cfg["STRATEGY"]
@@ -140,7 +142,7 @@ class ProveBacktesting:
         """returns a list of dates, up to 'days' before the 'end_date'"""
         dates: list = (
             pd.date_range(
-                datetime.fromisoformat(str(end_date))
+                datetime.strptime(str(end_date), "%Y%m%d")
                 - timedelta(days=self.roll_backwards - 1),
                 end_date,
                 freq="d",
@@ -152,10 +154,10 @@ class ProveBacktesting:
 
     def rollforward_dates_from(self, end_date) -> list:
         """returns a list of dates, up to 'days' past the 'end_date'"""
-        start_date: datetime = datetime.fromisoformat(
-            str(end_date)
+        start_date: datetime = datetime.strptime(
+            str(end_date), "%Y%m%d"
         ) + timedelta(days=1)
-        end_date = datetime.fromisoformat(str(end_date)) + timedelta(
+        end_date = datetime.strptime(str(end_date), "%Y%m%d") + timedelta(
             days=self.roll_forward
         )
         dates: list = (
