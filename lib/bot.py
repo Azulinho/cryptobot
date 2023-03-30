@@ -1472,29 +1472,34 @@ class Bot:
                 ]:
                     logging.info(f"{w} {v}")
 
-                response: requests.Response = get_price_log(
+                response: Tuple[bool, list] = get_price_log(
                     f"{self.cfg['PRICE_LOG_SERVICE_URL']}/{logfile}"
                 )
-                for item in (response.content).splitlines():
-                    line: str = item.decode()
-                    if self.cfg["PAIRING"] not in line:
-                        continue
-                    symbol, date, market_price = self.split_logline(str(line))
-                    # symbol will be False if we fail to process the line fields
-                    if not symbol:
-                        continue
+                ok, lines = response
 
-                    # discard any BULL/BEAR tokens
-                    if any(
-                        f"{w}{self.cfg['PAIRING']}" in symbol
-                        for w in ["UP", "DOWN", "BULL", "BEAR"]
-                    ) or any(
-                        f"{self.cfg['PAIRING']}{w}" in symbol
-                        for w in ["UP", "DOWN", "BULL", "BEAR"]
-                    ):
-                        continue
+                if ok:
+                    for item in lines:
+                        line: str = item.decode()
+                        if self.cfg["PAIRING"] not in line:
+                            continue
+                        symbol, date, market_price = self.split_logline(
+                            str(line)
+                        )
+                        # symbol will be False if we fail to process the line fields
+                        if not symbol:
+                            continue
 
-                    self.process_line(symbol, date, market_price)
+                        # discard any BULL/BEAR tokens
+                        if any(
+                            f"{w}{self.cfg['PAIRING']}" in symbol
+                            for w in ["UP", "DOWN", "BULL", "BEAR"]
+                        ) or any(
+                            f"{self.cfg['PAIRING']}{w}" in symbol
+                            for w in ["UP", "DOWN", "BULL", "BEAR"]
+                        ):
+                            continue
+
+                        self.process_line(symbol, date, market_price)
 
                 current_exposure = float(0)
                 for symbol in self.wallet:
