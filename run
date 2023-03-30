@@ -227,8 +227,9 @@ function klines_caching_service() { # runs the klines caching service
 		${RUN_IN_BACKGROUND} \
     -p ${BIND}:${PORT}:8999 \
 		${IMAGE}:${TAG} \
-    /cryptobot/.venv/bin/gunicorn --preload --workers=4 --threads=4 \
-			--worker-class=gthread \
+    /cryptobot/.venv/bin/gunicorn --preload \
+			--workers=${N_CPUS} \
+			--worker-tmp-dir /dev/shm \
 			--bind 0.0.0.0:8999  klines_caching_service:app
 }
 
@@ -253,9 +254,7 @@ function price_log_service() { # runs the klines caching service
     -p ${BIND}:${PORT}:8998 \
 		${IMAGE}:${TAG} \
     /cryptobot/.venv/bin/gunicorn --preload \
-			--workers=4 \
-			--worker-class=gevent \
-			--worker-connections=256 \
+			--workers=${N_CPUS} \
 			--worker-tmp-dir /dev/shm \
 			--bind 0.0.0.0:8998  price_log_service:app
 }
@@ -491,6 +490,8 @@ function main() { # main innit?
 		export TMP_DIR="$(pwd)/tmp"
 	fi
 
+
+	export N_CPUS=`grep processor /proc/cpuinfo|wc -l`
 
 	export DOCKER_MOUNTS=""
 	export DOCKER_MOUNTS="${DOCKER_MOUNTS} -v /etc/timezone:/etc/timezone:ro"
