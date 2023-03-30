@@ -75,18 +75,19 @@ def requests_with_backoff(query: str):
 def get_price_log(query: str):
     """retry wrapper for requests calls"""
 
-    for w in [1, 2, 3]:
-        response: requests.Response = requests.get(query, timeout=5)
-        status: int = response.status_code
-        if status == 200:
-            return response
+    for w in [1, 2, 3, 4]:
+        try:
+            response: requests.Response = requests.get(query, timeout=30)
+            status: int = response.status_code
+            if status != 200:
+                response.raise_for_status()
+            else:
+                return response
 
-        with open("log/price_log_service.response.log", "at") as f:
-            f.write(f"{query} {status} {response}\n")
-        if status == 404:
-            response.raise_for_status()
-        sleep(6 * w)
-    response.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            with open("log/price_log_service.response.log", "at") as f:
+                f.write(f"{query} {e}\n")
+            sleep(6 * w)
     return None
 
 
