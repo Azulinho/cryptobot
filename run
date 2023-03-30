@@ -11,7 +11,7 @@ function usage() {
 	echo "./run lastfewdays DAYS=3 PAIR=USDT"
 	echo "./run download-price-logs FROM=20210101 TO=20211231"
 	echo "./run prove-backtesting CONFIG_FILE=myconfig.yaml"
-	echo "./run config-endpoint-service BIND=0.0.0.0 CONFIG_FILE=myconfig.yaml BACKTRACK=30 PAIRING=USDT MIN=10 TUNED_CONFIG=BuyDropSellRecoveryStrategy.yaml SORTBY=greed|number_of_clean_wins|max_profit_on_clean_wins"
+	echo "./run config-endpoint-service BIND=0.0.0.0 CONFIG_FILE=myconfig.yaml"
 	echo "./run klines-caching-service BIND=0.0.0.0"
 	echo "./run price_log_service BIND=0.0.0.0"
 	echo "./run download_price_logs FROM=20220101 TO=20220131"
