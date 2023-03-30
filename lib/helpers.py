@@ -72,7 +72,7 @@ def requests_with_backoff(query: str):
     return response
 
 
-def get_price_log(query: str):
+def get_price_log(query: str) -> tuple[bool, list]:
     """retry wrapper for requests calls"""
 
     for w in [1, 2, 3, 4]:
@@ -82,13 +82,13 @@ def get_price_log(query: str):
             if status != 200:
                 response.raise_for_status()
             else:
-                return response
+                return (True, (response.content).splitlines())
 
         except requests.exceptions.RequestException as e:
             with open("log/price_log_service.response.log", "at") as f:
                 f.write(f"{query} {e}\n")
             sleep(6 * w)
-    return None
+    return (False, [])
 
 
 def cached_binance_client(access_key: str, secret_key: str) -> Client:
