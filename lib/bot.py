@@ -16,6 +16,7 @@ import yaml
 from binance.exceptions import BinanceAPIException
 from filelock import SoftFileLock
 from tenacity import retry, wait_exponential
+from pyrate_limiter import Duration, Limiter, RequestRate
 
 from lib.coin import Coin
 from lib.helpers import (
@@ -25,9 +26,11 @@ from lib.helpers import (
     floor_value,
     mean,
     percent,
-    requests_with_backoff,
-    get_price_log,
 )
+
+
+rate = RequestRate(600, Duration.MINUTE)  # 600 requests per minute
+limiter = Limiter(rate)
 
 
 class Bot:
@@ -1462,63 +1465,65 @@ class Bot:
             logging.warning("no tickers to backtest")
 
         else:
-            for logfile in self.cfg["PRICE_LOGS"]:
-                if self.quit:
-                    return
-                for w, v in [
-                    ("backtesting:", logfile),
-                    ("wallet:", self.wallet),
-                    ("exposure:", self.calculates_exposure()),
-                ]:
-                    logging.info(f"{w} {v}")
+            with requests.Session() as session:
+                for logfile in self.cfg["PRICE_LOGS"]:
+                    if self.quit:
+                        return
+                    for w, v in [
+                        ("backtesting:", logfile),
+                        ("wallet:", self.wallet),
+                        ("exposure:", self.calculates_exposure()),
+                    ]:
+                        logging.info(f"{w} {v}")
 
-                response: Tuple[bool, list] = get_price_log(
-                    f"{self.cfg['PRICE_LOG_SERVICE_URL']}/{logfile}"
-                )
-                ok, lines = response
-
-                if ok:
-                    for item in lines:
-                        line: str = item.decode()
-                        if self.cfg["PAIRING"] not in line:
-                            continue
-                        symbol, date, market_price = self.split_logline(
-                            str(line)
-                        )
-                        # symbol will be False if we fail to process the line fields
-                        if not symbol:
-                            continue
-
-                        # discard any BULL/BEAR tokens
-                        if any(
-                            f"{w}{self.cfg['PAIRING']}" in symbol
-                            for w in ["UP", "DOWN", "BULL", "BEAR"]
-                        ) or any(
-                            f"{self.cfg['PAIRING']}{w}" in symbol
-                            for w in ["UP", "DOWN", "BULL", "BEAR"]
-                        ):
-                            continue
-
-                        self.process_line(symbol, date, market_price)
-
-                current_exposure = float(0)
-                for symbol in self.wallet:
-                    current_exposure = (
-                        current_exposure + self.coins[symbol].profit
+                    response: Tuple[bool, list] = self.get_price_log(
+                        session,
+                        f"{self.cfg['PRICE_LOG_SERVICE_URL']}/{logfile}",
                     )
+                    ok, lines = response
 
-                backtesting_results = {
-                    "exposure": current_exposure,
-                    "profit": self.profit,
-                    "initial_investment": self.initial_investment,
-                    "days": len(self.price_logs),
-                    "wins": self.wins,
-                    "losses": self.losses,
-                    "stales": self.stales,
-                    "wallet": self.wallet,
-                    "config_filename": basename(self.config_file),
-                    "cfg": self.cfg,
-                }
+                    if ok:
+                        for item in lines:
+                            line: str = item.decode()
+                            if self.cfg["PAIRING"] not in line:
+                                continue
+                            symbol, date, market_price = self.split_logline(
+                                str(line)
+                            )
+                            # symbol will be False if we fail to process the line fields
+                            if not symbol:
+                                continue
+
+                            # discard any BULL/BEAR tokens
+                            if any(
+                                f"{w}{self.cfg['PAIRING']}" in symbol
+                                for w in ["UP", "DOWN", "BULL", "BEAR"]
+                            ) or any(
+                                f"{self.cfg['PAIRING']}{w}" in symbol
+                                for w in ["UP", "DOWN", "BULL", "BEAR"]
+                            ):
+                                continue
+
+                            self.process_line(symbol, date, market_price)
+
+                    current_exposure = float(0)
+                    for symbol in self.wallet:
+                        current_exposure = (
+                            current_exposure + self.coins[symbol].profit
+                        )
+
+                    backtesting_results = {
+                        "exposure": current_exposure,
+                        "profit": self.profit,
+                        "initial_investment": self.initial_investment,
+                        "days": len(self.price_logs),
+                        "wins": self.wins,
+                        "losses": self.losses,
+                        "stales": self.stales,
+                        "wallet": self.wallet,
+                        "config_filename": basename(self.config_file),
+                        "cfg": self.cfg,
+                    }
 
         # now that we are done, lets record our results
         with open(
@@ -1644,43 +1649,66 @@ class Bot:
                 buckets[bucket][unit] = []
 
         # now we need to query binance and populate our buckets dict
-        for unit in ["m", "h", "d"]:
+        with requests.Session() as session:
+            for unit in ["m", "h", "d"]:
 
-            # the call binance for list of klines for our loop var
-            # unit ('m', 'm', 'd')
-            ok, klines = self.call_binance_for_klines(
-                binance_query_strings[unit]
-            )
-            if ok:
-                # and get a dict with the lowest, averages, highest lists from those
-                # binance raw klines
-                ok, low_avg_high = self.populate_values(klines, unit)
+                # the call binance for list of klines for our loop var
+                # unit ('m', 'm', 'd')
+                ok, klines = self.call_binance_for_klines(
+                    session, binance_query_strings[unit]
+                )
+                if ok:
+                    # and get a dict with the lowest, averages, highest lists from those
+                    # binance raw klines
+                    ok, low_avg_high = self.populate_values(klines, unit)
 
-            if ok:
-                # we should now have a new dict containing list of our
-                # lowest, averages, highest values in low_avg_high
-                for bucket in ["lowest", "averages", "highest"]:
-                    buckets[bucket][unit] = low_avg_high[bucket]
-                    # we need to trim our lists, so that we don't keep more
-                    # values that we should,
-                    # like storing the last 1000 minutes
-                    #
-                    # keep 60 minutes on our minutes bucket
-                    # 24 hours in our hours bucket
-                    timeslice, _ = unit_values[unit]
-                    while len(buckets[bucket][unit]) > timeslice:
-                        buckets[bucket][unit].pop()
+                if ok:
+                    # we should now have a new dict containing list of our
+                    # lowest, averages, highest values in low_avg_high
+                    for bucket in ["lowest", "averages", "highest"]:
+                        buckets[bucket][unit] = low_avg_high[bucket]
+                        # we need to trim our lists, so that we don't keep more
+                        # values that we should,
+                        # like storing the last 1000 minutes
+                        #
+                        # keep 60 minutes on our minutes bucket
+                        # 24 hours in our hours bucket
+                        timeslice, _ = unit_values[unit]
+                        while len(buckets[bucket][unit]) > timeslice:
+                            buckets[bucket][unit].pop()
         return buckets
 
-    def call_binance_for_klines(self, query):
+    def call_binance_for_klines(self, session, query):
         """calls upstream binance and retrieves the klines for a coin"""
         logging.info(f"calling binance on {query}")
-        response = requests_with_backoff(query)
+        response = self.requests_with_backoff(session, query)
         if response.status_code == 400:
             # 400 typically means binance has no klines for this coin
             logging.warning(f"got a 400 from binance for {query}")
             return (True, [])
         return (True, response.json())
+
+    @retry(wait=wait_exponential(multiplier=1, max=3))
+    @limiter.ratelimit("binance", delay=True)
+    def requests_with_backoff(self, session, query: str):
+        """retry wrapper for requests calls"""
+        response = session.get(query, timeout=5)
+
+        # 418 is a binance api limits response
+        # don't raise a HTTPError Exception straight away but block until we are
+        # free from the ban.
+        status = response.status_code
+        if status in [418, 429]:
+            backoff = int(response.headers["Retry-After"])
+            logging.warning(
+                f"HTTP {status} from binance, sleeping for {backoff}s"
+            )
+            sleep(backoff)
+            response.raise_for_status()
+
+        with open("log/binance.response.log", "at") as f:
+            f.write(f"{query} {status} {response}\n")
+        return response
 
     def process_klines_line(self, kline):
         """returns date, low, avg, high from a kline"""
@@ -2111,3 +2139,23 @@ class Bot:
         if len(coin.averages["d"]) < days:
             return True
         return False
+
+    def get_price_log(
+        self, session: requests.Session, query: str
+    ) -> tuple[bool, list]:
+        """retry wrapper for requests calls"""
+
+        for w in [1, 2, 3, 4]:
+            try:
+                response: requests.Response = session.get(query, timeout=30)
+                status: int = response.status_code
+                if status != 200:
+                    response.raise_for_status()
+                else:
+                    return (True, (response.content).splitlines())
+
+            except requests.exceptions.RequestException as e:
+                with open("log/price_log_service.response.log", "at") as f:
+                    f.write(f"{query} {e}\n")
+                sleep(6 * w)
+        return (False, [])

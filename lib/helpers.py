@@ -5,20 +5,10 @@ import pickle  # nosec
 from datetime import datetime
 from functools import lru_cache
 from os.path import exists, getctime
-from time import sleep
 
-import requests
 import udatetime
 from binance.client import Client
 from filelock import SoftFileLock
-from pyrate_limiter import Duration, Limiter, RequestRate
-from tenacity import (
-    retry,
-    wait_exponential,
-)
-
-rate = RequestRate(600, Duration.MINUTE)  # 600 requests per minute
-limiter = Limiter(rate)
 
 
 def mean(values: list) -> float:
@@ -49,46 +39,6 @@ def c_date_from(day: str) -> float:
 def c_from_timestamp(date: float) -> datetime:
     """returns a cached datetime.fromtimestamp()"""
     return datetime.fromtimestamp(date)
-
-
-@retry(wait=wait_exponential(multiplier=1, max=3))
-@limiter.ratelimit("binance", delay=True)
-def requests_with_backoff(query: str):
-    """retry wrapper for requests calls"""
-    response = requests.get(query, timeout=5)
-
-    # 418 is a binance api limits response
-    # don't raise a HTTPError Exception straight away but block until we are
-    # free from the ban.
-    status = response.status_code
-    if status in [418, 429]:
-        backoff = int(response.headers["Retry-After"])
-        logging.warning(f"HTTP {status} from binance, sleeping for {backoff}s")
-        sleep(backoff)
-        response.raise_for_status()
-
-    with open("log/binance.response.log", "at") as f:
-        f.write(f"{query} {status} {response}\n")
-    return response
-
-
-def get_price_log(query: str) -> tuple[bool, list]:
-    """retry wrapper for requests calls"""
-
-    for w in [1, 2, 3, 4]:
-        try:
-            response: requests.Response = requests.get(query, timeout=30)
-            status: int = response.status_code
-            if status != 200:
-                response.raise_for_status()
-            else:
-                return (True, (response.content).splitlines())
-
-        except requests.exceptions.RequestException as e:
-            with open("log/price_log_service.response.log", "at") as f:
-                f.write(f"{query} {e}\n")
-            sleep(6 * w)
-    return (False, [])
 
 
 def cached_binance_client(access_key: str, secret_key: str) -> Client:
