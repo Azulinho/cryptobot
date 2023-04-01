@@ -121,7 +121,6 @@ def read_from_local_cache(f_path, symbol):
         # new listed coins will return an empty array
         # so we bail out early here
         if not results:
-            logging.info(f"empty klines from cache/{symbol}/{f_path}")
             return (True, [])
 
         # check for valid values by reading one line
