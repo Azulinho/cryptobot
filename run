@@ -322,8 +322,7 @@ function github_actions_ci_pr_docker_tests() {
 	cp tests/index.json.gz log/
 
 	export PRICE_LOG_PORT=$( cat ${STATE_DIR}/.price_log_service.port)
-	touch log/test.log
-	curl http://${DOCKER_IP}:${PRICE_LOG_PORT}/test.log
+	curl http://${DOCKER_IP}:${PRICE_LOG_PORT}/index.json.gz
 
 	echo BuyMoonSellRecoveryStrategy.yaml
 	cp tests/BuyMoonSellRecoveryStrategy.yaml configs/
