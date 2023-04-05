@@ -374,13 +374,16 @@ class ProveBacktesting:
         r: requests.Response = get_index_json(
             f"{self.price_log_service_url}/index.json.gz"
         )
-        coinfiles: Any = json.loads(r.content)
+        index: Any = json.loads(r.content)
 
-        # TODO: REVIEW THESE TWO BLOCKS BELOW
-        coins: set = set()
-        for day in dates:
-            if day in coinfiles.keys():
-                for coin in coinfiles[day]:
+        next_run_coins: dict = {}
+
+        # build a dictionary with all the coins that have price log entries
+        # available for the dates we asked to backtest.
+        # then append the list of available price logs to that { coin: [] }
+        for day in index.keys():
+            if day in dates:
+                for coin in index[day]:
                     # discard any BULL/BEAR tokens
                     if any(
                         f"{w}{self.pairing}" in coin
@@ -391,18 +394,42 @@ class ProveBacktesting:
                     ):
                         continue
                     if self.filter_by in coin and self.pairing in coin:
-                        coins.add(coin)
+                        if coin not in next_run_coins:
+                            next_run_coins[coin] = []
+                        next_run_coins[coin].append(f"{coin}/{day}.log.gz")
 
-        for coin in coins:
-            _price_logs: list = []
-            if self.filter_by in coin and self.pairing in coin:
-                for day in dates:
-                    if day in coinfiles.keys():
-                        if coin in coinfiles[day]:
-                            _price_logs.append(f"{coin}/{day}.log.gz")
+        if self.enable_new_listing_checks:
+            all_logs: dict = {}
 
+            # from the dict containing all the coins and the price logs to test,
+            # drop any coin that doesn't have the required number of logs
+            # as per the enable_new_listing_checks_age_in_days setting
+            for day in index.keys():
+                # skip any empty dates in index.json.gz
+                if not index[day]:
+                    continue
+                # we need to make sure we don't keep dates past the last day
+                # we're backtesting
+                if datetime.strptime(day, "%Y%m%d") > datetime.strptime(
+                    dates[-1], "%Y%m%d"
+                ):
+                    continue
+                for coin in list(next_run_coins.keys()):
+                    if coin not in all_logs:
+                        all_logs[coin] = []
+                    all_logs[coin].append(f"{coin}/{day}.log.gz")
+
+            for coin in list(next_run_coins.keys()):
+                if (
+                    len(all_logs[coin])
+                    <= self.enable_new_listing_checks_age_in_days
+                ):
+                    del next_run_coins[coin]
+
+        for coin, _price_logs in next_run_coins.items():
             self.write_single_coin_config(coin, _price_logs, thisrun)
-        return coins
+
+        return set(next_run_coins.keys())
 
     def parallel_backtest_all_coins(self, _coin_list, n_tasks, _run):
         """parallel_backtest_all_coins"""
