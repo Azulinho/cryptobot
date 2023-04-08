@@ -1198,15 +1198,6 @@ class Bot:
 
                         # pylint: disable=consider-using-dict-items
                         for k, v in objects[symbol].items():
-                            # we load the klines from the init_or_update_coin()
-                            # above so we should skip the data from the .json file
-                            # as this data might be very old
-                            if k in ["lowest", "averages", "highest"]:
-                                print(
-                                    f"ignoring likely stale {k} data from"
-                                    + f".json for {symbol}"
-                                )
-                                continue
                             setattr(self.coins[symbol], k, v)
 
             logging.warning(f"coins contains {str(self.coins.keys())}")
