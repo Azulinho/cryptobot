@@ -646,7 +646,7 @@ class ProveBacktesting:
             f"{self.strategy} best run {best_run} profit: {best_profit_in_runs:.3f}"
         )
 
-    def run_optimized_config(self, s_balance) -> float:
+    def run_optimized_config(self, s_investment) -> float:
         """runs optimized config"""
         with open(f"configs/optimized.{self.strategy}.yaml") as cf:
             _tickers = yaml.safe_load(cf.read())["TICKERS"]
@@ -654,25 +654,26 @@ class ProveBacktesting:
             log_msg(
                 f"automated-backtesting: no tickers in {self.strategy} yaml, skipping run"
             )
-            return s_balance
+            return s_investment
 
         wrap_subprocessing(f"optimized.{self.strategy}.yaml")
         with open(
             f"results/backtesting.optimized.{self.strategy}.yaml.txt"
         ) as results_txt:
-            f_balance = float(
-                re.findall(r"final balance: (-?\d+\.\d+)", results_txt.read())[
-                    0
-                ]
+            r = results_txt.read()
+
+            end_investment = float(
+                re.findall(r"investment: start: .* end: (\d+\.?\d+)", r)[0]
             )
-            end_balance = float(s_balance + f_balance)
-            _diff = str(int(100 - ((s_balance / end_balance) * 100)))
+
+            _diff = str(int(100 - ((s_investment / end_investment) * 100)))
             if int(_diff) > 0:
                 _diff = f"+{_diff}"
             log_msg(
-                f" final balance for {self.strategy}: {str(end_balance)} {_diff}%"
+                f" final investment for {self.strategy}: {str(end_investment)} {_diff}%"
             )
-        return end_balance
+
+        return end_investment
 
 
 if __name__ == "__main__":
@@ -703,8 +704,8 @@ if __name__ == "__main__":
         f"running from {pv.start_dates[0]} to {pv.start_dates[-1]} "
         + f"backtesting previous {pv.roll_backwards} days every {pv.roll_forward} days"
     )
-    final_balance = pv.initial_investment
-    starting_balance: float = pv.initial_investment
+    final_investment = pv.initial_investment
+    starting_investment: float = pv.initial_investment
     for date in pv.start_dates:
         cleanup()
 
@@ -739,19 +740,21 @@ if __name__ == "__main__":
         log_msg(
             f"now forwardtesting {rollforward_dates[0]}...{rollforward_dates[-1]}"
         )
-        log_msg(f" starting balance for {pv.strategy}: {starting_balance}")
+        log_msg(
+            f" starting investment for {pv.strategy}: {starting_investment}"
+        )
 
         pv.write_optimized_strategy_config(
-            price_logs, tickers, starting_balance
+            price_logs, tickers, starting_investment
         )
-        final_balance = pv.run_optimized_config(starting_balance)
-        starting_balance = final_balance
+        final_investment = pv.run_optimized_config(starting_investment)
+        starting_investment = final_investment
 
     log_msg("COMPLETED WITH RESULTS:")
-    diff = str(int(100 - ((pv.initial_investment / final_balance) * 100)))
+    diff = str(int(100 - ((pv.initial_investment / final_investment) * 100)))
     if int(diff) > 0:
         diff = f"+{diff}"
-    log_msg(f" {pv.strategy}: {final_balance} {diff}%")
+    log_msg(f" {pv.strategy}: {final_investment} {diff}%")
     for f in glob.glob("tmp/*"):
         os.remove(f)
     log_msg("PROVE-BACKTESTING: FINISHED")
