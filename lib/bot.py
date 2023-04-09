@@ -149,17 +149,12 @@ class Bot:
         # at boot so that when we first get the config from config-endpoint-service
         # and if the tickers haven't changed match the bot won't assume the
         # tickers or the config have changed.
-        # this is needed to prevent SELL_ALL_ON_PULL_CONFIG_CHANGE to sell all
-        # the coins at bot startup.
         self.pull_config_md5: str = hashlib.md5(
             (json.dumps(dict(config["TICKERS"]), sort_keys=True)).encode(
                 "utf-8"
             )
         ).hexdigest()
         self.pull_config_address: str = config.get("PULL_CONFIG_ADDRESS", "")
-        self.sell_all_on_pull_config_change: bool = config.get(
-            "SELL_ALL_ON_PULL_CONFIG_CHANGE", False
-        )
         self.logs_dir = logs_dir
         self.klines_caching_service_url: str = config.get(
             "KLINES_CACHING_SERVICE_URL", "http://klines:8999"
@@ -1814,30 +1809,22 @@ class Bot:
     def refresh_config_from_config_endpoint_service(self) -> None:
         """updates the bot config (ticker list) from the config endpoint"""
         try:
-            r = requests.get(self.pull_config_address, timeout=1).json()
+            r: Dict[str, Any] = requests.get(
+                self.pull_config_address, timeout=1
+            ).json()
             if r["md5"] == self.pull_config_md5:
                 return
 
             # create a placeholder for us to add old and new tickers
-            old_tickers_in_use = {}
-            # if SELL_ALL_ON_PULL_CONFIG_CHANGE is set, we will
-            # simply sell all tokens and start from an empty wallet
-            if self.sell_all_on_pull_config_change:
-                for symbol in self.wallet:
-                    sale: bool = self.sell_coin(self.coins[symbol])
-                    if not sale:
-                        logging.warning("Failed to sell {symbol}")
-                self.clear_all_coins_stats()
+            new_tickers: Dict[str, object] = r["TICKERS"]
 
-            else:
-                for symbol in self.wallet:
-                    old_tickers_in_use[symbol] = self.tickers[symbol]
+            for symbol in self.wallet:
+                # we need to make sure we maintain any tickers for coins we may
+                # have in our wallet.
+                new_tickers[symbol] = self.tickers[symbol]
 
-            # we need to make sure we maintain any tickers for coins we may
-            # have in our wallet.
-            old_tickers_in_use.update(r["TICKERS"])
-            self.tickers = old_tickers_in_use
-            now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+            self.tickers = new_tickers
+            now: str = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
             logging.info(
                 f"{now}: updating tickers: had: "
                 + f"{self.pull_config_md5} now: {r['md5']}"
@@ -1855,7 +1842,7 @@ class Bot:
             # the bot will have access to all the ticker info on any coins
             # it might be holding
             with open(self.config_file, encoding="utf-8") as f:
-                _cfg = yaml.safe_load(f.read())
+                _cfg: Dict[str, object] = yaml.safe_load(f.read())
                 _cfg["TICKERS"] = self.tickers
             with open(self.config_file, "wt", encoding="utf-8") as f:
                 yaml.dump(_cfg, f, default_flow_style=False)
