@@ -45,7 +45,6 @@ A python based trading bot for Binance, which relies heavily on backtesting.
     * [STOP_BOT_ON_LOSS](#stop_bot_on_loss)
     * [ORDER_TYPE](#order_type)
     * [PULL_CONFIG_ADDRESS](#pull_config_address)
-    * [SELL_ALL_ON_PULL_CONFIG_CHANGE](#sell_all_on_pull_config_change)
     * [PRICE_LOG_SERVICE_URL](#price_log_service_url)
     * [KLINES_CACHING_SERVICE_URL](#klines_caching_service_url)
     * [CONCURRENCY](#concurrency)
@@ -440,8 +439,7 @@ config as soon automated-backtesting completes.
 ./run config-endpoint-service BIND=0.0.0.0 CONFIG_FILE=myconfig.yaml
 ```
 
-see [PULL_CONFIG_ADDRESS]#pull_config_address and
-[SELL_ALL_ON_PULL_CONFIG_CHANGE]#sell_all_on_pull_config_change
+see [PULL_CONFIG_ADDRESS]#pull_config_address
 
 Trigger the execution of the automated-backtesting run by creating a *RUN* file
 in the control/ folder.
@@ -882,14 +880,6 @@ this should be set to the ip/port running the config-endpoint-service.
 PULL_CONFIG_ADDRESS: "http://172.20.0.1:53891"
 ```
 
-### SELL_ALL_ON_PULL_CONFIG_CHANGE
-
-Tells the bot to sell all coins when it retrieves a new set of tickers from the
-*config-endpoint-service*.
-
-```
-SELL_ALL_ON_PULL_CONFIG_CHANGE: True
-```
 
 Defaults to False
 
