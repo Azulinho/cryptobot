@@ -320,7 +320,7 @@ class TestBot:
                     ],
                 ) as _:
                     with mock.patch.object(
-                        bot, "get_step_size", return_value="0.00001000"
+                        bot, "get_step_size", return_value=(True, "0.00001000")
                     ) as _:
                         assert bot.sell_coin(coin) is True
                         assert bot.wallet == []
@@ -357,7 +357,7 @@ class TestBot:
                 },
             ) as _:
                 with mock.patch.object(
-                    bot, "get_step_size", return_value="0.00001000"
+                    bot, "get_step_size", return_value=(True, "0.00001000")
                 ) as _:
                     with mock.patch.object(
                         bot.client,
@@ -456,16 +456,17 @@ class TestBot:
             },
         ) as _:
             result = bot.get_step_size("BTCUSDT")
-            assert result == "0.00001000"
+            assert result == (True, "0.00001000")
 
     def test_extract_order_data(self):
         pass
 
     def test_calculate_volume_size(self, bot, coin):
         with mock.patch.object(
-            bot, "get_step_size", return_value="0.00001000"
+            bot, "get_step_size", return_value=(True, "0.00001000")
         ) as _:
-            volume = bot.calculate_volume_size(coin)
+            ok, volume = bot.calculate_volume_size(coin)
+            assert ok == True
             assert volume == 0.5
 
     def test_get_binance_prices(self, bot):
@@ -710,7 +711,7 @@ class TestBuyCoin:
         bot.buy_coin(coin)
         assert bot.wallet == []
 
-    @mock.patch("lib.bot.Bot.get_step_size", return_value="0.00001000")
+    @mock.patch("lib.bot.Bot.get_step_size", return_value=(True, "0.00001000"))
     def test_buy_coin_in_backtesting(self, _, bot, coin):
         bot.mode = "backtesting"
         coin.price = 100
@@ -767,7 +768,7 @@ class TestBuyCoin:
                     ],
                 ) as _:
                     with mock.patch.object(
-                        bot, "get_step_size", return_value="0.00001000"
+                        bot, "get_step_size", return_value=(True, "0.00001000")
                     ) as _:
 
                         assert bot.buy_coin(coin) is True
@@ -803,7 +804,7 @@ class TestBuyCoin:
                 },
             ) as _:
                 with mock.patch.object(
-                    bot, "get_step_size", return_value="0.00001000"
+                    bot, "get_step_size", return_value=(True, "0.00001000")
                 ) as _:
                     with mock.patch.object(
                         bot.client,
