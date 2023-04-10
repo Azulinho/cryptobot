@@ -2,13 +2,16 @@
 import logging
 import math
 import pickle  # nosec
+import re
 from datetime import datetime
 from functools import lru_cache
 from os.path import exists, getctime
+from time import time, sleep
 
 import udatetime
 from binance.client import Client
 from filelock import SoftFileLock
+from tenacity import retry, wait_exponential
 
 
 def mean(values: list) -> float:
@@ -41,6 +44,7 @@ def c_from_timestamp(date: float) -> datetime:
     return datetime.fromtimestamp(date)
 
 
+@retry(wait=wait_exponential(multiplier=1, max=3))
 def cached_binance_client(access_key: str, secret_key: str) -> Client:
     """retry wrapper for binance client first call"""
 
@@ -64,6 +68,16 @@ def cached_binance_client(access_key: str, secret_key: str) -> Client:
                 _client = Client(access_key, secret_key)
             except Exception as err:
                 logging.warning(f"API client exception: {err}")
+                if "much request weight used" in str(err):
+                    timestamp = (
+                        int(re.findall(r"IP banned until (\d+)", str(err))[0])
+                        / 1000
+                    )
+                    logging.info(
+                        f"Pausing until {datetime.fromtimestamp(timestamp)}"
+                    )
+                    while int(time()) < timestamp:
+                        sleep(1)
                 raise Exception from err
             with open(cachefile, "wb") as f:
                 pickle.dump(_client, f)
