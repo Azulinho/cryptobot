@@ -9,6 +9,7 @@ from os import fsync, unlink
 from os.path import basename, exists
 from time import sleep
 from typing import Any, Dict, List, Tuple
+from functools import lru_cache
 
 import requests
 import udatetime
@@ -162,7 +163,9 @@ class Bot:
         # price.log service
         self.price_log_service: str = config["PRICE_LOG_SERVICE_URL"]
 
-    def extract_order_data(self, order_details, coin) -> Dict[str, Any]:
+    def extract_order_data(
+        self, order_details, coin
+    ) -> Tuple[bool, Dict[str, Any]]:
         """calculate average price and volume for a buy order"""
 
         # Each order will be fullfilled by different traders, and made of
@@ -183,13 +186,20 @@ class Bot:
 
         avg: float = total / qty
 
-        volume: float = float(self.calculate_volume_size(coin))
-        logging.debug(f"{coin.symbol} -> volume:{volume} avgPrice:{avg}")
+        ok, _volume = self.calculate_volume_size(coin)
+        if ok:
+            volume: float = float(_volume)
 
-        return {
-            "avgPrice": float(avg),
-            "volume": float(volume),
-        }
+            logging.debug(f"{coin.symbol} -> volume:{volume} avgPrice:{avg}")
+
+            return (
+                True,
+                {
+                    "avgPrice": float(avg),
+                    "volume": float(volume),
+                },
+            )
+        return (False, {})
 
     def run_strategy(self, coin) -> None:
         """runs a specific strategy against a coin"""
@@ -329,13 +339,17 @@ class Bot:
             orders = self.client.get_all_orders(symbol=coin.symbol, limit=1)
             logging.debug(orders)
             # calculate how much we got based on the total lines in our order
-            coin.price = self.extract_order_data(order_details, coin)[
-                "avgPrice"
-            ]
+            ok, _value = self.extract_order_data(order_details, coin)
+            if not ok:
+                return False
+
+            coin.price = _value["avgPrice"]
             # retrieve the total number of units for this coin
-            coin.volume = self.extract_order_data(order_details, coin)[
-                "volume"
-            ]
+            ok, _value = self.extract_order_data(order_details, coin)
+            if not ok:
+                return False
+
+            coin.volume = _value["volume"]
 
         # and give this coin a new fresh date based on our recent actions
         coin.date = float(udatetime.now().timestamp())
@@ -448,13 +462,15 @@ class Bot:
             logging.debug(orders)
             # our order will have been fullfilled by different traders,
             # find out the average price we paid accross all these sales.
-            coin.bought_at = self.extract_order_data(order_details, coin)[
-                "avgPrice"
-            ]
+            ok, _value = self.extract_order_data(order_details, coin)
+            if not ok:
+                return False
+            coin.bought_at = float(_value["avgPrice"])
             # retrieve the total number of units for this coin
-            coin.volume = self.extract_order_data(order_details, coin)[
-                "volume"
-            ]
+            ok, _volume = self.extract_order_data(order_details, coin)
+            if not ok:
+                return False
+            coin.volume = float(_volume["volume"])
         with open("log/binance.place_buy_order.log", "at") as f:
             f.write(f"{coin.symbol} {coin.date} {self.order_type} ")
             f.write(f"{bid} {coin.volume} {order_details}\n")
@@ -477,7 +493,10 @@ class Bot:
 
         # calculate how many units of this coin we can afford based on our
         # investment share.
-        volume = float(self.calculate_volume_size(coin))
+        ok, _volume = self.calculate_volume_size(coin)
+        if not ok:
+            return False
+        volume: float = float(_volume)
 
         # we never place binance orders in backtesting mode.
         if self.mode in ["testnet", "live"]:
@@ -612,7 +631,8 @@ class Bot:
         )
         return True
 
-    def get_step_size(self, symbol: str) -> str:
+    @lru_cache(1024)
+    def get_step_size(self, symbol: str) -> Tuple[bool, str]:
         """retrieves and caches the decimal step size for a coin in binance"""
 
         # each coin in binance uses a number of decimal points, these can vary
@@ -631,29 +651,42 @@ class Bot:
         else:
             try:
                 info = self.client.get_symbol_info(symbol)
+
+                if not info:
+                    return (False, "")
+
+                if "filters" not in info:
+                    return (False, "")
             except BinanceAPIException as error_msg:
                 logging.error(error_msg)
-                return str(-1)
+                if "Too much request weight used;" in str(error_msg):
+                    sleep(60)
+                return (False, "")
 
         for d in info["filters"]:
             if "filterType" in d.keys():
                 if d["filterType"] == "LOT_SIZE":
                     step_size = d["stepSize"]
 
-        if self.mode == "backtesting" and not exists(f_path):
-            with open(f_path, "w") as f:
-                f.write(json.dumps(info))
+                    if self.mode == "backtesting" and not exists(f_path):
+                        with open(f_path, "w") as f:
+                            f.write(json.dumps(info))
 
-        with open("log/binance.step_size.log", "at") as f:
-            f.write(f"{symbol} {step_size}\n")
-        return step_size
+                    with open("log/binance.step_size.log", "at") as f:
+                        f.write(f"{symbol} {step_size}\n")
+                    return (True, step_size)
+        return (False, "")
 
-    def calculate_volume_size(self, coin) -> float:
+    def calculate_volume_size(self, coin) -> Tuple[bool, float]:
         """calculates the amount of coin we are to buy"""
 
         # calculates the number of units we are about to buy based on the number
         # of decimal points used, the share of the investment and the price
-        step_size: str = self.get_step_size(coin.symbol)
+        ok, _step_size = self.get_step_size(coin.symbol)
+        if ok:
+            step_size: str = _step_size
+        else:
+            return (False, 0)
 
         investment: float = percent(self.investment, self.re_invest_percentage)
 
@@ -667,7 +700,7 @@ class Bot:
             )
         with open("log/binance.volume.log", "at") as f:
             f.write(f"{coin.symbol} {step_size} {investment} {volume}\n")
-        return volume
+        return (True, volume)
 
     @retry(wait=wait_exponential(multiplier=1, max=3))
     def get_binance_prices(self) -> List[Dict[str, str]]:
