@@ -1583,129 +1583,22 @@ class Bot:
         data: dict = {}
         # fetch all the available klines for this coin, for the last
         # 60min, 24h, and 1000 days
-        if self.mode in ["testnet", "live"]:
-            data = self.fetch_klines_from_binance(coin.symbol, coin.date)
-        else:
-            response: requests.Response = requests.get(
-                self.klines_caching_service_url
-                + f"?symbol={coin.symbol}"
-                + f"&date={coin.date}"
-                + f"&mode={self.mode}"
-                + f"&debug={self.debug}",
-                timeout=30,
-            )
-            data = response.json()
-        # TODO: rework this
+        response: requests.Response = requests.get(
+            self.klines_caching_service_url
+            + f"?symbol={coin.symbol}"
+            + f"&date={coin.date}"
+            + f"&mode={self.mode}"
+            + f"&debug={self.debug}",
+            timeout=30,
+        )
+        data = response.json()
         if data:
             ok = True
-
-        if ok:
             coin.lowest = data["lowest"]
             coin.averages = data["averages"]
             coin.highest = data["highest"]
 
-        # trim values
-        unit_values: dict = {
-            "m": (60, 1),
-            "h": (24, 60),
-            # for 'Days' we retrieve 1000 days, binance API default
-            "d": (1000, 60 * 24),
-        }
-        for unit in ["m", "h", "d"]:
-            # make sure we don't keep more values that we should
-            timeslice, _ = unit_values[unit]
-            while len(coin.lowest[unit]) > timeslice:
-                coin.lowest[unit].pop()
-            while len(coin.averages[unit]) > timeslice:
-                coin.averages[unit].pop()
-            while len(coin.highest[unit]) > timeslice:
-                coin.highest[unit].pop()
-
         return ok
-
-    def fetch_klines_from_binance(self, symbol: str, date: int) -> dict:
-        """fetches from binance"""
-
-        # when we initialise a coin, we pull a bunch of klines from binance.
-        # we pull klines for the last 60min, the last 24h, and the last 1000days
-
-        # url to pull klines data from
-        api_url: str = (
-            f"https://api.binance.com/api/v3/klines?symbol={symbol}&"
-        )
-
-        # build a dict to allows to calculate how far back in h,m,d we are going
-        # to pull klines data from
-        unit_values: dict = {
-            "m": (60, 1),
-            "h": (24, 60),
-            # for 'Days' we retrieve 1000 days, binance API default
-            "d": (1000, 60 * 24),
-        }
-
-        # build all the query strings we need to fetch data from binance
-        binance_query_strings: dict = {}
-        for unit in ["m", "h", "d"]:
-
-            # lets find out the from what date we need to pull klines from while in
-            # backtesting mode.
-            timeslice, minutes_before_now = unit_values[unit]
-
-            backtest_end_time = date
-            end_unix_time: int = int(
-                (backtest_end_time - (60 * minutes_before_now)) * 1000
-            )
-
-            query: str = f"{api_url}endTime={end_unix_time}&interval=1{unit}"
-            binance_query_strings[unit] = query
-
-        # now we need to initialize a temp buckets{} with the
-        # lowest[], averages[], highest[]
-        buckets: dict = {}
-        for bucket in ["lowest", "averages", "highest"]:
-            buckets[bucket] = {}
-            for unit in ["m", "h", "d", "s"]:
-                buckets[bucket][unit] = []
-
-        # now we need to query binance and populate our buckets dict
-        with requests.Session() as session:
-            for unit in ["m", "h", "d"]:
-
-                # the call binance for list of klines for our loop var
-                # unit ('m', 'm', 'd')
-                ok, klines = self.call_binance_for_klines(
-                    session, binance_query_strings[unit]
-                )
-                if ok:
-                    # and get a dict with the lowest, averages, highest lists from those
-                    # binance raw klines
-                    ok, low_avg_high = self.populate_values(klines, unit)
-
-                if ok:
-                    # we should now have a new dict containing list of our
-                    # lowest, averages, highest values in low_avg_high
-                    for bucket in ["lowest", "averages", "highest"]:
-                        buckets[bucket][unit] = low_avg_high[bucket]
-                        # we need to trim our lists, so that we don't keep more
-                        # values that we should,
-                        # like storing the last 1000 minutes
-                        #
-                        # keep 60 minutes on our minutes bucket
-                        # 24 hours in our hours bucket
-                        timeslice, _ = unit_values[unit]
-                        while len(buckets[bucket][unit]) > timeslice:
-                            buckets[bucket][unit].pop()
-        return buckets
-
-    def call_binance_for_klines(self, session, query):
-        """calls upstream binance and retrieves the klines for a coin"""
-        logging.info(f"calling binance on {query}")
-        response = self.requests_with_backoff(session, query)
-        if response.status_code == 400:
-            # 400 typically means binance has no klines for this coin
-            logging.warning(f"got a 400 from binance for {query}")
-            return (True, [])
-        return (True, response.json())
 
     @retry(wait=wait_exponential(multiplier=1, max=3))
     @limiter.ratelimit("binance", delay=True)
