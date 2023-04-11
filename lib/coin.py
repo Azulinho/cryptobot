@@ -1,12 +1,13 @@
 """ Coin class """
 
+from typing import Dict, List
 from lib.helpers import add_100
 
 
 class Coin:  # pylint: disable=too-few-public-methods
     """Coin Class"""
 
-    offset = {"s": 60, "m": 3600, "h": 86400}
+    offset: Dict[str, int] = {"s": 60, "m": 3600, "h": 86400}
 
     def __init__(
         self,
@@ -75,18 +76,18 @@ class Coin:  # pylint: disable=too-few-public-methods
         # how long to block the bot from buying a coin after a STOP_LOSS
         self.naughty_timeout: int = int(naughty_timeout)
         # dicts storing price data, on different buckets
-        self.lowest: dict = {
+        self.lowest: dict[str, List[List[float]]] = {
             "m": [],
             "h": [],
             "d": [],
         }
-        self.averages: dict = {
+        self.averages: dict[str, List[List[float]]] = {
             "s": [],
             "m": [],
             "h": [],
             "d": [],
         }
-        self.highest: dict = {
+        self.highest: dict[str, List[List[float]]] = {
             "m": [],
             "h": [],
             "d": [],
