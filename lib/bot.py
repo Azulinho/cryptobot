@@ -14,8 +14,8 @@ from functools import lru_cache
 import requests
 import udatetime
 import yaml
+from binance.client import Client
 from binance.exceptions import BinanceAPIException
-from filelock import SoftFileLock
 from tenacity import retry, wait_exponential
 from pyrate_limiter import Duration, Limiter, RequestRate
 
@@ -144,7 +144,6 @@ class Bot:
         self.quit: bool = False
         # define if we want to use MARKET or LIMIT orders
         self.order_type: str = config.get("ORDER_TYPE", "MARKET")
-        self.binance_lock = SoftFileLock("state/binance.lock", timeout=90)
         # generate a md5 hash of the tickers config based on the same method
         # used in the config-endpoint-service. We want a hash to be available
         # at boot so that when we first get the config from config-endpoint-service
@@ -1601,8 +1600,9 @@ class Bot:
         return ok
 
     @retry(wait=wait_exponential(multiplier=1, max=3))
-    @limiter.ratelimit("binance", delay=True)
-    def requests_with_backoff(self, session, query: str):
+    def requests_with_backoff(
+        self, session: requests.Session, query: str
+    ) -> requests.Response:
         """retry wrapper for requests calls"""
         response = session.get(query, timeout=5)
 
