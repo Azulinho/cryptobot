@@ -5,19 +5,19 @@ import json
 import logging
 import pprint
 from datetime import datetime
+from functools import lru_cache
 from os import fsync, unlink
 from os.path import basename, exists
 from time import sleep
 from typing import Any, Dict, List, Tuple
-from functools import lru_cache
 
 import requests
 import udatetime
 import yaml
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
-from tenacity import retry, wait_exponential
 from pyrate_limiter import Duration, Limiter, RequestRate
+from tenacity import retry, wait_exponential
 
 from lib.coin import Coin
 from lib.helpers import (
@@ -29,7 +29,6 @@ from lib.helpers import (
     percent,
 )
 
-
 rate = RequestRate(600, Duration.MINUTE)  # 600 requests per minute
 limiter = Limiter(rate)
 
@@ -39,10 +38,10 @@ class Bot:
 
     def __init__(
         self,
-        conn,
-        config_file,
-        config,
-        logs_dir="log",
+        conn: Client,
+        config_file: str,
+        config: Dict[str, Any],
+        logs_dir: str = "log",
     ) -> None:
         """Bot object"""
 
@@ -59,7 +58,7 @@ class Bot:
         # number of seconds to pause between price checks
         self.pause: float = float(config["PAUSE_FOR"])
         # list of price.logs to use during backtesting
-        self.price_logs: List = config["PRICE_LOGS"]
+        self.price_logs: List[str] = config["PRICE_LOGS"]
         # dictionary for all coin data
         self.coins: Dict[str, Coin] = {}
         # number of wins record by this bot run
@@ -72,10 +71,10 @@ class Bot:
         # total profit for this bot run
         self.profit: float = 0
         # a wallet is for the coins we hold
-        self.wallet: List = []
+        self.wallet: List[str] = []
         # the list of tickers and the config for each one, in terms of
         # BUY_AT_PERCENTAGE, SELL_AT_PERCENTAGE, etc...
-        self.tickers: dict = dict(config["TICKERS"])
+        self.tickers: dict[str, Any] = dict(config["TICKERS"])
         # running mode for the bot [BACKTESTING, LIVE, TESTNET]
         self.mode: str = config["MODE"]
         # Binance trading fee for each buy/sell trade, in percentage points
@@ -163,7 +162,7 @@ class Bot:
         self.price_log_service: str = config["PRICE_LOG_SERVICE_URL"]
 
     def extract_order_data(
-        self, order_details, coin
+        self, order_details: dict[str, Any], coin: Coin
     ) -> Tuple[bool, Dict[str, Any]]:
         """calculate average price and volume for a buy order"""
 
@@ -200,7 +199,7 @@ class Bot:
             )
         return (False, {})
 
-    def run_strategy(self, coin) -> None:
+    def run_strategy(self, coin: Coin) -> None:
         """runs a specific strategy against a coin"""
 
         # runs our choosen strategy, here we aim to quit as soon as possible
@@ -246,7 +245,7 @@ class Bot:
         # so on every sale we invest our profit as well.
         self.investment = self.initial_investment + self.profit
 
-    def update_bot_profit(self, coin) -> None:
+    def update_bot_profit(self, coin: Coin) -> None:
         """updates the total bot profits"""
         bought_fees = percent(self.trading_fee, coin.cost)
         sell_fees = percent(self.trading_fee, coin.value)
@@ -255,14 +254,16 @@ class Bot:
         self.profit = float(self.profit) + float(coin.profit) - float(fees)
         self.fees = self.fees + fees
 
-    def place_sell_order(self, coin):
+    def place_sell_order(self, coin: Coin) -> bool:
         """places a limit/market sell order"""
         bid: str = ""
-        order_details: str = ""
+        order_details: Dict[str, Any] = {}
         try:
-            now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+            now: str = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
             if self.order_type == "LIMIT":
-                order_book = self.client.get_order_book(symbol=coin.symbol)
+                order_book: Dict[str, Any] = self.client.get_order_book(
+                    symbol=coin.symbol
+                )
                 logging.debug(f"order_book: {order_book}")
                 try:
                     bid, _ = order_book["bids"][0]
@@ -306,7 +307,7 @@ class Bot:
 
         while True:
             try:
-                order_status = self.client.get_order(
+                order_status: Dict[str, str] = self.client.get_order(
                     symbol=coin.symbol, orderId=order_details["orderId"]
                 )
                 logging.debug(order_status)
@@ -357,12 +358,12 @@ class Bot:
             f.write(f"{bid} {coin.volume} {order_details}\n")
         return True
 
-    def place_buy_order(self, coin, volume):
+    def place_buy_order(self, coin: Coin, volume: float) -> bool:
         """places a limit/market buy order"""
         bid: str = ""
-        order_details: str = ""
+        order_details: Dict[str, Any] = {}
         try:
-            now = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+            now: str = udatetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
             # TODO: add the ability to place a order from a specific position
             # within the order book.
             if self.order_type == "LIMIT":
@@ -475,7 +476,7 @@ class Bot:
             f.write(f"{bid} {coin.volume} {order_details}\n")
         return True
 
-    def buy_coin(self, coin) -> bool:
+    def buy_coin(self, coin: Coin) -> bool:
         """calls Binance to buy a coin"""
 
         # quit early if we already hold this coin in our wallet
@@ -549,7 +550,7 @@ class Bot:
         self.log_debug_coin(coin)
         return True
 
-    def sell_coin(self, coin) -> bool:
+    def sell_coin(self, coin: Coin) -> bool:
         """calls Binance to sell a coin"""
 
         # if we don't own this coin, then there's nothing more to do here
@@ -676,7 +677,7 @@ class Bot:
                     return (True, step_size)
         return (False, "")
 
-    def calculate_volume_size(self, coin) -> Tuple[bool, float]:
+    def calculate_volume_size(self, coin: Coin) -> Tuple[bool, float]:
         """calculates the amount of coin we are to buy"""
 
         # calculates the number of units we are about to buy based on the number
@@ -702,7 +703,7 @@ class Bot:
         return (True, volume)
 
     @retry(wait=wait_exponential(multiplier=1, max=3))
-    def get_binance_prices(self) -> List[Dict[str, str]]:
+    def get_binance_prices(self) -> Any:
         """gets the list of all binance coin prices"""
         return self.client.get_all_tickers()
 
@@ -902,7 +903,7 @@ class Bot:
             return True
         return False
 
-    def coin_gone_up_and_dropped(self, coin) -> bool:
+    def coin_gone_up_and_dropped(self, coin: Coin) -> bool:
         """checks for a possible drop in price in a coin we hold"""
         # when we have reached the TARGET_SELL and a coin drops in price
         # below the SELL_AT_PERCENTAGE price we sell the coin immediately
@@ -1028,7 +1029,9 @@ class Bot:
             )
 
             coin.sell_at_percentage = add_100(
-                percent(ttl, self.tickers[coin.symbol]["SELL_AT_PERCENTAGE"])
+                percent(
+                    ttl, float(self.tickers[coin.symbol]["SELL_AT_PERCENTAGE"])
+                )
             )
 
             # make sure we never set the SELL_AT_PERCENTAGE below what we've
@@ -1045,9 +1048,11 @@ class Bot:
                 add_100(
                     percent(
                         ttl,
-                        self.tickers[coin.symbol][
-                            "TRAIL_TARGET_SELL_PERCENTAGE"
-                        ],
+                        float(
+                            self.tickers[coin.symbol][
+                                "TRAIL_TARGET_SELL_PERCENTAGE"
+                            ]
+                        ),
                     )
                 )
                 - 0.001
@@ -1123,19 +1128,19 @@ class Bot:
 
         coin.holding_time = 1
         coin.buy_at_percentage = add_100(
-            self.tickers[coin.symbol]["BUY_AT_PERCENTAGE"]
+            float(self.tickers[coin.symbol]["BUY_AT_PERCENTAGE"])
         )
         coin.sell_at_percentage = add_100(
-            self.tickers[coin.symbol]["SELL_AT_PERCENTAGE"]
+            float(self.tickers[coin.symbol]["SELL_AT_PERCENTAGE"])
         )
         coin.stop_loss_at_percentage = add_100(
-            self.tickers[coin.symbol]["STOP_LOSS_AT_PERCENTAGE"]
+            float(self.tickers[coin.symbol]["STOP_LOSS_AT_PERCENTAGE"])
         )
         coin.trail_target_sell_percentage = add_100(
-            self.tickers[coin.symbol]["TRAIL_TARGET_SELL_PERCENTAGE"]
+            float(self.tickers[coin.symbol]["TRAIL_TARGET_SELL_PERCENTAGE"])
         )
         coin.trail_recovery_percentage = add_100(
-            self.tickers[coin.symbol]["TRAIL_RECOVERY_PERCENTAGE"]
+            float(self.tickers[coin.symbol]["TRAIL_RECOVERY_PERCENTAGE"])
         )
         coin.bought_at = float(0)
         coin.dip = float(0)
@@ -1151,7 +1156,9 @@ class Bot:
             coin.max = coin.price
 
     def save_coins(
-        self, state_coins="state/coins.json", state_wallet="state/wallet.json"
+        self,
+        state_coins: str = "state/coins.json",
+        state_wallet: str = "state/wallet.json",
     ) -> None:
         """saves coins and wallet to a local pickle file"""
 
@@ -1174,9 +1181,68 @@ class Bot:
 
         # convert .pyobject to a .json compatible format
         with open(state_coins, "wt") as f:
-            objects: dict = {}
+            objects: dict[str, Dict[str, Any]] = {}
             for symbol in self.coins.keys():  # pylint: disable=C0206,C0201
-                objects[symbol] = self.coins[symbol].__dict__
+                # TODO: move this into a Coin.__to_dict method
+                objects[symbol] = {}
+                objects[symbol]["averages"] = self.coins[symbol].averages
+                objects[symbol]["bought_at"] = self.coins[symbol].bought_at
+                objects[symbol]["bought_date"] = self.coins[symbol].bought_date
+                objects[symbol]["buy_at_percentage"] = self.coins[
+                    symbol
+                ].buy_at_percentage
+                objects[symbol]["cost"] = self.coins[symbol].cost
+                objects[symbol]["date"] = self.coins[symbol].date
+                objects[symbol]["dip"] = self.coins[symbol].dip
+                objects[symbol]["hard_limit_holding_time"] = self.coins[
+                    symbol
+                ].hard_limit_holding_time
+                objects[symbol]["highest"] = self.coins[symbol].highest
+                objects[symbol]["holding_time"] = self.coins[
+                    symbol
+                ].holding_time
+                objects[symbol]["klines_slice_percentage_change"] = self.coins[
+                    symbol
+                ].klines_slice_percentage_change
+                objects[symbol]["klines_trend_period"] = self.coins[
+                    symbol
+                ].klines_trend_period
+                objects[symbol]["last"] = self.coins[symbol].last
+                objects[symbol]["last_read_date"] = self.coins[
+                    symbol
+                ].last_read_date
+                objects[symbol]["lowest"] = self.coins[symbol].lowest
+                objects[symbol]["max"] = self.coins[symbol].max
+                objects[symbol]["min"] = self.coins[symbol].min
+                objects[symbol]["naughty"] = self.coins[symbol].naughty
+                objects[symbol]["naughty_date"] = self.coins[
+                    symbol
+                ].naughty_date
+                objects[symbol]["naughty_timeout"] = self.coins[
+                    symbol
+                ].naughty_timeout
+                objects[symbol]["offset"] = self.coins[symbol].offset
+                objects[symbol]["price"] = self.coins[symbol].price
+                objects[symbol]["profit"] = self.coins[symbol].profit
+                objects[symbol]["sell_at_percentage"] = self.coins[
+                    symbol
+                ].sell_at_percentage
+                objects[symbol]["soft_limit_holding_time"] = self.coins[
+                    symbol
+                ].soft_limit_holding_time
+                objects[symbol]["status"] = self.coins[symbol].status
+                objects[symbol]["stop_loss_at_percentage"] = self.coins[
+                    symbol
+                ].stop_loss_at_percentage
+                objects[symbol]["symbol"] = self.coins[symbol].symbol
+                objects[symbol]["tip"] = self.coins[symbol].tip
+                objects[symbol]["trail_recovery_percentage"] = self.coins[
+                    symbol
+                ].trail_target_sell_percentage
+                objects[symbol]["value"] = self.coins[symbol].value
+                objects[symbol]["volume"] = self.coins[symbol].volume
+
+                # objects[symbol] = self.coins[symbol].__dict__
 
             f.write(json.dumps(objects))
             f.flush()
@@ -1231,7 +1297,7 @@ class Bot:
 
         # sync our coins state with the list of coins we want to use.
         # but keep using coins we currently have on our wallet
-        coins_to_remove: List = []
+        coins_to_remove: List[str] = []
         for coin in self.coins:
             if coin not in self.tickers and coin not in self.wallet:
                 coins_to_remove.append(coin)
@@ -1387,7 +1453,8 @@ class Bot:
             self.process_coins()
             self.wait()
 
-    def split_logline(self, line: str) -> Tuple:
+    # TODO: re-work output values to OK, values
+    def split_logline(self, line: str) -> Tuple[Any, Any, Any]:
         """splits a log line into symbol, date, price"""
 
         try:
@@ -1427,7 +1494,9 @@ class Bot:
                 return True
         return False
 
-    def process_line(self, symbol, date, market_price) -> None:
+    def process_line(
+        self, symbol: str, date: float, market_price: float
+    ) -> None:
         """processes a backlog line"""
 
         if self.quit:  # when told to quit, just go nicely
@@ -1438,18 +1507,18 @@ class Bot:
         if symbol not in self.coins:
             self.coins[symbol] = Coin(
                 symbol,
-                date,
-                market_price,
-                self.tickers[symbol]["BUY_AT_PERCENTAGE"],
-                self.tickers[symbol]["SELL_AT_PERCENTAGE"],
-                self.tickers[symbol]["STOP_LOSS_AT_PERCENTAGE"],
-                self.tickers[symbol]["TRAIL_TARGET_SELL_PERCENTAGE"],
-                self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"],
-                self.tickers[symbol]["SOFT_LIMIT_HOLDING_TIME"],
-                self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"],
-                self.tickers[symbol]["NAUGHTY_TIMEOUT"],
-                self.tickers[symbol]["KLINES_TREND_PERIOD"],
-                self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"],
+                float(date),
+                float(market_price),
+                float(self.tickers[symbol]["BUY_AT_PERCENTAGE"]),
+                float(self.tickers[symbol]["SELL_AT_PERCENTAGE"]),
+                float(self.tickers[symbol]["STOP_LOSS_AT_PERCENTAGE"]),
+                float(self.tickers[symbol]["TRAIL_TARGET_SELL_PERCENTAGE"]),
+                float(self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"]),
+                int(self.tickers[symbol]["SOFT_LIMIT_HOLDING_TIME"]),
+                int(self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"]),
+                int(self.tickers[symbol]["NAUGHTY_TIMEOUT"]),
+                str(self.tickers[symbol]["KLINES_TREND_PERIOD"]),
+                float(self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"]),
             )
             if self.check_for_delisted_coin(symbol):
                 return
@@ -1494,7 +1563,7 @@ class Bot:
                     ]:
                         logging.info(f"{w} {v}")
 
-                    response: Tuple[bool, list] = self.get_price_log(
+                    response: Tuple[bool, List[bytes]] = self.get_price_log(
                         session,
                         f"{self.cfg['PRICE_LOG_SERVICE_URL']}/{logfile}",
                     )
@@ -1575,11 +1644,11 @@ class Bot:
             f"tmp/{basename(self.config_file)}.wallet.json",
         )
 
-    def load_klines_for_coin(self, coin) -> bool:
+    def load_klines_for_coin(self, coin: Coin) -> bool:
         """fetches from binance or a local cache klines for a coin"""
 
         ok: bool = False
-        data: dict = {}
+        data: Dict[str, Dict[str, List[List[float]]]] = {}
         # fetch all the available klines for this coin, for the last
         # 60min, 24h, and 1000 days
         response: requests.Response = requests.get(
@@ -1604,25 +1673,41 @@ class Bot:
         self, session: requests.Session, query: str
     ) -> requests.Response:
         """retry wrapper for requests calls"""
-        response = session.get(query, timeout=5)
+        response: requests.Response = session.get(query, timeout=5)
 
         # 418 is a binance api limits response
         # don't raise a HTTPError Exception straight away but block until we are
         # free from the ban.
-        status = response.status_code
+        status: int = response.status_code
         if status in [418, 429]:
-            backoff = int(response.headers["Retry-After"])
+            backoff: int = int(response.headers["Retry-After"])
             logging.warning(
                 f"HTTP {status} from binance, sleeping for {backoff}s"
             )
-            sleep(backoff)
+            sleep(backoff + 1)
             response.raise_for_status()
 
         with open("log/binance.response.log", "at") as f:
             f.write(f"{query} {status} {response}\n")
         return response
 
-    def process_klines_line(self, kline):
+    def process_klines_line(
+        self,
+        kline: Tuple[
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+            float,
+        ],
+    ) -> List[float]:
         """returns date, low, avg, high from a kline"""
         (_, _, high, low, _, _, closetime, _, _, _, _, _) = kline
 
@@ -1631,13 +1716,32 @@ class Bot:
         high = float(high)
         avg = (low + high) / 2
 
-        return date, low, avg, high
+        return [date, low, avg, high]
 
-    def populate_values(self, klines, unit) -> Tuple:
+    def populate_values(
+        self,
+        klines: List[
+            Tuple[
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+            ]
+        ],
+        unit: str,
+    ) -> Tuple[bool, Dict[str, List[List[float]]]]:
         """builds averages[], lowest[], highest[] out of klines"""
-        _lowest: list = []
-        _averages: list = []
-        _highest: list = []
+        _lowest: List[List[float]] = []
+        _averages: List[List[float]] = []
+        _highest: List[List[float]] = []
 
         # retrieve and calculate the lowest, highest, averages
         # from the klines data.
@@ -1645,12 +1749,12 @@ class Bot:
         # that work for our bot.
         for line in klines:
             date, low, avg, high = self.process_klines_line(line)
-            _lowest.append((date, low))
-            _averages.append((date, avg))
-            _highest.append((date, high))
+            _lowest.append([date, low])
+            _averages.append([date, avg])
+            _highest.append([date, high])
 
         # finally, populate all the data coin buckets
-        buckets: dict = {}
+        buckets: Dict[str, List[List[float]]] = {}
         for metric in ["lowest", "averages", "highest"]:
             buckets[metric] = []
 
@@ -1667,17 +1771,17 @@ class Bot:
         # this could possibly be optimized, but at the same time
         # this only runs the once when we initialise a coin
         for d, v in _lowest[-timeslice:]:
-            buckets["lowest"].append((d, v))
+            buckets["lowest"].append([d, v])
 
         for d, v in _averages[-timeslice:]:
-            buckets["averages"].append((d, v))
+            buckets["averages"].append([d, v])
 
         for d, v in _highest[-timeslice:]:
-            buckets["highest"].append((d, v))
+            buckets["highest"].append([d, v])
 
         return (True, buckets)
 
-    def print_final_balance_report(self):
+    def print_final_balance_report(self) -> None:
         """calculates and outputs final balance"""
 
         current_exposure = float(0)
@@ -1703,7 +1807,7 @@ class Bot:
             + f"stales:{self.stales} holds:{len(self.wallet)}"
         )
 
-    def print_current_balance_report(self):
+    def print_current_balance_report(self) -> None:
         """calculates and current balance"""
 
         for item in self.wallet:
@@ -1723,10 +1827,10 @@ class Bot:
                 )
             )
 
-    def calculates_exposure(self):
+    def calculates_exposure(self) -> float:
         """calculates current balance"""
 
-        exposure = 0
+        exposure: float = float(0)
         for symbol in self.wallet:
             exposure = exposure + self.coins[symbol].profit
 
@@ -1742,7 +1846,7 @@ class Bot:
                 return
 
             # create a placeholder for us to add old and new tickers
-            new_tickers: Dict[str, object] = r["TICKERS"]
+            new_tickers: Dict[str, str] = r["TICKERS"]
 
             for symbol in self.wallet:
                 # we need to make sure we maintain any tickers for coins we may
@@ -1768,7 +1872,7 @@ class Bot:
             # the bot will have access to all the ticker info on any coins
             # it might be holding
             with open(self.config_file, encoding="utf-8") as f:
-                _cfg: Dict[str, object] = yaml.safe_load(f.read())
+                _cfg: Dict[str, Any] = yaml.safe_load(f.read())
                 _cfg["TICKERS"] = self.tickers
             with open(self.config_file, "wt", encoding="utf-8") as f:
                 yaml.dump(_cfg, f, default_flow_style=False)
@@ -1848,53 +1952,55 @@ class Bot:
         self.consolidate_averages(coin, date, market_price)
         self.trim_averages(coin, date)
 
-    def consolidate_on_new_slot(self, coin: Coin, date: float, unit):
+    def consolidate_on_new_slot(
+        self, coin: Coin, date: float, unit: str
+    ) -> None:
         """consolidates on a new min/hour/day"""
 
         previous = {"d": "h", "h": "m", "m": "s"}[unit]
 
         if unit != "m":
             coin.lowest[unit].append(
-                (
+                [
                     date,
                     min(  # pylint: disable=consider-using-generator
                         [v for _, v in coin.lowest[previous]]
                     ),
-                )
+                ]
             )
             coin.averages[unit].append(
-                (
+                [
                     date,
                     mean([v for _, v in coin.averages[previous]]),
-                )  # pylint: disable=consider-using-generator
+                ]  # pylint: disable=consider-using-generator
             )
             coin.highest[unit].append(
-                (
+                [
                     date,
                     max(  # pylint: disable=consider-using-generator
                         [v for _, v in coin.highest[previous]]
                     ),
-                )
+                ]
             )
         else:
             coin.lowest["m"].append(
-                (
+                [
                     date,
                     min(  # pylint: disable=consider-using-generator
                         [v for _, v in coin.averages["s"]]
                     ),
-                )
+                ]
             )
             coin.averages["m"].append(
-                (date, mean([v for _, v in coin.averages["s"]]))
+                [date, mean([v for _, v in coin.averages["s"]])]
             )
             coin.highest["m"].append(
-                (
+                [
                     date,
                     max(  # pylint: disable=consider-using-generator
                         [v for _, v in coin.averages["s"]]
                     ),
-                )
+                ]
             )
 
     def consolidate_averages(
@@ -1904,7 +2010,7 @@ class Bot:
 
         # append the latest 's' value, this could done more frequently than
         # once per second.
-        coin.averages["s"].append((date, market_price))
+        coin.averages["s"].append([date, market_price])
 
         # append the latest values,
         # but only if the old 'm' record, is older than 1 minute
@@ -1948,7 +2054,7 @@ class Bot:
         if new_day:
             self.consolidate_on_new_slot(coin, date, "d")
 
-    def is_a_new_slot_of(self, coin: Coin, date: float, unit):
+    def is_a_new_slot_of(self, coin: Coin, date: float, unit: str) -> bool:
         """finds out if we entered a new unit time slot"""
         table = {
             "m": ("s", 60),
@@ -2016,10 +2122,9 @@ class Bot:
         # on a pump, we would have a low price, followed by a pump(high price),
         # followed by a dump(low price)
         # so don't buy if we see this pattern over the last 2 hours.
-        last2hours = coin.averages["h"][-2:]
-
-        two_hours_ago = last2hours[0][1]
-        one_hour_ago = last2hours[1][1]
+        last2hours: List[List[float]] = coin.averages["h"][-2:]
+        two_hours_ago: float = last2hours[0][1]
+        one_hour_ago: float = last2hours[1][1]
 
         if (
             (two_hours_ago < one_hour_ago)
@@ -2030,7 +2135,7 @@ class Bot:
 
         return False
 
-    def new_listing(self, coin: Coin, days: int):
+    def new_listing(self, coin: Coin, days: int) -> bool:
         """checks if coin is a new listing"""
         # wait a few days before going to buy a new coin
         # since we list what coins we buy in TICKERS the bot would never
@@ -2046,7 +2151,7 @@ class Bot:
 
     def get_price_log(
         self, session: requests.Session, query: str
-    ) -> tuple[bool, list]:
+    ) -> Tuple[bool, List[bytes]]:
         """retry wrapper for requests calls"""
 
         for w in [1, 2, 3, 4]:

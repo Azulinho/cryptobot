@@ -8,6 +8,7 @@ import sys
 import threading
 from os import getpid, unlink
 from os.path import exists
+from typing import Any
 
 import colorlog
 import epdb
@@ -97,7 +98,7 @@ if __name__ == "__main__":
     module = importlib.import_module(f"strategies.{cfg['STRATEGY']}")
     Strategy = getattr(module, "Strategy")
 
-    bot = Strategy(client, args.config, cfg)  # type: ignore
+    bot: Any = Strategy(client, args.config, cfg)
 
     logging.info(
         f"running in {bot.mode} mode with "
