@@ -134,8 +134,8 @@ class TestCoin:
         now = float(lib.bot.udatetime.now().timestamp())
         bot.update(coin, now, 120.00)
 
-        # coin.averages['unit'] is a tupple of (date, price)
-        assert (now, 120.00) in coin.averages["s"]
+        # coin.averages['unit'] is a list of [date, price]
+        assert [now, 120.00] in coin.averages["s"]
 
         # expect one element (date, price)
         assert 120.00 == coin.averages["s"][0][1]
@@ -234,14 +234,14 @@ class TestCoin:
             coin_time = float(now - x)
             bot.update(coin, coin_time, price)
 
-        assert coin.averages["s"][0] == (now - 60, 100.0)
-        assert coin.averages["s"][59] == (now - 1, 100.0)
+        assert coin.averages["s"][0] == [now - 60, 100.0]
+        assert coin.averages["s"][59] == [now - 1, 100.0]
 
-        assert coin.averages["m"][0] == (now - 3600, 100.0)
-        assert coin.averages["m"][59] == (now - 60, 100.0)
+        assert coin.averages["m"][0] == [now - 3600, 100.0]
+        assert coin.averages["m"][59] == [now - 60, 100.0]
 
-        assert coin.averages["h"][0] == (now - 86400, 100.0)
-        assert coin.averages["h"][23] == (now - 3600, 100.0)
+        assert coin.averages["h"][0] == [now - 86400, 100.0]
+        assert coin.averages["h"][23] == [now - 3600, 100.0]
 
     def test_for_pump_and_dump_returns_true_on_pump(self, coin, bot):
         # pylint: disable=attribute-defined-outside-init
