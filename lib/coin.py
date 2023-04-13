@@ -1,13 +1,13 @@
 """ Coin class """
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 from lib.helpers import add_100
 
 
 class Coin:  # pylint: disable=too-few-public-methods
     """Coin Class"""
 
-    offset: Dict[str, int] = {"s": 60, "m": 3600, "h": 86400}
+    offset: Optional[Dict[str, int]] = {"s": 60, "m": 3600, "h": 86400}
 
     def __init__(
         self,
