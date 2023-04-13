@@ -13,12 +13,11 @@ from multiprocessing import Pool
 from multiprocessing.pool import AsyncResult
 from string import Template
 from time import sleep
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Set
 
 import pandas as pd
 import requests
 import yaml
-
 from tenacity import retry, wait_exponential
 
 
@@ -34,7 +33,7 @@ def get_index_json(query: str) -> requests.Response:
     return response
 
 
-def log_msg(msg) -> None:
+def log_msg(msg: str) -> None:
     """logs out message prefixed with timestamp"""
     now: str = datetime.now().strftime("%H:%M:%S")
     print(f"{now} PROVE-BACKTESTING: {msg}")
@@ -59,8 +58,10 @@ def flag_checks() -> None:
         sleep(60)
 
 
-def wrap_subprocessing(conf, timeout=None):
+def wrap_subprocessing(conf: str, timeout: Optional[int] = 0) -> None:
     """wraps subprocess call"""
+    if timeout == 0:
+        timeout = None
     subprocess.run(
         "python app.py -m backtesting -s tests/fake.yaml "
         + f"-c configs/{conf} >results/backtesting.{conf}.txt 2>&1",
@@ -71,9 +72,9 @@ def wrap_subprocessing(conf, timeout=None):
 
 
 class ProveBacktesting:
-    """ProveBaacktesting"""
+    """ProveBacktesting"""
 
-    def __init__(self, cfg) -> None:
+    def __init__(self, cfg: Dict[str, Any]) -> None:
         """init"""
         self.min: float = float(cfg["MIN"])
         self.filter_by: str = cfg["FILTER_BY"]
@@ -86,7 +87,7 @@ class ProveBacktesting:
         self.roll_backwards: int = int(cfg["ROLL_BACKWARDS"])
         self.roll_forward: int = int(cfg["ROLL_FORWARD"])
         self.strategy: str = cfg["STRATEGY"]
-        self.runs: Dict = dict(cfg["RUNS"])
+        self.runs: Dict[str, Any] = dict(cfg["RUNS"])
         self.pause_for: float = float(cfg["PAUSE_FOR"])
         self.initial_investment: float = float(cfg["INITIAL_INVESTMENT"])
         self.re_invest_percentage: float = float(cfg["RE_INVEST_PERCENTAGE"])
@@ -114,12 +115,12 @@ class ProveBacktesting:
         ]
         self.price_log_service_url: str = cfg["PRICE_LOG_SERVICE_URL"]
         self.concurrency: int = int(cfg["CONCURRENCY"])
-        self.start_dates: list = self.generate_start_dates(
+        self.start_dates: List[str] = self.generate_start_dates(
             self.from_date, self.end_date, self.roll_forward
         )
         self.sort_by: str = cfg["SORT_BY"]
 
-    def check_for_invalid_values(self):
+    def check_for_invalid_values(self) -> None:
         """check for invalid values in the config"""
 
         if self.sort_by not in [
@@ -130,17 +131,19 @@ class ProveBacktesting:
             log_msg("SORT_BY set to invalid value")
             sys.exit(1)
 
-    def generate_start_dates(self, start_date, end_date, jump=7) -> list:
+    def generate_start_dates(
+        self, start_date: datetime, end_date: datetime, jump: Optional[int] = 7
+    ) -> List[str]:
         """returns a list of dates, with a gap in 'jump' days"""
         dates = pd.date_range(start_date, end_date, freq="d").strftime(
             "%Y%m%d"
         )
-        start_dates: list = list(islice(dates, 0, None, jump))
+        start_dates: List[str] = list(islice(dates, 0, None, jump))
         return start_dates
 
-    def rollback_dates_from(self, end_date) -> list:
+    def rollback_dates_from(self, end_date: str) -> List[str]:
         """returns a list of dates, up to 'days' before the 'end_date'"""
-        dates: list = (
+        dates: List[str] = (
             pd.date_range(
                 datetime.strptime(str(end_date), "%Y%m%d")
                 - timedelta(days=self.roll_backwards - 1),
@@ -152,24 +155,26 @@ class ProveBacktesting:
         )
         return dates
 
-    def rollforward_dates_from(self, end_date) -> list:
+    def rollforward_dates_from(self, end_date: str) -> List[str]:
         """returns a list of dates, up to 'days' past the 'end_date'"""
         start_date: datetime = datetime.strptime(
             str(end_date), "%Y%m%d"
         ) + timedelta(days=1)
-        end_date = datetime.strptime(str(end_date), "%Y%m%d") + timedelta(
-            days=self.roll_forward
-        )
-        dates: list = (
-            pd.date_range(start_date, end_date, freq="d")
+        _end_date: datetime = datetime.strptime(
+            str(end_date), "%Y%m%d"
+        ) + timedelta(days=self.roll_forward)
+        dates: List[str] = (
+            pd.date_range(start_date, _end_date, freq="d")
             .strftime("%Y%m%d")
             .tolist()
         )
         return dates
 
-    def generate_price_log_list(self, dates, symbol=None) -> list:
+    def generate_price_log_list(
+        self, dates: List[str], symbol: Optional[str] = None
+    ) -> List[str]:
         """makes up the price log url list"""
-        urls: list = []
+        urls: List[str] = []
         for day in dates:
             if symbol:
                 if self.filter_by in symbol:
@@ -178,7 +183,9 @@ class ProveBacktesting:
                 urls.append(f"{day}.log.gz")
         return urls
 
-    def write_single_coin_config(self, symbol, _price_logs, thisrun) -> None:
+    def write_single_coin_config(
+        self, symbol: str, _price_logs: List[str], thisrun: Dict[str, Any]
+    ) -> None:
         """generates a config.yaml for a coin"""
 
         if self.filter_by not in symbol:
@@ -282,8 +289,11 @@ class ProveBacktesting:
             )
 
     def write_optimized_strategy_config(
-        self, _price_logs, _tickers, s_balance
-    ):
+        self,
+        _price_logs: List[str],
+        _tickers: Dict[str, Any],
+        s_balance: float,
+    ) -> None:
         """generates a config.yaml for a coin"""
 
         # we keep "state" between optimized runs, by soaking up an existing
@@ -294,8 +304,8 @@ class ProveBacktesting:
         # up the json files at the start and end of the prove-backtesting.
         # so we don't expect to ever consume old tickers info from an old
         # config file.
-        old_tickers = {}
-        old_wallet = []
+        old_tickers: Dict[str, Any] = {}
+        old_wallet: List[str] = []
         if os.path.exists(f"configs/optimized.{self.strategy}.yaml"):
             with open(
                 f"configs/optimized.{self.strategy}.yaml", encoding="utf-8"
@@ -308,13 +318,13 @@ class ProveBacktesting:
 
         # now generate tickers from the contents of our wallet and the previous
         # config file, we will merge this with a new config file.
-        x = {}
+        x: Dict[str, Any] = {}
         for symbol in old_wallet:
             x[symbol] = old_tickers[symbol]
 
         log_msg(f" wallet: {old_wallet}")
 
-        z = x | _tickers
+        z: Dict[str, Any] = x | _tickers
         _tickers = z
 
         tmpl: Template = Template(
@@ -368,7 +378,9 @@ class ProveBacktesting:
                 )
             )
 
-    def write_all_coin_configs(self, dates, thisrun):
+    def write_all_coin_configs(
+        self, dates: List[str], thisrun: Dict[str, Any]
+    ) -> Set[str]:
         """generate all coinfiles"""
 
         r: requests.Response = get_index_json(
@@ -376,7 +388,7 @@ class ProveBacktesting:
         )
         index: Any = json.loads(r.content)
 
-        next_run_coins: dict = {}
+        next_run_coins: Dict[str, Any] = {}
 
         # build a dictionary with all the coins that have price log entries
         # available for the dates we asked to backtest.
@@ -399,7 +411,7 @@ class ProveBacktesting:
                         next_run_coins[coin].append(f"{coin}/{day}.log.gz")
 
         if self.enable_new_listing_checks:
-            all_logs: dict = {}
+            all_logs: Dict[str, Any] = {}
 
             # from the dict containing all the coins and the price logs to test,
             # drop any coin that doesn't have the required number of logs
@@ -431,17 +443,19 @@ class ProveBacktesting:
 
         return set(next_run_coins.keys())
 
-    def parallel_backtest_all_coins(self, _coin_list, n_tasks, _run):
+    def parallel_backtest_all_coins(
+        self, _coin_list: Set[str], n_tasks: int, _run: str
+    ) -> Dict[str, Any]:
         """parallel_backtest_all_coins"""
 
-        tasks: list = []
+        tasks: List[Any] = []
         with Pool(processes=n_tasks) as pool:
             for coin in _coin_list:
                 if self.filter_by in coin and self.pairing in coin:
                     # then we backtesting this strategy run against each coin
                     # ocasionally we get stuck runs, so we timeout a coin run
                     # to a maximum of 15 minutes
-                    job: AsyncResult = pool.apply_async(
+                    job: Any = pool.apply_async(
                         wrap_subprocessing,
                         (f"coin.{coin}.yaml",),
                     )
@@ -463,7 +477,9 @@ class ProveBacktesting:
 
         return self.gather_best_results_from_run(_coin_list, _run)
 
-    def gather_best_results_from_run(self, _coin_list, run_id) -> dict:
+    def gather_best_results_from_run(
+        self, _coin_list: Set[str], run_id: str
+    ) -> Dict[str, Any]:
         """finds the best results from run"""
         wins_re: str = r".*INFO.*\swins:([0-9]+)\slosses:([0-9]+)\sstales:([0-9]+)\sholds:([0-9]+)"
         balance_re: str = r".*INFO.*final\sbalance:\s(-?[0-9]+\.[0-9]+)"
@@ -471,7 +487,7 @@ class ProveBacktesting:
         highest_profit: float = float(0)
         coin_with_highest_profit: str = ""
 
-        _run: dict = {}
+        _run: Dict[str, Any] = {}
         _run["total_wins"] = 0
         _run["total_losses"] = 0
         _run["total_stales"] = 0
@@ -495,7 +511,7 @@ class ProveBacktesting:
                 log_msg(
                     f"Exception while collecting results from {results_txt}"
                 )
-                log_msg(e)
+                log_msg(str(e))
                 log_msg(f"Contents of file below: \n{run_results}")
                 wins, losses, stales, holds = [0, 0, 0, 0]
                 balance = float(0)
@@ -540,10 +556,12 @@ class ProveBacktesting:
         )
         return _run
 
-    def gather_best_results_from_backtesting_log(self, kind):
+    def gather_best_results_from_backtesting_log(
+        self, kind: str
+    ) -> Dict[str, Any]:
         """parses backtesting.log for the best result for a coin"""
-        coins: dict = {}
-        _results: dict = {}
+        coins: Dict[str, Any] = {}
+        _results: Dict[str, Any] = {}
         log: str = "log/backtesting.log"
         if os.path.exists(log):
             with open(log, encoding="utf-8") as lines:
@@ -551,14 +569,14 @@ class ProveBacktesting:
                     _profit, _, _, wls, cfgname, _cfg = line[7:].split("|")
                     if not self.filter_by in cfgname:
                         continue
-                    profit = float(_profit)
+                    profit: float = float(_profit)
                     if profit < 0:
                         continue
 
                     if profit < float(self.min):
                         continue
 
-                    coin = cfgname[9:].split(".")[0]
+                    coin: str = cfgname[9:].split(".")[0]
                     w, l, s, h = [int(x[1:]) for x in wls.split(",")]
 
                     # drop any results containing losses, stales, or holds
@@ -569,7 +587,7 @@ class ProveBacktesting:
                         if l != 0 or s != 0 or h != 0 or w == 0:
                             continue
 
-                    blob = json.loads(_cfg)
+                    blob: Dict[str, Any] = json.loads(_cfg)
                     if "TICKERS" in blob.keys():
                         coincfg = blob["TICKERS"][
                             coin
@@ -634,10 +652,10 @@ class ProveBacktesting:
                     _results[coin] = coins[coin]["coincfg"]
         return _results
 
-    def gather_best_results_per_strategy(self, this):
+    def gather_best_results_per_strategy(self, this: Dict[str, Any]) -> None:
         """finds the best results in the strategy"""
-        best_run = ""
-        best_profit_in_runs = 0
+        best_run: str = ""
+        best_profit_in_runs: int = 0
         for _run in this.keys():
             if this[_run]["total_profit"] >= best_profit_in_runs:
                 best_run = _run
@@ -646,15 +664,15 @@ class ProveBacktesting:
             f"{self.strategy} best run {best_run} profit: {best_profit_in_runs:.3f}"
         )
 
-    def run_optimized_config(self, s_investment) -> float:
+    def run_optimized_config(self, s_investment: float) -> float:
         """runs optimized config"""
         with open(f"configs/optimized.{self.strategy}.yaml") as cf:
-            _tickers = yaml.safe_load(cf.read())["TICKERS"]
+            _tickers: Dict[str, Any] = yaml.safe_load(cf.read())["TICKERS"]
         if not _tickers:
             log_msg(
                 f"automated-backtesting: no tickers in {self.strategy} yaml, skipping run"
             )
-            return s_investment
+            return float(s_investment)
 
         wrap_subprocessing(f"optimized.{self.strategy}.yaml")
         with open(
@@ -704,21 +722,21 @@ if __name__ == "__main__":
         f"running from {pv.start_dates[0]} to {pv.start_dates[-1]} "
         + f"backtesting previous {pv.roll_backwards} days every {pv.roll_forward} days"
     )
-    final_investment = pv.initial_investment
+    final_investment: float = pv.initial_investment
     starting_investment: float = pv.initial_investment
     for date in pv.start_dates:
         cleanup()
 
-        rollbackward_dates: list = pv.rollback_dates_from(date)
+        rollbackward_dates: List[str] = pv.rollback_dates_from(date)
         log_msg(
             f"now backtesting {rollbackward_dates[0]}...{rollbackward_dates[-1]}"
         )
 
-        results: dict = {}
+        results: Dict[str, Any] = {}
         for run in pv.runs:
             flag_checks()
             # TODO: do we consume the price_logs ?
-            coin_list = pv.write_all_coin_configs(
+            coin_list: Set[str] = pv.write_all_coin_configs(
                 rollbackward_dates, pv.runs[run]
             )
             results[run] = pv.parallel_backtest_all_coins(
@@ -727,7 +745,7 @@ if __name__ == "__main__":
 
         # TODO: this simply prints out the best run
         pv.gather_best_results_per_strategy(results)
-        rollforward_dates: list = pv.rollforward_dates_from(date)
+        rollforward_dates: List[str] = pv.rollforward_dates_from(date)
         price_logs = pv.generate_price_log_list(rollforward_dates)
         tickers = pv.gather_best_results_from_backtesting_log("coincfg")
 
