@@ -240,7 +240,6 @@ def load_klines_for_coin():
     }
     unit_url_fpath = []
     for unit in ["m", "h", "d"]:
-
         # lets find out the from what date we need to pull klines from while in
         # backtesting mode.
         timeslice, minutes_before_now = unit_values[unit]
