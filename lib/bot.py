@@ -69,7 +69,7 @@ class Bot:
         # HARD_LIMIT_HOLDING_TIME) record by this bot run
         self.stales: int = 0
         # total profit for this bot run
-        self.profit: float = 0
+        self.profit: float = float(0)
         # a wallet is for the coins we hold
         self.wallet: List[str] = []
         # the list of tickers and the config for each one, in terms of
@@ -86,7 +86,7 @@ class Bot:
         # which pair to use [USDT|BUSD|BNB|BTC|ETH...]
         self.pairing: str = config["PAIRING"]
         # total amount of fees paid during this bot run
-        self.fees: float = 0
+        self.fees: float = float(0)
         # wether to clean coin stats at boot, if our tickers config doesn't
         # chane for example a reload, we might want to keep the history we have
         # related to the max, min prices recorded for our coins as those will
@@ -170,8 +170,8 @@ class Bot:
         # different amounts and prices. Here we calculate the average over all
         # those different lines in our order.
 
-        total: float = 0
-        qty: float = 0
+        total: float = float(0)
+        qty: float = float(0)
 
         logging.debug(f"{coin.symbol} -> order_dtails:{order_details}")
 
