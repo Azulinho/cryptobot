@@ -6,11 +6,9 @@ import re
 import subprocess
 import sys
 from argparse import ArgumentParser, Namespace
-from collections import OrderedDict
 from datetime import datetime, timedelta
 from itertools import islice
 from multiprocessing import Pool
-from multiprocessing.pool import AsyncResult
 from string import Template
 from time import sleep
 from typing import Any, Dict, List, Optional, Set
@@ -643,9 +641,9 @@ class ProveBacktesting:
                                     "coincfg": coincfg,
                                 }
 
-            for coin in coins:
-                if kind == "coincfg":
-                    _results[coin] = coins[coin]["coincfg"]
+        for coin in coins:  # pylint: disable=consider-using-dict-items
+            if kind == "coincfg":
+                _results[coin] = coins[coin]["coincfg"]
         return _results
 
     def gather_best_results_per_strategy(self, this: Dict[str, Any]) -> None:
