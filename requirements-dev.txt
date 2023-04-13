@@ -1,12 +1,12 @@
 attrs==21.2.0
-black==21.10b0
+black==23.3.0
 coverage
 distlib==0.3.6
 execnet==1.9.0
 identify==2.5.6
 iniconfig==1.1.1
 ipython
-packaging==21.2
+packaging==23.1
 pandas-stubs==1.5.2.221124
 pathspec==0.9.0
 platformdirs==2.4.0

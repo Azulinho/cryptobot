@@ -770,7 +770,6 @@ class TestBuyCoin:
                     with mock.patch.object(
                         bot, "get_step_size", return_value=(True, "0.00001000")
                     ) as _:
-
                         assert bot.buy_coin(coin) is True
                         assert bot.wallet == ["BTCUSDT"]
                         assert coin.bought_at == 100
@@ -811,7 +810,6 @@ class TestBuyCoin:
                         "get_order_book",
                         return_value={"asks": [[100, 1]]},
                     ) as _:
-
                         assert bot.buy_coin(coin) is True
                         assert bot.wallet == ["BTCUSDT"]
                         assert coin.bought_at == 100
@@ -885,7 +883,6 @@ class TestCoinStatus:
                 "get_all_orders",
                 return_value=[{"symbol": "BTCUSDT", "orderId": 1}],
             ) as _:
-
                 result = bot.coin_gone_up_and_dropped(coin)
                 assert result is True
                 assert bot.wins == 1
@@ -924,7 +921,6 @@ class TestCoinStatus:
                 "get_all_orders",
                 return_value=[{"symbol": "BTCUSDT", "orderId": 1}],
             ) as _:
-
                 result = bot.possible_sale(coin)
                 assert result is True
                 assert bot.wins == 1
@@ -963,7 +959,6 @@ class TestCoinStatus:
                 "get_all_orders",
                 return_value=[{"symbol": "BTCUSDT", "orderId": 1}],
             ) as _:
-
                 result = bot.past_hard_limit(coin)
                 assert result is True
                 assert bot.stales == 1
@@ -1005,7 +1000,6 @@ class TestCoinStatus:
                 "get_all_orders",
                 return_value=[{"symbol": "BTCUSDT", "orderId": 1}],
             ) as _:
-
                 result = bot.past_soft_limit(coin)
                 assert result is True
                 assert coin.naughty_timeout == int(
