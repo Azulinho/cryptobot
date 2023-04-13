@@ -643,10 +643,6 @@ class ProveBacktesting:
                                     "coincfg": coincfg,
                                 }
 
-            _coins: dict = coins
-            coins: OrderedDict = OrderedDict(
-                sorted(_coins.items(), key=lambda x: x[1]["w"])
-            )
             for coin in coins:
                 if kind == "coincfg":
                     _results[coin] = coins[coin]["coincfg"]
