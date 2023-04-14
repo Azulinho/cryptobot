@@ -11,7 +11,7 @@ from itertools import islice
 from multiprocessing import Pool
 from string import Template
 from time import sleep
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pandas as pd
 import requests
@@ -581,6 +581,81 @@ class ProveBacktesting:
         )
         return _run
 
+    def parse_backtesting_line(
+        self, line, coins
+    ) -> Tuple[bool, Dict[str, Any]]:
+        """process line of the backtesting log"""
+
+        _profit, _, _, wls, cfgname, _cfg = line[7:].split("|")
+        if not self.filter_by in cfgname:
+            return (False, {})
+        profit: float = float(_profit)
+        if profit < 0 or profit < float(self.min):
+            return (False, {})
+
+        coin: str = cfgname[9:].split(".")[0]
+        w, l, s, h = [int(x[1:]) for x in wls.split(",")]
+
+        if self.sort_by in [
+            "number_of_clean_wins",
+            "max_profit_on_clean_wins",
+        ]:
+            # drop any results containing losses, stales, or holds
+            if 0 not in [l, s, h] or w == 0:
+                return (False, {})
+
+        blob: Dict[str, Any] = json.loads(_cfg)
+        if "TICKERS" in blob.keys():
+            coincfg = blob["TICKERS"][coin]  # pylint: disable=W0123
+
+        if coin not in coins:
+            coins[coin] = {
+                "profit": profit,
+                "wls": wls,
+                "w": w,
+                "l": l,
+                "s": s,
+                "h": h,
+                "cfgname": cfgname,
+                "coincfg": coincfg,
+            }
+        else:
+            if self.sort_by in [
+                "greed",
+                "max_profit_on_clean_wins",
+            ]:
+                if profit > coins[coin]["profit"]:
+                    coins[coin] = {
+                        "profit": profit,
+                        "wls": wls,
+                        "w": w,
+                        "l": l,
+                        "s": s,
+                        "h": h,
+                        "cfgname": cfgname,
+                        "coincfg": coincfg,
+                    }
+            if self.sort_by == "number_of_clean_wins":
+                if w >= coins[coin]["w"]:
+                    # if this run has the same amount of wins but higher
+                    # profit, then keep this one.
+                    if (
+                        w == coins[coin]["w"]
+                        and profit < coins[coin]["profit"]
+                    ):
+                        return (False, {})
+                    coins[coin] = {
+                        "profit": profit,
+                        "wls": wls,
+                        "w": w,
+                        "l": l,
+                        "s": s,
+                        "h": h,
+                        "cfgname": cfgname,
+                        "coincfg": coincfg,
+                    }
+        return (True, coins)
+
     def gather_best_results_from_backtesting_log(
         self, kind: str
     ) -> Dict[str, Any]:
@@ -591,82 +666,9 @@ class ProveBacktesting:
         if os.path.exists(log):
             with open(log, encoding="utf-8") as lines:
                 for line in lines:
-                    _profit, _, _, wls, cfgname, _cfg = line[7:].split("|")
-                    if not self.filter_by in cfgname:
-                        continue
-                    profit: float = float(_profit)
-                    if profit < 0:
-                        continue
-
-                    if profit < float(self.min):
-                        continue
-
-                    coin: str = cfgname[9:].split(".")[0]
-                    w, l, s, h = [int(x[1:]) for x in wls.split(",")]
-
-                    # drop any results containing losses, stales, or holds
-                    if self.sort_by in [
-                        "number_of_clean_wins",
-                        "max_profit_on_clean_wins",
-                    ]:
-                        if l != 0 or s != 0 or h != 0 or w == 0:
-                            continue
-
-                    blob: Dict[str, Any] = json.loads(_cfg)
-                    if "TICKERS" in blob.keys():
-                        coincfg = blob["TICKERS"][
-                            coin
-                        ]  # pylint: disable=W0123
-                    else:
-                        print(blob)
-
-                    if coin not in coins:
-                        coins[coin] = {
-                            "profit": profit,
-                            "wls": wls,
-                            "w": w,
-                            "l": l,
-                            "s": s,
-                            "h": h,
-                            "cfgname": cfgname,
-                            "coincfg": coincfg,
-                        }
-
-                    if coin in coins:
-                        if self.sort_by in [
-                            "greed",
-                            "max_profit_on_clean_wins",
-                        ]:
-                            if profit > coins[coin]["profit"]:
-                                coins[coin] = {
-                                    "profit": profit,
-                                    "wls": wls,
-                                    "w": w,
-                                    "l": l,
-                                    "s": s,
-                                    "h": h,
-                                    "cfgname": cfgname,
-                                    "coincfg": coincfg,
-                                }
-                        if self.sort_by == "number_of_clean_wins":
-                            if w >= coins[coin]["w"]:
-                                # if this run has the same amount of wins but higher
-                                # profit, then keep this one.
-                                if (
-                                    w == coins[coin]["w"]
-                                    and profit < coins[coin]["profit"]
-                                ):
-                                    continue
-                                coins[coin] = {
-                                    "profit": profit,
-                                    "wls": wls,
-                                    "w": w,
-                                    "l": l,
-                                    "s": s,
-                                    "h": h,
-                                    "cfgname": cfgname,
-                                    "coincfg": coincfg,
-                                }
+                    ok, _coins = self.parse_backtesting_line(line, coins)
+                    if ok:
+                        coins = _coins
 
         for coin in coins:  # pylint: disable=consider-using-dict-items
             if kind == "coincfg":
