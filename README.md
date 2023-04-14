@@ -55,7 +55,6 @@ A python based trading bot for Binance, which relies heavily on backtesting.
 10. [Bot command center](#bot-command-center)
 11. [Development/New features](#development/new-features)
 
-
 ## Overview
 
 A cryptobot designed to work across different trends of the market.
@@ -120,13 +119,13 @@ You can choose to build your own strategy and place it on the
 
 This bot currently provides different strategies:
 
-- [*BuyDropSellRecoveryStrategy*](./strategies/BuyDropSellRecoveryStrategy.py)
-- [*BuyDropSellRecoveryStrategyWhenBTCisDown*](./strategies/BuyDropSellRecoveryStrategyWhenBTCisDown.py)
-- [*BuyDropSellRecoveryStrategyWhenBTCisUp*](./strategies/BuyDropSellRecoveryStrategyWhenBTCisUp.py)
-- [*BuyMoonSellRecoveryStrategy*](./strategies/BuyMoonSellRecoveryStrategy.py)
-- [*BuyOnGrowthTrendAfterDropStrategy*](./strategies/BuyOnGrowthTrendAfterDropStrategy.py)
-- [*BuyOnRecoveryAfterDropDuringGrowthTrendStrategy*](./strategies/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.py)
-- [*BuyOnRecoveryAfterDropFromAverageStrategy*](./strategies/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.py)
+* [*BuyDropSellRecoveryStrategy*](./strategies/BuyDropSellRecoveryStrategy.py)
+* [*BuyDropSellRecoveryStrategyWhenBTCisDown*](./strategies/BuyDropSellRecoveryStrategyWhenBTCisDown.py)
+* [*BuyDropSellRecoveryStrategyWhenBTCisUp*](./strategies/BuyDropSellRecoveryStrategyWhenBTCisUp.py)
+* [*BuyMoonSellRecoveryStrategy*](./strategies/BuyMoonSellRecoveryStrategy.py)
+* [*BuyOnGrowthTrendAfterDropStrategy*](./strategies/BuyOnGrowthTrendAfterDropStrategy.py)
+* [*BuyOnRecoveryAfterDropDuringGrowthTrendStrategy*](./strategies/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.py)
+* [*BuyOnRecoveryAfterDropFromAverageStrategy*](./strategies/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.py)
 
 The way some of these strategies work is described later in this README. The
 others can be found in the strategy files themselves.
@@ -183,10 +182,9 @@ setting we set the number of seconds to wait before the bot starts decreasing
 the profit target percentage. Essentially we reduce the target profit until it
 meets the current price of the coin.
 
-
 Below in an example of a *profile* for BTCUSDT,
 
-```
+```yaml
 TICKERS:
   BTCUSDT:
       SOFT_LIMIT_HOLDING_TIME: 3600
@@ -210,13 +208,11 @@ There are 3 modes of execution: live, testnet, backtesting
 
 If you need help, bring snacks and pop over at:
 
-Join on: https://discord.gg/MaMP3gVBdk
-
+Join on: <https://discord.gg/MaMP3gVBdk>
 
 DO NOT USE GitHub issues to ask for help. I have no time for you. You'll be told off.
 
 Also: *NO TORIES, NO BREXITERS, NO WINDOWS USERS, NO TWATS*, this is not negotiable.
-
 
 ## Getting started
 
@@ -225,20 +221,19 @@ If you don't know Python you might be better using an
 
 Or get your hands dirty by,
 
-1. Learn Python https://www.learnpython.org/
+1. Learn Python <https://www.learnpython.org/>
 
-2. Learn Docker https://learndocker.online/
+2. Learn Docker <https://learndocker.online/>
 
-3. Learn Git https://www.w3schools.com/git/default.asp
-
+3. Learn Git <https://www.w3schools.com/git/default.asp>
 
 ## Usage
 
-1. Install docker as per https://docs.docker.com/get-docker/
+1. Install docker as per <https://docs.docker.com/get-docker/>
 
 2. Clone this repository:
 
-```
+```console
 git clone https://github.com/Azulinho/cryptobot.git
 ```
 
@@ -254,18 +249,15 @@ Place your new *my_newly_named_config.yaml* file into the *configs/* folder.
    See the [example
    secrets.yaml](https://github.com/Azulinho/cryptobot/blob/master/examples/secrets.yaml) file
 
-
-```
+```yaml
 ACCESS_KEY: "ACCESS_KEY"
 SECRET_KEY: "SECRET_KEY"
-
 ```
-
 
 6. When running the bot for the first time, you'll need to obtain some
    *price.log* files for backtesting.
 
-```
+```console
 ./run download-price-logs FROM=20210101 TO=20211231
 ```
 
@@ -276,20 +268,20 @@ SECRET_KEY: "SECRET_KEY"
 
 7. Run a local price-log server to serve the downloaded price log files
 
-```
+```console
 ./run price_log_service BIND=0.0.0.0 PORT=8998
 ```
 
 8. Run a local klines-caching server
 
-```
- ./run klines-caching-service BIND=0.0.0.0 PORT=8999
+```console
+./run klines-caching-service BIND=0.0.0.0 PORT=8999
 ```
 
 9. Update your config.yaml file and include the dates we are using for
 our backtesting.
 
-```
+```yaml
 PRICE_LOGS:
  - "log/20210101.log.gz"
  - "log/20210102.log.gz"
@@ -302,8 +294,7 @@ Also update the urls for the PRICE_LOG_SERVICE_URL, KLINES_CACHING_SERVICE_URL.
 
 Examples as per the *./run* commands above:
 
-
-```
+```yaml
 PRICE_LOG_SERVICE_URL: "http://< insert my ip here >:8998"
 KLINES_CACHING_SERVICE_URL: "http://< insert my ip here >:8999"
 ```
@@ -311,8 +302,7 @@ KLINES_CACHING_SERVICE_URL: "http://< insert my ip here >:8999"
 10. run the bot in backtesting mode, which will perform simulated buys/sells on
 all collected price logs based on the provided config.yaml.
 
-
-```
+```console
 ./run backtesting CONFIG_FILE=config.yaml
 ```
 
@@ -323,28 +313,27 @@ all collected price logs based on the provided config.yaml.
 
    if your coins hit *STOP LOSS*, adjust the following:
 
-   * BUY_AT_PERCENTAGE
-   * STOP_LOSS_AT_PERCENTAGE
-   * TRAIL_RECOVERY_PERCENTAGE
-   * SELL_AT_PERCENTAGE
+* BUY_AT_PERCENTAGE
+* STOP_LOSS_AT_PERCENTAGE
+* TRAIL_RECOVERY_PERCENTAGE
+* SELL_AT_PERCENTAGE
 
    if your coins hit *STALE*, adjust the following:
 
-   * SELL_AT_PERCENTAGE
-   * HARD_LIMIT_HOLDING_TIME
-   * SOFT_LIMIT_HOLDING_TIME
+* SELL_AT_PERCENTAGE
+* HARD_LIMIT_HOLDING_TIME
+* SOFT_LIMIT_HOLDING_TIME
 
    if the bot buys coins too early, while a coin is still going down, adjust:
 
-   * BUY_AT_PERCENTAGE
-   * TRAIL_RECOVERY_PERCENTAGE
+* BUY_AT_PERCENTAGE
+* TRAIL_RECOVERY_PERCENTAGE
 
 12. Finally, when happy run in live trading mode,
 
-```
+```console
 ./run live CONFIG_FILE=config.yaml
 ```
-
 
 ## Automated Backtesting
 
@@ -367,11 +356,10 @@ Use it as:
 1. Create a backtesting file in configs/my-prove-backtesting.yaml
    see the [test/prove-backtesting.yaml](./test/prove-backtesting.yaml).
 
-
 2. Update the config in my-prove-backtesting.yaml to only consume coins that
 returned at least 10% in profit.
 
- ```
+ ```yaml
  MIN: 10
  ```
 
@@ -381,22 +369,21 @@ For a single backtest run, tipically used to get the best config for today.
 
 backtest from the begining of 20230101 to yesterday 20230201.
 
- ```
+```yaml
 FROM_DATE: 20230201
 END_DATE: 20230201
 ROLL_BACKWARDS: 30
 ROLL_FORWARD: 1
- ```
+```
 
 Above we're stating that we want the FROM_DATE and END_DATE to be the same, and
 that we want to look back 30 days, and only run forward 1 day (which would be
 today's date)
 
-
 This will generate a config.yaml with the coins sorted by which strategy
 returned the highest profit for each coin.
 
-```
+```console
 ./run prove-backtesting CONFIG_FILE=my-prove-backtesting.yaml
 ```
 
@@ -410,16 +397,16 @@ market conditions, or over time.
 Create a copy of the *my-prove-backtesting* as *long-run.yaml* and update the
 dates as follow:
 
- ```
+```yaml
 FROM_DATE: 20220101
 END_DATE: 20230201
 ROLL_BACKWARDS: 30
 ROLL_FORWARD: 14
- ```
+```
 
 Then run prove-backtesting using the config above,
 
-```
+```console
  ./run prove-backtesting CONFIG_FILE=long-run.yaml
 ```
 
@@ -428,14 +415,13 @@ previous 30 days of price.logs, generating an optimized config for those days,
 and running the following 14 days using that new config, before repeating the
 cycle all the way until 20230201.
 
-
 ## config-endpoint-service
 
 Use this service to provide fresh ticker configs to a LIVE bot by running
 automated-backtesting periodically, and having the LIVE bot pull that optimized
 config as soon automated-backtesting completes.
 
-```
+```console
 ./run config-endpoint-service BIND=0.0.0.0 CONFIG_FILE=myconfig.yaml
 ```
 
@@ -444,14 +430,14 @@ see [PULL_CONFIG_ADDRESS]#pull_config_address
 Trigger the execution of the automated-backtesting run by creating a *RUN* file
 in the control/ folder.
 
-```
+```console
 touch control/RUN
 ```
 
 This service use the *ROLL_BACKWARDS* for the number of backtesting days to use
 when generating a new config.
 
-```
+```yaml
 FROM_DATE: 19700101
 END_DATE: 19700101
 ROLL_BACKWARDS: 30
@@ -460,7 +446,6 @@ ROLL_FORWARD: 1
 
 The FROM and END DATE are irrelevant for this service as the service will always
 use yesterday's date.
-
 
 ## Control Flags
 
@@ -471,44 +456,45 @@ to take certain actions.
 
 *control/SELL* causes the bot to sell all coins listed in the SELL file.
 
-```
+```console
 cat control/SELL
 BTCUSDT
 ETHUSDT
 ```
 
-
 ## Config settings
 
 Full list of config settings and their use described below:
 
-If using TESTNET generate a set of keys at https://testnet.binance.vision/
+If using TESTNET generate a set of keys at <https://testnet.binance.vision/>
 
 Note that TESTNET is only suitable for bot development and nothing else.
 Otherwise, use your Binance production keys.
 
 ### PAIRING
 
-```
+```yaml
 PAIRING: "USDT"
 ```
+
 The pairing use to buy crypto with. Available options in Binance are,
 *USDT*, *BTC*, *ETH*, *BNB*, *TRX*, *XRP*, *DOGE*
 
-
 ### INITIAL_INVESTMENT
 
-```
+```yaml
 INITIAL_INVESTMENT: 100
 ```
+
 This sets the initial investment to use to buy coin, this amount must be available in
 the pairing set in *PAIRING*.
 
 ### RE_INVEST_PERCENTAGE
 
-```
+```yaml
 RE_INVEST_PERCENTAGE: 100
 ```
+
 This sets the percentage to invest out of the current balance. Think of this as
 we have started our Bot with $100 dolar in the INITIAL_INVESTMENT setting, and
 configured the RE_INVEST_PERCENTAGE as 50. The bot will invest a maximum of $50
@@ -516,20 +502,20 @@ on their first trades, and any profit or loss added to the balance will also
 be re-invested at 50% of the total balance. This is a way to allow the balance
 to grow by only investing a portion of the total available balance to invest.
 
-
 ### PAUSE_FOR
 
-```
+```yaml
 PAUSE_FOR: 1
 ```
-How long to pause in seconds before checking Binance prices again.
 
+How long to pause in seconds before checking Binance prices again.
 
 ### STRATEGY
 
-```
+```yaml
 STRATEGY: "BuyDropSellRecoveryStrategy"
 ```
+
 Describes which strategy to use when buying/selling coins, available options are
 *BuyMoonSellRecoveryStrategy*, *BuyDropSellRecoveryStrategy*,
 *BuyOnGrowthTrendAfterDropStrategy*
@@ -539,7 +525,7 @@ Describes which strategy to use when buying/selling coins, available options are
 In the *BuyMoonSellRecoveryStrategy*, the bot monitors coin prices and will
 buy coins that raised their price over a percentage since the last check.
 
-```
+```yaml
 PAUSE_FOR: 3600
 TICKERS:
   BTCUSDT:
@@ -575,7 +561,7 @@ uphill.
 
 Example:
 
-```
+```yaml
 TICKERS:
   BTCUSDT:
       SOFT_LIMIT_HOLDING_TIME: 3600
@@ -605,7 +591,7 @@ different from 1 second.
 
 Example:
 
-```
+```yaml
 TICKERS:
   BTCUSDT:
       SOFT_LIMIT_HOLDING_TIME: 3600
@@ -627,12 +613,12 @@ the python modules *pandas*, *numpy*, *ta* are baked in the docker image, so
 new strategies can be created using those.
 Klines data is available in a dictionary for the last 1000 days, 24 hours, 60 minutes.
 
-
 ### BUY_AT_PERCENTAGE
 
-```
+```yaml
 BUY_AT_PERCENTAGE: -20
 ```
+
 The percentage of the drop in price at which we would consider buying a coin.
 
 In the *buy_drop_recovery_strategy* this is the percentage drop in price over
@@ -644,63 +630,63 @@ In the *BuyMoonSellRecoveryStrategy* this is the price percentage difference
 between two periods (PAUSE_FOR). When a coin goes over, let's say +1 in a
 PAUSE_FOR of 3600 seconds, then the bot will buy it.
 
-
 ### SELL_AT_PERCENTAGE
 
-```
+```yaml
 SELL_AT_PERCENTAGE: +10
 ```
+
 The profit percentage at which the bot will consider selling the coin. At this
 point the bot will monitor the price until the price drops, at which it will
 then sell.
 
-
 ### STOP_LOSS_AT_PERCENTAGE
 
-```
+```yaml
 STOP_LOSS_AT_PERCENTAGE: -25
 ```
+
 The price at which the bot will sell a coin straight away to avoid further
 losses.
 
-
 ### TRAIL_TARGET_SELL_PERCENTAGE
 
-```
+```yaml
 TRAIL_TARGET_SELL_PERCENTAGE: -1.5
 ```
+
 This is the percentage drop in price at which when a coin in profit is sold.
 
 This allows to deal with flutuations in price and avoid selling a coin too soon.
 When the price is likely to increase again.
 
-
 ### TRAIL_RECOVERY_PERCENTAGE
 
-```
+```yaml
 TRAIL_RECOVERY_PERCENTAGE: +1.5
 ```
+
 This is the percentage at which in the strategy
 *BuyDropSellRecoveryStrategy* the bot will buy a coin. This reflects the
 increase in price since the lowest price recorded for this coin. This setting
 allows the bot to wait for a coin to drop over time before buying it, this
 essentially is the *recovery* phase of a coin after a large drop in price.
 
-
 ### HARD_LIMIT_HOLDING_TIME
 
-```
+```yaml
 HARD_LIMIT_HOLDING_TIME: 604800
 ```
+
 This setting sets the maximum *age* in seconds that we will hold a coin. At the
 end of this period the bot will sell a coin regardless of its value.
 
-
 ### SOFT_LIMIT_HOLDING_TIME
 
-```
+```yaml
 SOFT_LIMIT_HOLDING_TIME: 7200
 ```
+
 The *SELL_AT_PERCENTAGE* sets the value at a coin is suitable to be sold at a
 profit. If this profit percentage is too high the coin won't sell.
 
@@ -722,12 +708,12 @@ a *KLINES_TREND_PERIOD*. For example if *KLINES_TREND_PERIOD* is 3d and this
 parameter is set to +1, it would trigger when a coin has gone up +1% for 3
 consecutive days.
 
-
 ### CLEAR_COIN_STATS_AT_BOOT
 
-```
+```yaml
 CLEAR_COIN_STATS_AT_BOOT: True
 ```
+
 The bot saves a couple of files during execution, *.coins.pickle* and
 *.wallet.pickle*. These files contain the list of coins the bot bought and
 holds, and the different values for all those coins, things like maximum price,
@@ -736,18 +722,19 @@ discarded at boot time.
 
 ### NAUGHTY_TIMEOUT
 
-```
+```yaml
 NAUGHTY_TIMEOUT: 28800
 ```
+
 This setting tells the bot how long to ignore a coin after that coin sold at a
 loss.
 
-
 ### CLEAR_COIN_STATS_AT_SALE
 
-```
+```yaml
 CLEAR_COIN_STATS_AT_SALE: True
 ```
+
 The bot continuously records the minimum and maximum price of all coins.
 This option resets the maximum and minimum price of all coins after a sale.
 
@@ -759,11 +746,9 @@ and dropped won't be continuously bought by the bot as its price is below the
 Essentially, we start with a clean state after a sale, and monitor coin prices
 waiting for another drop.
 
-
-
 ### SELL_AS_SOON_AS_IT_DROPS
 
-```
+```yaml
 SELL_AS_SOON_IT_DROPS: True
 ```
 
@@ -771,53 +756,52 @@ When the price drops just below the *SELL_AT_PERCENTAGE* if this flag is
 enabled, the bot will sell the coin, instead of relying on the
 *TRAIL_TARGET_SELL_PERCENTAGE*
 
-
 ### DEBUG
 
-```
+```yaml
 DEBUG: False
 ```
-Enables debug on the bot.
 
+Enables debug on the bot.
 
 ### MAX_COINS
 
-```
+```yaml
 MAX_COINS: 3
 ```
-The maximum number of coins the bot will hold at any time.
 
+The maximum number of coins the bot will hold at any time.
 
 ### TICKERS
 
-```
+```yaml
 TICKERS: {}
 ```
+
 Sets the list of coins the bot monitors for prices and trades.
 This list must contain pairings as set in the *PAIRING* setting.
 
-
 ### TRADING_FEE
 
-```
+```yaml
 TRADING_FEE: 0.01
 ```
+
 The trading fee in percentage that binance will charge on each buy or sell
 operation.
 
-
 ### PRICE_LOGS
 
-```
+```yaml
 PRICE_LOGS: [""]
 ```
+
 The list of price logs to be used for backtesting. Note that this is relative
 to the url used in the PRICE_LOG_SERVICE_URL.
 
-
 ### ENABLE_PUMP_AND_DUMP_CHECKS
 
-```
+```yaml
 ENABLE_PUMP_AND_DUMP_CHECKS: True
 ```
 
@@ -830,7 +814,7 @@ Don't rely too much on this.
 
 ### ENABLE_NEW_LISTING_CHECKS
 
-```
+```yaml
 ENABLE_NEW_LISTING_CHECKS: True
 ```
 
@@ -840,7 +824,7 @@ Enable checks for new coin listings.
 
 ### ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS
 
-```
+```yaml
 ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS: 31
 ```
 
@@ -849,10 +833,9 @@ defaults to 31
 Checks that we have at least 31 days of price data on a coin, if we don't, the
 Bot skips buying this coin.
 
-
 ### STOP_BOT_ON_LOSS
 
-```
+```yaml
 STOP_BOT_ON_LOSS: True
 ```
 
@@ -862,7 +845,7 @@ Stops the bot immediately after a STOP_LOSS
 
 ### ORDER_TYPE
 
-```
+```yaml
 ORDER_TYPE: "MARKET"
 ```
 
@@ -870,16 +853,14 @@ Defaults to MARKET, available options are *MARKET* or *LIMIT*.
 
 Tells the BOT if it should use MARKET order or a LIMIT [FOK](https://academy.binance.com/en/articles/understanding-the-different-order-types) order.
 
-
 ### PULL_CONFIG_ADDRESS
 
 When set, it tells the bot to pull a new list of tickers from the *config-endpoint-service*,
 this should be set to the ip/port running the config-endpoint-service.
 
-```
+```yaml
 PULL_CONFIG_ADDRESS: "http://172.20.0.1:53891"
 ```
-
 
 Defaults to False
 
@@ -887,7 +868,7 @@ Defaults to False
 
 Tells the bot the http endpoint from where it can download price.log files from.
 
-```
+```yaml
 PRICE_LOG_SERVICE_URL: "http://price-log-service:8998"
 ```
 
@@ -895,16 +876,15 @@ PRICE_LOG_SERVICE_URL: "http://price-log-service:8998"
 
 Tells the bot the http endpoint from where it can download klines data
 
-```
+```yaml
 KLINES_CACHING_SERVICE_URL: "http://klines-caching-service:8999"
 ```
-
 
 ### CONCURRENCY
 
 The number of parallel backtesting processes to run.
 
-```
+```yaml
 CONCURRENCY: 4
 ```
 
@@ -913,13 +893,12 @@ CONCURRENCY: 4
 How to order results from the different test runs in automated-backtesting in
 order to choose the best config for each coin.
 
-
 #### max_profit_on_clean_wins
 
 Use the config that provided the best profit for this coin and did not result
 in any STOP_LOSSES or STALES or HOLDS at the end of the runs.
 
-```
+```yaml
 SORT_BY: "max_profit_on_clean_wins"
 ```
 
@@ -928,17 +907,17 @@ SORT_BY: "max_profit_on_clean_wins"
 Use the config that returned the highest number of wins for this coin and did
 not result in any STOP_LOSSES or STALES or HOLDS at the end of the runs
 
-```
+```yaml
 SORT_BY: "number_of_clean_wins"
 ```
 
 #### greed
 
 Use the config that returned the highest profit for this coin.
-```
+
+```yaml
 SORT_BY: "greed
 ```
-
 
 ## Bot command center
 
@@ -946,7 +925,7 @@ The bot is running a *pdb* endpoint on container port 5555.
 
 Run the bot as listed above and find the port mapped to 5555
 
-```
+```console
  docker ps
  CONTAINER ID   IMAGE                        COMMAND                  CREATED          STATUS          PORTS                                                NAMES
  e6348c68072f   ghcr.io/azulinho/cryptobot   "python -u app.py -s…"   50 seconds ago   Up 49 seconds   0.0.0.0:49153->5555/tcp, :::49153->5555/tcp cryptobot_cryptobot_run_21cc0b86d73d
@@ -954,7 +933,7 @@ Run the bot as listed above and find the port mapped to 5555
 
 Then,
 
-```
+```console
 pip install epdb
 python
 >>> import epdb
@@ -966,7 +945,7 @@ python
 
 And type :
 
-```
+```console
 dir(bot)
 ```
 
@@ -974,13 +953,12 @@ to see all available methods
 
 To exit the debugger, type
 
-```
+```console
 close
 ```
 
 Do not Control-D as it will hang the debugger, and you won't be able to
 reconnect.
-
 
 ## Development/New features
 
@@ -992,17 +970,17 @@ There are a few Makefile targets that help in getting started,
 
 Run:
 
-```
+```console
 ./run setup
 ```
+
 To create a Python virtualenv .venv and install all required python packages for
 normal execution and development.
 
-
 Run:
-```
+
+```console
 ./run tests
 ```
 
 To run all local tests, formatters, and linters
-
