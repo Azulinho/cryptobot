@@ -376,24 +376,19 @@ class ProveBacktesting:
                 )
             )
 
-    def write_all_coin_configs(
-        self, dates: List[str], thisrun: Dict[str, Any]
-    ) -> Set[str]:
-        """generate all coinfiles"""
-
-        r: requests.Response = get_index_json(
-            f"{self.price_log_service_url}/index.json.gz"
-        )
-        index: Any = json.loads(r.content)
+    def filter_on_avail_days_with_log(
+        self, dates: List[str], data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """build a dictionary with all the coins that have price log entries
+        available for the dates we asked to backtest.
+        then append the list of available price logs to that { coin: [] }
+        """
 
         next_run_coins: Dict[str, Any] = {}
 
-        # build a dictionary with all the coins that have price log entries
-        # available for the dates we asked to backtest.
-        # then append the list of available price logs to that { coin: [] }
-        for day in index.keys():
+        for day in data.keys():
             if day in dates:
-                for coin in index[day]:
+                for coin in data[day]:
                     # discard any BULL/BEAR tokens
                     if any(
                         f"{w}{self.pairing}" in coin
@@ -408,34 +403,66 @@ class ProveBacktesting:
                             next_run_coins[coin] = []
                         next_run_coins[coin].append(f"{coin}/{day}.log.gz")
 
-        if self.enable_new_listing_checks:
-            all_logs: Dict[str, Any] = {}
+        return next_run_coins
 
-            # from the dict containing all the coins and the price logs to test,
-            # drop any coin that doesn't have the required number of logs
-            # as per the enable_new_listing_checks_age_in_days setting
-            for day in index.keys():
-                # skip any empty dates in index.json.gz
-                if not index[day]:
-                    continue
-                # we need to make sure we don't keep dates past the last day
-                # we're backtesting
-                if datetime.strptime(day, "%Y%m%d") > datetime.strptime(
-                    dates[-1], "%Y%m%d"
-                ):
-                    continue
-                for coin in list(next_run_coins.keys()):
-                    if coin not in all_logs:
-                        all_logs[coin] = []
-                    all_logs[coin].append(f"{coin}/{day}.log.gz")
+    def filter_on_coins_with_min_age_logs(
+        self,
+        index: Dict[str, Any],
+        last_day: str,
+        next_run_coins: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """from the dict containing all the coins and the price logs to test,
+        drop any coin that doesn't have the required number of logs
+        as per the enable_new_listing_checks_age_in_days setting
+        """
 
+        all_logs: Dict[str, Any] = {}
+
+        # from the dict containing all the coins and the price logs to test,
+        # drop any coin that doesn't have the required number of logs
+        # as per the enable_new_listing_checks_age_in_days setting
+        for day in index.keys():
+            # skip any empty dates in index.json.gz
+            if not index[day]:
+                continue
+            # we need to make sure we don't keep dates past the last day
+            # we're backtesting
+            if datetime.strptime(day, "%Y%m%d") > datetime.strptime(
+                last_day, "%Y%m%d"
+            ):
+                continue
             for coin in list(next_run_coins.keys()):
-                if (
-                    len(all_logs[coin])
-                    <= self.enable_new_listing_checks_age_in_days
-                ):
-                    del next_run_coins[coin]
+                if coin not in all_logs:
+                    all_logs[coin] = []
+                all_logs[coin].append(f"{coin}/{day}.log.gz")
 
+        for coin in list(next_run_coins.keys()):
+            if (
+                len(all_logs[coin])
+                <= self.enable_new_listing_checks_age_in_days
+            ):
+                del next_run_coins[coin]
+
+        return next_run_coins
+
+    def write_all_coin_configs(
+        self, dates: List[str], thisrun: Dict[str, Any]
+    ) -> Set[str]:
+        """generate all coinfiles"""
+
+        r: requests.Response = get_index_json(
+            f"{self.price_log_service_url}/index.json.gz"
+        )
+        index: Any = json.loads(r.content)
+
+        next_run_coins: Dict[str, Any] = self.filter_on_avail_days_with_log(
+            dates, index
+        )
+
+        if self.enable_new_listing_checks:
+            next_run_coins = self.filter_on_coins_with_min_age_logs(
+                index, dates[-1], next_run_coins
+            )
         for coin, _price_logs in next_run_coins.items():
             self.write_single_coin_config(coin, _price_logs, thisrun)
 
