@@ -2,6 +2,8 @@
 
 A python based trading bot for Binance, which relies heavily on backtesting.
 
+![CryptoBot components](./cryptobot.jpg)
+
  1. [Overview](#overview)
     * [How does it work](#how-does-it-work)
  2. [Discord](#discord)
