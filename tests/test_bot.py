@@ -258,6 +258,9 @@ class TestCoin:
 
         assert bot.check_for_pump_and_dump(coin) is True
 
+        coin.klines_trend_period = "0h"
+        assert bot.check_for_pump_and_dump(coin) is True
+
     def test_for_pump_and_dump_returns_false_on_pump(self, coin, bot):
         now = lib.bot.udatetime.now().timestamp()
 
@@ -458,8 +461,45 @@ class TestBot:
             result = bot.get_step_size("BTCUSDT")
             assert result == (True, "0.00001000")
 
-    def test_extract_order_data(self):
-        pass
+    def test_extract_order_data(self, bot, coin):
+        order_details = {
+            "symbol": "BTCSDT",
+            "orderId": 832382,
+            "orderListId": -1,
+            "clientOrderId": "jaksil2Ajbkl39kklapAQp",
+            "transactTime": 1681589444803,
+            "price": "0.00000000",
+            "origQty": "2.31000000",
+            "executedQty": "2.31000000",
+            "cummulativeQuoteQty": "768.15300000",
+            "status": "FILLED",
+            "timeInForce": "GTC",
+            "type": "MARKET",
+            "side": "SELL",
+            "workingTime": 1681589444803,
+            "fills": [
+                {
+                    "price": "332.60000000",
+                    "qty": "0.78000000",
+                    "commission": "0.00000000",
+                    "commissionAsset": "USDT",
+                    "tradeId": 69154,
+                },
+                {
+                    "price": "332.50000000",
+                    "qty": "1.53000000",
+                    "commission": "0.00000000",
+                    "commissionAsset": "USDT",
+                    "tradeId": 69155,
+                },
+            ],
+            "selfTradePreventionMode": "NONE",
+        }
+
+        ok, data = bot.extract_order_data(order_details, coin)
+        assert ok is True
+        assert data["avgPrice"] == 332.53376623376624
+        assert data["volume"] == 0.5
 
     def test_calculate_volume_size(self, bot, coin):
         with mock.patch.object(
