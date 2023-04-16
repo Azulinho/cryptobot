@@ -13,6 +13,8 @@ import lib
 import lib.bot
 import lib.coin
 import pytest
+import requests
+import json
 
 
 @pytest.fixture()
@@ -678,6 +680,74 @@ class TestBot:
 
         assert coin.highest["h"][0] == [1638595.3856935161, 2]
         assert coin.highest["h"][23] == [1721395.3856935161, 25]
+
+    def test_new_listing(self, bot, coin):
+        for x in list(reversed(range(3600 * 24 * 2 + 3600 + 60 + 1))):
+            coin_time = float(lib.bot.udatetime.now().timestamp() - x)
+            bot.update(coin, coin_time, 100)
+
+        assert bot.new_listing(coin, 3) is True
+        assert bot.new_listing(coin, 1) is False
+
+    def test_refresh_config_from_config_endpoint_service(self, bot):
+        bot.pull_config_address = "http://fake"
+
+        lib.bot.requests.get = mock.MagicMock()
+        lib.bot.requests.get.return_value.status_code.return_value = 200
+
+        with mock.patch(
+            "builtins.open",
+            mock.mock_open(read_data=json.dumps({"TICKERS": {}})),
+        ) as _:
+            # same md5 should return False
+            lib.bot.requests.get.return_value.json.return_value = {
+                "md5": "fake1",
+                "TICKERS": {},
+            }
+
+            bot.pull_config_md5 = "fake1"
+            assert bot.refresh_config_from_config_endpoint_service() is False
+
+            # different md5 should return True
+            bot.pull_config_md5 = "fake2"
+            assert bot.refresh_config_from_config_endpoint_service() is True
+
+            # different md5 should update TICKERS
+            lib.bot.requests.get.return_value.json.return_value = {
+                "md5": "fake3",
+                "TICKERS": {"BTCUSDT": {}},
+            }
+            assert bot.refresh_config_from_config_endpoint_service() is True
+            assert bot.pull_config_md5 == "fake3"
+            assert bot.tickers == {"BTCUSDT": {}}
+
+            # different md5 should update TICKERS and keep existing WALLET
+            lib.bot.requests.get.return_value.json.return_value = {
+                "md5": "fake4",
+                "TICKERS": {"ETHUSDT": {}},
+            }
+            bot.tickers = {"BTCUSDT": {}}
+            bot.wallet = ["BTCUSDT"]
+            assert bot.refresh_config_from_config_endpoint_service() is True
+            assert bot.pull_config_md5 == "fake4"
+            assert bot.tickers == {"BTCUSDT": {}, "ETHUSDT": {}}
+
+            # different md5 should update TICKERS and remove if not in wallet
+            lib.bot.requests.get.return_value.json.return_value = {
+                "md5": "fake5",
+                "TICKERS": {"ETHUSDT": {}},
+            }
+            bot.tickers = {"BTCUSDT": {}}
+            bot.wallet = []
+            assert bot.refresh_config_from_config_endpoint_service() is True
+            assert bot.pull_config_md5 == "fake5"
+            assert bot.tickers == {"ETHUSDT": {}}
+
+            # an exception should return false
+            lib.bot.requests.get.return_value.json.return_value = {
+                "md5": "fake9"
+            }
+            assert bot.refresh_config_from_config_endpoint_service() is False
 
 
 class TestBotCheckForSaleConditions:
