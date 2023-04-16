@@ -1431,7 +1431,7 @@ class Bot:
 
         while True:
             if self.pull_config_address:
-                self.refresh_config_from_config_endpoint_service()
+                _ = self.refresh_config_from_config_endpoint_service()
             self.process_coins()
             # saves all coin and wallet data to disk
             self.save_coins()
@@ -1831,14 +1831,14 @@ class Bot:
 
         return exposure
 
-    def refresh_config_from_config_endpoint_service(self) -> None:
+    def refresh_config_from_config_endpoint_service(self) -> bool:
         """updates the bot config (ticker list) from the config endpoint"""
         try:
             r: Dict[str, Any] = requests.get(
                 self.pull_config_address, timeout=1
             ).json()
             if r["md5"] == self.pull_config_md5:
-                return
+                return False
 
             # create a placeholder for us to add old and new tickers
             new_tickers: Dict[str, str] = r["TICKERS"]
@@ -1877,6 +1877,8 @@ class Bot:
                 f"Failed to pull config from {self.pull_config_address}"
             )
             logging.error(error_msg)
+            return False
+        return True
 
     def process_control_flags(self) -> None:
         """process control/flags"""
