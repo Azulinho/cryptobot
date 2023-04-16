@@ -199,7 +199,7 @@ class Bot:
             )
         return (False, {})
 
-    def run_strategy(self, coin: Coin) -> None:
+    def run_strategy(self, coin: Coin) -> bool:
         """runs a specific strategy against a coin"""
 
         # runs our choosen strategy, here we aim to quit as soon as possible
@@ -208,11 +208,11 @@ class Bot:
 
         # the bot won't act on coins not listed on its config.
         if coin.symbol not in self.tickers:
-            return
+            return False
 
         # skip any coins that were involved in a recent STOP_LOSS.
         if self.coins[coin.symbol].naughty:
-            return
+            return False
 
         # first attempt to sell the coin, in order to free the wallet for the
         # next coin run_strategy run.
@@ -225,19 +225,20 @@ class Bot:
             if self.new_listing(
                 coin, self.enable_new_listing_checks_age_in_days
             ):
-                return
+                return False
 
         # our wallet is already full
         if len(self.wallet) == self.max_coins:
-            return
+            return False
 
         # has the current price been influenced by a pump and dump?
         if self.enable_pump_and_dump_checks:
             if self.check_for_pump_and_dump(self.coins[coin.symbol]):
-                return
+                return False
 
         # all our pre-conditions played out, now run the buy_strategy
         self.buy_strategy(coin)
+        return True
 
     def update_investment(self) -> None:
         """updates our investment or balance with our profits"""
@@ -834,7 +835,7 @@ class Bot:
                 self.clear_coin_stats(self.coins[coin_symbol])
 
             # and run the strategy
-            self.run_strategy(self.coins[coin_symbol])
+            _ = self.run_strategy(self.coins[coin_symbol])
 
             if coin_symbol in self.wallet:
                 self.log_debug_coin(self.coins[coin_symbol])
