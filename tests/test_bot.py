@@ -749,6 +749,70 @@ class TestBot:
             }
             assert bot.refresh_config_from_config_endpoint_service() is False
 
+    def test_run_stategy_gives_False_if_coin_not_in_tickers(self, bot, coin):
+        bot.tickers = {}
+        assert bot.run_strategy(coin) is False
+
+    def test_run_stategy_gives_False_if_coin_is_naught(self, bot, coin):
+        coin.naughty = True
+        bot.coins["BTCUSDT"] = coin
+        bot.run_strategy(coin) is False
+
+    def test_run_stategy_calls_sale_if_wallet_not_empty(self, bot, coin):
+        # if there are coins in WALLET
+        bot.wallet = ["XXXX"]
+        bot.coins["BTCUSDT"] = coin
+        bot.target_sell = mock.MagicMock()
+        bot.check_for_sale_conditions = mock.MagicMock()
+        bot.new_listing = mock.MagicMock()
+        bot.enable_pump_and_checks = mock.MagicMock()
+        bot.buy_strategy = mock.MagicMock()
+
+        bot.run_strategy(coin)
+
+        bot.target_sell.assert_called_once()
+        bot.check_for_sale_conditions.assert_called_once()
+
+    def test_run_stategy_returns_false_on_new_listing(self, bot, coin):
+        bot.wallet = []
+        bot.tickers["BTCUSDT"] = {}
+        coin.symbol = "BTCUSDT"
+        coin.naughty = False
+        bot.coins["BTCUSDT"] = coin
+        bot.enable_new_listing_checks = True
+        bot.enable_new_listing_checks_age_in_days = 30
+        bot.new_listing = mock.MagicMock()
+        bot.new_listing.return_value = True
+        assert bot.run_strategy(coin) is False
+        bot.new_listing.assert_called_once()
+
+    def test_run_stategy_returns_false_on_full_wallet(self, bot, coin):
+        bot.coins["BTCUSDT"] = coin
+        bot.enable_new_listing_checks = False
+        bot.wallet = ["BTCUSDT"]
+        bot.max_coins = 1
+        assert bot.run_strategy(coin) is False
+
+    def test_run_stategy_returns_false_on_a_pump(self, bot, coin):
+        bot.coins["BTCUSDT"] = coin
+        bot.enable_new_listing_checks = False
+        bot.enable_pump_and_dump_checks = True
+        bot.wallet = []
+        bot.max_coins = 1
+        bot.check_for_pump_and_dump = mock.MagicMock()
+        bot.check_for_pump_and_dump.return_value = True
+
+        assert bot.run_strategy(coin) is False
+        bot.check_for_pump_and_dump.assert_called_once()
+
+    def test_run_stategy_returns_True(self, bot, coin):
+        bot.coins["BTCUSDT"] = coin
+        bot.enable_new_listing_checks = False
+        bot.enable_pump_and_dump_checks = False
+        bot.buy_strategy = mock.MagicMock()
+        assert bot.run_strategy(coin) is True
+        bot.buy_strategy.assert_called_once()
+
 
 class TestBotCheckForSaleConditions:
     def test_returns_early_on_empty_wallet(self, bot, coin):
