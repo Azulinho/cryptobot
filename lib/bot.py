@@ -268,7 +268,7 @@ class Bot:
                 logging.debug(f"order_book: {order_book}")
                 try:
                     bid, _ = order_book["bids"][0]
-                except IndexError as error:
+                except (IndexError, ValueError) as error:
                     # if the order_book is empty we'll get an exception here
                     logging.debug(f"{coin.symbol} {error}")
                     return False
