@@ -813,6 +813,20 @@ class TestBot:
         assert bot.run_strategy(coin) is True
         bot.buy_strategy.assert_called_once()
 
+    def test_get_price_log(self, bot):
+        session = mock.MagicMock()
+        session.get = mock.MagicMock()
+        session.get.return_value.status_code = 200
+        session.get.return_value.content = "001 SYMBOL 100\n002 SYMBOL 101"
+
+        with mock.patch(
+            "builtins.open",
+            mock.mock_open(read_data=""),
+        ) as _:
+            ok, data = bot.get_price_log(session, "http://log/log")
+            assert data[0] == "001 SYMBOL 100"
+            assert ok is True
+
 
 class TestBotCheckForSaleConditions:
     def test_returns_early_on_empty_wallet(self, bot, coin):
