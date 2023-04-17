@@ -827,6 +827,89 @@ class TestBot:
             assert data[0] == "001 SYMBOL 100"
             assert ok is True
 
+    def test_place_sell_order(self, bot, coin):
+        bot.extract_order_data = mock.MagicMock()
+        bot.client.get_order = mock.MagicMock()
+        bot.client.create_order = mock.MagicMock()
+        bot.client.get_order_book = mock.MagicMock()
+
+        # empty order_book should return False
+        bot.order_type = "LIMIT"
+        bot.client.get_order_book.return_value = {
+            "lastUpdateId": 1027024,
+            "bids": [],
+            "asks": [],
+        }
+        assert bot.place_sell_order(coin) is False
+
+        # a good order_book should return True
+        bot.order_type = "MARKET"
+        bot.client.get_order_book.return_value = {
+            "lastUpdateId": 1027024,
+            "bids": [
+                [
+                    "4.00000000",  # PRICE
+                    "431.00000000",  # QTY
+                    [],  # Can be ignored
+                ]
+            ],
+            "asks": [["4.00000200", "12.00000000", []]],
+        }
+
+        bot.client.get_order.return_value = {
+            "symbol": "LTCBTC",
+            "orderId": 1,
+            "clientOrderId": "myOrder1",
+            "price": "0.1",
+            "origQty": "1.0",
+            "executedQty": "0.0",
+            "status": "FILLED",
+            "timeInForce": "GTC",
+            "type": "LIMIT",
+            "side": "BUY",
+            "stopPrice": "0.0",
+            "icebergQty": "0.0",
+            "time": 1499827319559,
+        }
+
+        bot.extract_order_data.return_value = (
+            True,
+            {"avgPrice": 100, "volume": 1},
+        )
+        assert bot.place_sell_order(coin) is True
+
+        # Expired Sell Order should return False
+        bot.order_type = "LIMIT"
+        bot.client.get_order_book.return_value = {
+            "lastUpdateId": 1027024,
+            "bids": [
+                [
+                    "4.00000000",  # PRICE
+                    "431.00000000",  # QTY
+                    [],  # Can be ignored
+                ]
+            ],
+            "asks": [["4.00000200", "12.00000000", []]],
+        }
+
+        bot.client.get_order.return_value = {
+            "symbol": "LTCBTC",
+            "orderId": 1,
+            "clientOrderId": "myOrder1",
+            "price": "0.1",
+            "origQty": "1.0",
+            "executedQty": "0.0",
+            "status": "EXPIRED",
+            "timeInForce": "GTC",
+            "type": "LIMIT",
+            "side": "BUY",
+            "stopPrice": "0.0",
+            "icebergQty": "0.0",
+            "time": 1499827319559,
+        }
+
+        assert bot.place_sell_order(coin) is False
+
 
 class TestBotCheckForSaleConditions:
     def test_returns_early_on_empty_wallet(self, bot, coin):
