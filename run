@@ -277,17 +277,9 @@ function setup() { # local setup for development
 function tests() { # CI and pre-commit tests
 	set -e
 	set -o pipefail
-	export PATH=~/.pyenv/bin:$PATH
-	source .venv/bin/activate
-	echo "running black..."
-	black --check app.py klines_caching_service.py price_log_service.py strategies/ lib/ tests/ utils/
-	echo "running pylint..."
-	ls strategies/*.py |grep -v Local | xargs pylint app.py klines_caching_service.py price_log_service.py lib/*.py utils/*.py
-	echo "running mypy..."
-	ls strategies/*.py |grep -v Local | xargs mypy app.py klines_caching_service.py price_log_service.py lib/*.py utils/*.py
-	echo "running pytest..."
-	pytest --quiet -W ignore --disable-pytest-warnings tests/
-	deactivate
+
+	IMAGE=local TAG=tests build
+	docker build -f Dockerfile.tests .
 }
 
 function github_actions_ci_pr_docker_tests() {

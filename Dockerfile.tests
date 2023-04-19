@@ -1,0 +1,38 @@
+FROM local:tests
+RuN mkdir log cache tmp
+ADD requirements-dev.txt /cryptobot/requirements-dev.txt
+RUN /cryptobot/.venv/bin/pip install -r requirements-dev.txt
+ADD .mypy.ini /cryptobot/
+ADD pyproject.toml /cryptobot/
+ADD tests/ /cryptobot/tests/
+ADD strategies/Buy* /cryptobot/strategies/
+
+RUN /cryptobot/.venv/bin/black --check \
+  app.py \
+  klines_caching_service.py \
+  price_log_service.py \
+  strategies/ \
+  lib/ \
+  tests/ \
+  utils/
+
+RUN ls strategies/*.py \
+ |grep -v Local \
+| xargs /cryptobot/.venv/bin/pylint \
+      app.py \
+      klines_caching_service.py \
+      price_log_service.py \
+      lib/*.py \
+      utils/*.py
+
+RUN ls strategies/*.py \
+  |grep -v Local \
+  | xargs /cryptobot/.venv/bin/mypy \
+      app.py \
+      klines_caching_service.py \
+      price_log_service.py \
+      lib/*.py \
+      utils/*.py
+
+RUN /cryptobot/.venv/bin/pytest \
+  --quiet -W ignore --disable-pytest-warnings tests/

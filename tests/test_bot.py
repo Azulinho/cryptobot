@@ -505,6 +505,9 @@ class TestBot:
             "selfTradePreventionMode": "NONE",
         }
 
+        bot.calculate_volume_size = mock.MagicMock()
+        bot.calculate_volume_size.return_value = (True, 0.5)
+
         ok, data = bot.extract_order_data(order_details, coin)
         assert ok is True
         assert data["avgPrice"] == 332.53376623376624
