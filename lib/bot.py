@@ -1714,69 +1714,6 @@ class Bot:
 
         return [date, low, avg, high]
 
-    def populate_values(
-        self,
-        klines: List[
-            Tuple[
-                float,
-                float,
-                float,
-                float,
-                float,
-                float,
-                float,
-                float,
-                float,
-                float,
-                float,
-                float,
-            ]
-        ],
-        unit: str,
-    ) -> Tuple[bool, Dict[str, List[List[float]]]]:
-        """builds averages[], lowest[], highest[] out of klines"""
-        _lowest: List[List[float]] = []
-        _averages: List[List[float]] = []
-        _highest: List[List[float]] = []
-
-        # retrieve and calculate the lowest, highest, averages
-        # from the klines data.
-        # we need to transform the dates into consumable timestamps
-        # that work for our bot.
-        for line in klines:
-            date, low, avg, high = self.process_klines_line(line)
-            _lowest.append([date, low])
-            _averages.append([date, avg])
-            _highest.append([date, high])
-
-        # finally, populate all the data coin buckets
-        buckets: Dict[str, List[List[float]]] = {}
-        for metric in ["lowest", "averages", "highest"]:
-            buckets[metric] = []
-
-        unit_buckets: Dict[str, int] = {
-            "m": 60,
-            "h": 24,
-            # for 'Days' we retrieve 1000 days, binance API default
-            "d": 1000,
-        }
-
-        timeslice: int = unit_buckets[unit]
-        # we gather all the data we collected and only populate
-        # the required number of records we require.
-        # this could possibly be optimized, but at the same time
-        # this only runs the once when we initialise a coin
-        for d, v in _lowest[-timeslice:]:
-            buckets["lowest"].append([d, v])
-
-        for d, v in _averages[-timeslice:]:
-            buckets["averages"].append([d, v])
-
-        for d, v in _highest[-timeslice:]:
-            buckets["highest"].append([d, v])
-
-        return (True, buckets)
-
     def print_final_balance_report(self) -> None:
         """calculates and outputs final balance"""
 
