@@ -11,7 +11,6 @@ secrets/*
 state/*
 .tags
 tags
-tests/*
 .venv
 .venv/*
 .git
