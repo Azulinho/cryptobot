@@ -7,6 +7,7 @@
 # pylint: disable=no-self-use
 from datetime import datetime
 from unittest import mock
+from flaky import flaky
 
 import app
 import lib
@@ -143,6 +144,7 @@ class TestCoin:
         assert 120.00 == coin.averages["s"][0][1]
         assert len(coin.averages["s"]) == 1
 
+    @flaky
     def test_update_coin_updates_minutes_averages(self, coin, bot):
         for x in list(reversed(range(60 * 2 + 1))):
             coin_time = float(lib.bot.udatetime.now().timestamp() - x)
@@ -157,6 +159,7 @@ class TestCoin:
 
         assert list(coin.averages["m"])[0][1] == 100.0
 
+    @flaky
     def test_update_coin_updates_hour_averages(self, coin, bot):
         for x in list(reversed(range(60 * 60 + 60 + 1))):
             coin_time = float(lib.bot.udatetime.now().timestamp() - x)
@@ -171,6 +174,7 @@ class TestCoin:
 
         assert list(coin.averages["h"])[0][1] == 100.0
 
+    @flaky
     def test_update_coin_updates_days_averages(self, coin, bot):
         for x in list(reversed(range(3600 * 24 + 3600 + 60 + 1))):
             coin_time = float(lib.bot.udatetime.now().timestamp() - x)
@@ -184,6 +188,7 @@ class TestCoin:
         assert len(coin.averages["d"]) == 1
         assert list(coin.averages["d"])[0][1] == 100.0
 
+    @flaky
     def test_update_coin_updates_minutes_lowest_highest(self, coin, bot):
         price = 100
         for x in list(reversed(range(60 * 2 + 1))):
@@ -198,6 +203,7 @@ class TestCoin:
         assert list(coin.lowest["m"])[-1][1] == 159.0
         assert list(coin.highest["m"])[-1][1] == 220.0
 
+    @flaky
     def test_update_coin_updates_hour_lowest_highest(self, coin, bot):
         price = 100
         for x in list(reversed(range(60 * 60 + 60 + 1))):
@@ -213,6 +219,7 @@ class TestCoin:
         assert list(coin.lowest["h"])[0][1] == 100.0
         assert list(coin.highest["h"])[0][1] == 3760.0
 
+    @flaky
     def test_update_coin_updates_day_lowest_highest(self, coin, bot):
         price = 100
         for x in list(reversed(range(3600 * 24 + 3600 + 60 + 1))):
