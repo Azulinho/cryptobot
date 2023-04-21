@@ -5,15 +5,16 @@ A python based trading bot for Binance, which relies heavily on backtesting.
 ![CryptoBot components](./cryptobot.jpg)
 
  1. [Overview](#overview)
+ 2. [History](#history)
     * [How does it work](#how-does-it-work)
- 2. [Discord](#discord)
- 3. [Getting started](#getting-started)
- 4. [Usage](#usage)
- 5. [Automated Backtesting](#automated-backtesting)
- 6. [Prove automated-backtesting results](#prove-automated-backtesting-results)
- 7. [config-endpoint-service](#config-endpoint-service)
- 8. [Control Flags](#control-flags)
- 9. [Config settings](#config-settings)
+ 3. [Discord](#discord)
+ 4. [Getting started](#getting-started)
+ 5. [Usage](#usage)
+ 6. [Automated Backtesting](#automated-backtesting)
+ 7. [Prove automated-backtesting results](#prove-automated-backtesting-results)
+ 8. [config-endpoint-service](#config-endpoint-service)
+ 9. [Control Flags](#control-flags)
+10. [Config settings](#config-settings)
     * [PAIRING](#pairing)
     * [INITIAL_INVESTMENT](#initial_investment)
     * [RE_INVEST_PERCENTAGE](#re_invest_percentage)
@@ -54,12 +55,145 @@ A python based trading bot for Binance, which relies heavily on backtesting.
       * [max_profit_on_clean_wins](#max_profit_on_clean_wins)
       * [number_of_clean_wins](#number_of_clean_wins)
       * [greed](#greed)
-10. [Bot command center](#bot-command-center)
-11. [Development/New features](#development/new-features)
+11. [Bot command center](#bot-command-center)
+12. [Development/New features](#development/new-features)
+
 
 ## Overview
 
-A cryptobot designed to work across different trends of the market.
+CryptoBot is a python based bot which relies heavily on automation and
+backtesting to work across different trends of the market.
+
+## History
+
+I built this bot due to my own negative experience in other opensource bots that
+lacked backtesting support and which had farly convoluted codebases, with no
+tests making them hard to extend or modify with the features I wanted.
+
+Essentially, I was looking for a bot where I could consume binance data and run
+backtesting using different strategies. My initial goal was for a
+bot that would buy a particular coin when that coin price went down by x% and
+then sell it when the coin price raised by %y.
+
+I added new functionality as I felt I need it, for example the bot started
+by using a mode *logmode* which would save the current price for all the coins
+with a 1s or less granularity. By having prices logged over a number of days I
+could run backtesting strategies and identify the best options over the past days
+in detail.
+As the time to backtest increased with the number of logs, I added options to
+consume price information from the logs every N seconds. For example only
+consuming the price records entries price records every 60 seconds or so.
+This allowed me to have a quick glance of how a particular backtesting strategy
+would behave on a number of available price logs for the last N days.
+I could then pick the best strategy and reduce the interval back to 1 second to
+understand how that strategy would behave in a *normal* trade day.
+
+Several rounds of refactoring and profiling the code improved the execution time,
+down from minutes to around 30 seconds per daily log.
+
+As saving daily logs through the *logmode* forced to have to run the bot for a
+number of days before I could get any useful data to backtest, I looked into
+automating the download of klines from binance using the minimum 1min interval
+and saving them into the price log format consumed by the bot.
+With this new tool I could now download price log files going back until 2017 from
+binance and run backtesting since the beggining of time.
+
+At this point, backtesting was time consuming and tricky to identify the best
+crypto tokens to backtest as well as what parameters to apply to each one
+of those tokens. A mix of luck, looking at market charts and identifying
+patterns allowed me to fit a set of parameters onto a coin and backtesting it
+so that the bot would return a sane profit. And as long the market conditions
+remained the same, the bot would return a profit while trading in live mode.
+
+Might be worth pointing out now, that the bot has a few modes of operation,
+backtesting, live, testnet, logmode.
+
+At this point I started looking on how I could automate the tasks of finding
+the best options for each coin over a period of time.
+This lead me to simply automate the same tasks I was running manually which were to
+run backtesting multiple times with different parameters and log those returns.
+Eventually I added code to strip out any coins that didn't provide a minimum
+amount of profit and filtering the best configs for each
+one of those tokens automatically, ending with a single optimized config for a
+number of crypto tokens.
+
+As I had access to a good chunk of CPU, I refactored the automated backtesting
+code to consume all my available CPU cores.
+This of course caused the run to start hitting binance API limits.
+To avoid those I started added proxies, retrying API calls to binance to avoid
+hitting those rate limits and failed backtesting sessions.
+For example when the bot finds a coin for the first time in a price log, it
+would call binance to retrieve all its klines data from the last 60 min on a
+1min interval, last 24 hours on a 1h interval and the last 1000 days on a daily
+interval. Additionally for every trade I needed to find the precision to use for
+each token. All this data needed to be saved locally as I would be requesting it
+multiple times over and over. This new service klines-caching-service that would
+deal with interacting with binance for me.
+
+With access to enough CPU and a set of good strategies, I could achieve results
+where I would invest $100 in 2017 and the bot would return in an optimized
+config just above a million.
+Of course this is not representative of how well the bot would behave in live
+and that for the amounts involved there would never be enough liquidity in the
+market. So I would always took these results with a very large grain of salt.
+
+This lead me to another question, on how could I improve my confidence on the
+results provided by these automated backtesting runs ?
+
+I thought of a couple of things, first I would discard any coins on a particular
+run that finished the runs with a stop-loss or a stale, or sill holding that
+coin in the wallet at the end of the run. And focus the results on getting the
+config for a coin that returned not the maximum profit but the highest number of
+trades without any losses. This essentially meant that the bot instead of buying
+a coin when it dropped in price by 10%, it would instead buy that coin when it
+dropped in price by 40%.
+This resulted in some side optimizations in backtesting, for example I would
+quit backtesting a coin early as soon as I hit a STALE or a STOP LOSS.
+
+The remaining piece was to automate the automated backtesting, instead of
+running the backtesting over the last 300 days or so. I refactored the
+automated backtesting script into pretending that we were running in live mode.
+Essentially I would give a start date, like 2021-01-01 tell the bot to backtest
+300 days and then run in pretend *live* mode for 30 days, before repeating this
+process from the 2021-02-01 all the end until 2022-12-31.
+The feedback was that I could see how a particular set of strategies would
+behave in different markets and how well the automated-backtesting would adapt
+to those changing markets. Essentially I could simulate what the bot looked to
+return in a live scenario by using backtesting data against new price logs that
+hadn't been backtested yet.
+
+I could now identify strategies that could return lower consistent returns
+insted of higher profits in highly volatile runs that would trigger my anxiety
+response if I were to be trading that strategy live.
+
+I called this new automated-backtesting, prove-backtesting.
+
+Around this time I added a new price log service that would serve the price
+logs to the backtesting bots. This resulted in removing all the IO I was
+experiencing while running 48-96 concurrent bots and saved my SSDs from total
+destruction. As part of the donwload klines script, I optimized the download of
+klines so that I could have daily price log files for each coin.
+This would allow the bot to backtesting a single coin in under a second, even
+for a large number of price log files.
+
+As of today, I can backtest around 300 days of logs for 48-96 coins in just a
+few seconds on an old dual Xeon for those less permisive configs.
+
+Possibly the final piece was how to collect the optimized backtesting configs I got
+from my prove or automated-backtesting runs and feed them to my live bots.
+For this I updated the bot to poll a http endpoint for a new set of configs and refresh
+itself as soon a new config was available.
+I called this the config-endpoint-service, and essentially its a service that
+runs a prove-backtesting session (nightly or so) and when it finishes makes that
+optimized config available to the live bot on a http endpoint.
+
+With all these changes the original bot is now a collection of services
+and is mostly hands-free.
+
+
+# What tools
+
+So what tools do we have?
 
 There are multiple tool or services in this repo, for example:
 
@@ -122,8 +256,6 @@ You can choose to build your own strategy and place it on the
 This bot currently provides different strategies:
 
 * [*BuyDropSellRecoveryStrategy*](./strategies/BuyDropSellRecoveryStrategy.py)
-* [*BuyDropSellRecoveryStrategyWhenBTCisDown*](./strategies/BuyDropSellRecoveryStrategyWhenBTCisDown.py)
-* [*BuyDropSellRecoveryStrategyWhenBTCisUp*](./strategies/BuyDropSellRecoveryStrategyWhenBTCisUp.py)
 * [*BuyMoonSellRecoveryStrategy*](./strategies/BuyMoonSellRecoveryStrategy.py)
 * [*BuyOnGrowthTrendAfterDropStrategy*](./strategies/BuyOnGrowthTrendAfterDropStrategy.py)
 * [*BuyOnRecoveryAfterDropDuringGrowthTrendStrategy*](./strategies/BuyOnRecoveryAfterDropDuringGrowthTrendStrategy.py)
@@ -204,7 +336,7 @@ TICKERS:
 In order to test the different 'profiles' for different coins, we would then
 run this bot in backtesting mode.
 
-There are 3 modes of execution: live, testnet, backtesting
+There are 4 modes of execution: logmode, live, testnet, backtesting
 
 ## Discord
 
@@ -250,6 +382,8 @@ Place your new *my_newly_named_config.yaml* file into the *configs/* folder.
 5. Add your Binance credentials to */secrets/binance.prod.yaml*.
    See the [example
    secrets.yaml](https://github.com/Azulinho/cryptobot/blob/master/examples/secrets.yaml) file
+
+Note that you don't need valid credentials for backtesting, or logmode.
 
 ```yaml
 ACCESS_KEY: "ACCESS_KEY"
