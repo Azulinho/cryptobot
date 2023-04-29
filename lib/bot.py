@@ -733,7 +733,9 @@ class Bot:
         with open(price_log, "a", encoding="utf-8") as f:
             f.write(f"{datetime.now()} {symbol} {price}\n")
 
-    def init_or_update_coin(self, binance_data: Dict[str, Any]) -> None:
+    def init_or_update_coin(
+        self, binance_data: Dict[str, Any], load_klines=True
+    ) -> None:
         """creates a new coin or updates its price with latest binance data"""
         symbol = binance_data["symbol"]
 
@@ -793,7 +795,8 @@ class Bot:
             )
             # fetch all the available klines for this coin, for the last
             # 60min, 24h, and 1000 days
-            self.load_klines_for_coin(self.coins[symbol])
+            if load_klines:
+                self.load_klines_for_coin(self.coins[symbol])
         else:
             # or simply update the coin with the latest price data
             self.update(
@@ -1257,6 +1260,7 @@ class Bot:
         # and update our bot dictionaries with the data on them.
         # Overriding and deleting any data we might not want to keep.
 
+        load_klines = True
         if self.mode in ["live", "testnet"]:
             coins_state_file = "state/coins.json"
             wallet_state_file = "state/wallet.json"
@@ -1265,6 +1269,7 @@ class Bot:
             config_file = basename(self.config_file)
             coins_state_file = f"tmp/{config_file}.coins.json"
             wallet_state_file = f"tmp/{config_file}.wallet.json"
+            load_klines = False
 
         # load existing wallet
         if exists(wallet_state_file):
@@ -1283,7 +1288,9 @@ class Bot:
                     # if we don't, init_or_update_coin() would raise and error
                     # as we would be missing the BUY/SELL percentages
                     if symbol in self.tickers:
-                        self.init_or_update_coin(objects[symbol])
+                        self.init_or_update_coin(
+                            objects[symbol], load_klines=load_klines
+                        )
 
                         # pylint: disable=consider-using-dict-items
                         for k, v in objects[symbol].items():
