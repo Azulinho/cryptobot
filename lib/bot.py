@@ -1583,6 +1583,8 @@ class Bot:
                             # symbol will be False if we fail to process the line fields
                             if not symbol:
                                 continue
+                            if not symbol.endswith(self.cfg["PAIRING"]):
+                                continue
 
                             # discard any BULL/BEAR tokens
                             if any(

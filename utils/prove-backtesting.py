@@ -398,7 +398,11 @@ class ProveBacktesting:
                         for w in ["UP", "DOWN", "BULL", "BEAR"]
                     ):
                         continue
-                    if self.filter_by in coin and self.pairing in coin:
+                    if (
+                        self.filter_by in coin
+                        and self.pairing in coin
+                        and coin.endswith(self.pairing)
+                    ):
                         if coin not in next_run_coins:
                             next_run_coins[coin] = []
                         next_run_coins[coin].append(f"{coin}/{day}.log.gz")
