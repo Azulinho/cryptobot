@@ -78,7 +78,7 @@ def cached_binance_client(access_key: str, secret_key: str) -> Client:
                     )
                     while int(time()) < timestamp:
                         sleep(1)
-                raise Exception from err
+                raise Exception from err  # pylint: disable=broad-exception-raised
             with open(cachefile, "wb") as f:
                 pickle.dump(_client, f)
 
