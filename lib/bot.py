@@ -1508,6 +1508,18 @@ class Bot:
         # TODO: rework this, generate a binance_data blob to pass to
         # init_or_update_coin()
         if symbol not in self.coins:
+            if not symbol.endswith(self.cfg["PAIRING"]):
+                return
+
+            # discard any BULL/BEAR tokens
+            if any(
+                f"{w}{self.cfg['PAIRING']}" in symbol
+                for w in ["UP", "DOWN", "BULL", "BEAR"]
+            ) or any(
+                f"{self.cfg['PAIRING']}{w}" in symbol
+                for w in ["UP", "DOWN", "BULL", "BEAR"]
+            ):
+                return
             self.coins[symbol] = Coin(
                 symbol,
                 float(date),
@@ -1582,18 +1594,6 @@ class Bot:
                             )
                             # symbol will be False if we fail to process the line fields
                             if not symbol:
-                                continue
-                            if not symbol.endswith(self.cfg["PAIRING"]):
-                                continue
-
-                            # discard any BULL/BEAR tokens
-                            if any(
-                                f"{w}{self.cfg['PAIRING']}" in symbol
-                                for w in ["UP", "DOWN", "BULL", "BEAR"]
-                            ) or any(
-                                f"{self.cfg['PAIRING']}{w}" in symbol
-                                for w in ["UP", "DOWN", "BULL", "BEAR"]
-                            ):
                                 continue
 
                             self.process_line(symbol, date, market_price)
