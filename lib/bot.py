@@ -1569,7 +1569,7 @@ class Bot:
             with requests.Session() as session:
                 for logfile in self.cfg["PRICE_LOGS"]:
                     if self.quit:
-                        return
+                        break
                     for w, v in [
                         ("backtesting:", logfile),
                         ("wallet:", self.wallet),
