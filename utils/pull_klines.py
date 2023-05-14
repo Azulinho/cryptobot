@@ -20,7 +20,7 @@ def get_all_tickers():
     return sorted(_tickers)
 
 
-def pull_klines(k_symbol, k_start, k_end, limit=720):
+def pull_klines(k_symbol, k_start, k_end, _unit, limit=720):
     """returns klines for a particular day and ticker"""
     k_results = []
     print(f"start: {k_start} end: {k_end}")
@@ -28,7 +28,7 @@ def pull_klines(k_symbol, k_start, k_end, limit=720):
         print(f"fetching chunk {k_start} <-> {k_start + (limit * 60000)}")
         klines = client.get_klines(
             symbol=k_symbol,
-            interval="1m",
+            interval=_unit,
             limit=limit,
             startTime=int(k_start),
             endTime=int(k_start + (limit * 60000)),
@@ -99,6 +99,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "-e", "--end", help="end day to fetch klines for", required=False
     )
+    parser.add_argument(
+        "-u", "--unit", help="Unit to use 1m/5m/1h/1d", default="1m"
+    )
 
     args = parser.parse_args()
     s = args.start
@@ -108,6 +111,7 @@ if __name__ == "__main__":
     else:
         e = s
 
+    unit = args.unit
     start_dt = datetime.strptime(s, "%Y%m%d")
     end_dt = datetime.strptime(e, "%Y%m%d")
 
@@ -148,7 +152,7 @@ if __name__ == "__main__":
             print(f"getting klines for {ticker} on {day}")
 
             ticker_klines: list = []
-            for line in pull_klines(ticker, start, end):
+            for line in pull_klines(ticker, start, end, unit):
                 ticker_klines.append(line)
 
             if not ticker_klines:
