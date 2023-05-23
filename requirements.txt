@@ -40,7 +40,7 @@ pytz-deprecation-shim==0.1.0.post0
 PyYAML==6.0
 pyzmq==25.0.2
 regex==2023.3.23
-requests==2.29.0
+requests==2.31.0
 six==1.16.0
 sortedcontainers==2.4.0
 ta==0.10.2
