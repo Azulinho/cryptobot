@@ -455,17 +455,18 @@ class ProveBacktesting:
         """generate all coinfiles"""
 
         r: requests.Response = get_index_json(
-            f"{self.price_log_service_url}/index.json.gz"
+            f"{self.price_log_service_url}/index_v2.json.gz"
         )
         index: Any = json.loads(r.content)
+        index_dates = index["DATES"]
 
         next_run_coins: Dict[str, Any] = self.filter_on_avail_days_with_log(
-            dates, index
+            dates, index_dates
         )
 
         if self.enable_new_listing_checks:
             next_run_coins = self.filter_on_coins_with_min_age_logs(
-                index, dates[-1], next_run_coins
+                index_dates, dates[-1], next_run_coins
             )
         for coin, _price_logs in next_run_coins.items():
             self.write_single_coin_config(coin, _price_logs, thisrun)

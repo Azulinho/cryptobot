@@ -311,9 +311,11 @@ function github_actions_ci_pr_docker_tests() {
 		cat tests/price.log.gz | grep BTCUSDT | grep 2021-12-${ta}  |gzip -1 > log/BTCUSDT/202112${ta}.log.gz
 	done
 	cp tests/index.json.gz log/
+	cp tests/index_v2.json.gz log/
 
 	export PRICE_LOG_PORT=$( cat ${STATE_DIR}/.price_log_service.port)
 	curl --output /dev/null http://${DOCKER_IP}:${PRICE_LOG_PORT}/index.json.gz
+	curl --output /dev/null http://${DOCKER_IP}:${PRICE_LOG_PORT}/index_v2.json.gz
 
 	echo BuyMoonSellRecoveryStrategy.yaml
 	cp tests/BuyMoonSellRecoveryStrategy.yaml configs/
