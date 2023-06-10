@@ -358,7 +358,7 @@ function github_actions_ci_pr_docker_tests() {
 		TAG=pr CONFIG_FILE=prove-backtesting.yaml
 
 	wc -l results/prove-backtesting.prove-backtesting.yaml.txt \
-		| grep '29'
+		| grep '44'
 
 	for ta in 01 02 03 04 05 06 07 08 09
 	do
