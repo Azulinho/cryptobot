@@ -777,12 +777,6 @@ if __name__ == "__main__":
         price_logs = pv.generate_price_log_list(rollforward_dates)
         tickers = pv.gather_best_results_from_backtesting_log("coincfg")
 
-        # if our backtesting gave us no tickers,
-        # we'll skip this forward testing run
-        if not tickers:
-            log_msg("forwardtesting config contains no tickers, skipping run")
-            continue
-
         log_msg(
             f"now forwardtesting {rollforward_dates[0]}...{rollforward_dates[-1]}"
         )
