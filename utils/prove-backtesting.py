@@ -16,10 +16,10 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 import pandas as pd
 import requests
 import yaml
-from tenacity import retry, wait_exponential
+from tenacity import retry, wait_fixed, stop_after_delay
 
 
-@retry(wait=wait_exponential(multiplier=2, min=1, max=30))
+@retry(wait=wait_fixed(2), stop=stop_after_delay(10))
 def get_index_json(query: str) -> requests.Response:
     """retry wrapper for requests calls"""
     response: requests.Response = requests.get(query, timeout=5)

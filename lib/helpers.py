@@ -11,7 +11,7 @@ from time import sleep, time
 import udatetime
 from binance.client import Client
 from filelock import SoftFileLock
-from tenacity import retry, wait_exponential
+from tenacity import retry, wait_fixed, stop_after_delay
 
 
 def mean(values: list[float]) -> float:
@@ -44,7 +44,7 @@ def c_from_timestamp(date: float) -> datetime:
     return datetime.fromtimestamp(date)
 
 
-@retry(wait=wait_exponential(multiplier=1, max=3))
+@retry(wait=wait_fixed(2), stop=stop_after_delay(10))
 def cached_binance_client(access_key: str, secret_key: str) -> Client:
     """retry wrapper for binance client first call"""
 
