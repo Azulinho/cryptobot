@@ -558,7 +558,6 @@ class Bot:
         if coin.symbol not in self.wallet:
             return False
 
-        coins_before_sale = len(self.wallet)
         # in backtesting mode, we never place sell orders on binance
         if self.mode in ["testnet", "live"]:
             if not self.place_sell_order(coin):
@@ -618,11 +617,7 @@ class Bot:
         # we may not want to do this, as the price might have moved further than
         # we wanted and no longer be a suitable buy.
         self.clear_coin_stats(coin)
-        # to make our bot behave as closely as a backtesting run for a single coin
-        # we only clean stats when we have used all the slots. This will allow
-        # the bot to 'follow' the market.
-        if coins_before_sale == self.max_coins:
-            self.clear_all_coins_stats()
+        self.clear_all_coins_stats()
 
         exposure: float = self.calculates_exposure()
         logging.info(
