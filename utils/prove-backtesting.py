@@ -325,6 +325,10 @@ class ProveBacktesting:
         z: Dict[str, Any] = x | _tickers
         _tickers = z
 
+        # override HARD_LIMIT_HOLDING_TIME to 1d
+        for k in _tickers.keys():
+            _tickers[k]["HARD_LIMIT_HOLDING_TIME"] = 86400
+
         tmpl: Template = Template(
             """{
         "CLEAR_COIN_STATS_AT_BOOT": $CLEAR_COIN_STATS_AT_BOOT,
