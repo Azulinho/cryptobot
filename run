@@ -14,7 +14,7 @@ function usage() {
 	echo "./run config-endpoint-service BIND=0.0.0.0 CONFIG_FILE=myconfig.yaml"
 	echo "./run klines-caching-service BIND=0.0.0.0"
 	echo "./run price_log_service BIND=0.0.0.0"
-	echo "./run download_price_logs FROM=20220101 TO=20220131"
+	echo "./run download_price_logs FROM=20220101 TO=20220131 UNIT=1m"
 }
 
 function free_port () { # looks for a free TCP port
@@ -72,6 +72,10 @@ function download_price_logs() { # downloads klines logs fro binance
 		exit 1
 	fi
 
+	if [ -z "$UNIT" ]; then
+		export UNIT="1m"
+	fi
+
 	docker run --rm \
 		${USE_TTY} \
 		${DOCKER_RUN_AS} \
@@ -81,7 +85,7 @@ function download_price_logs() { # downloads klines logs fro binance
 		${RUN_IN_BACKGROUND} \
 		${IMAGE}:${TAG} \
     /cryptobot/.venv/bin/python -u  /cryptobot/utils/pull_klines.py \
-		-s ${FROM} -e ${TO}
+		-s ${FROM} -e ${TO} -u ${UNIT}
 }
 
 function docker_network() { # creates a docker network
