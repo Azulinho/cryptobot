@@ -14,7 +14,7 @@ function usage() {
 	echo "./run config-endpoint-service BIND=0.0.0.0 CONFIG_FILE=myconfig.yaml"
 	echo "./run klines-caching-service BIND=0.0.0.0"
 	echo "./run price_log_service BIND=0.0.0.0"
-	echo "./run download_price_logs FROM=20220101 TO=20220131"
+	echo "./run download_price_logs FROM=20220101 TO=20220131 UNIT=1m"
 }
 
 function free_port () { # looks for a free TCP port
@@ -72,6 +72,10 @@ function download_price_logs() { # downloads klines logs fro binance
 		exit 1
 	fi
 
+	if [ -z "$UNIT" ]; then
+		export UNIT="1m"
+	fi
+
 	docker run --rm \
 		${USE_TTY} \
 		${DOCKER_RUN_AS} \
@@ -81,7 +85,7 @@ function download_price_logs() { # downloads klines logs fro binance
 		${RUN_IN_BACKGROUND} \
 		${IMAGE}:${TAG} \
     /cryptobot/.venv/bin/python -u  /cryptobot/utils/pull_klines.py \
-		-s ${FROM} -e ${TO}
+		-s ${FROM} -e ${TO} -u ${UNIT}
 }
 
 function docker_network() { # creates a docker network
@@ -307,9 +311,11 @@ function github_actions_ci_pr_docker_tests() {
 		cat tests/price.log.gz | grep BTCUSDT | grep 2021-12-${ta}  |gzip -1 > log/BTCUSDT/202112${ta}.log.gz
 	done
 	cp tests/index.json.gz log/
+	cp tests/index_v2.json.gz log/
 
 	export PRICE_LOG_PORT=$( cat ${STATE_DIR}/.price_log_service.port)
 	curl --output /dev/null http://${DOCKER_IP}:${PRICE_LOG_PORT}/index.json.gz
+	curl --output /dev/null http://${DOCKER_IP}:${PRICE_LOG_PORT}/index_v2.json.gz
 
 	echo BuyMoonSellRecoveryStrategy.yaml
 	cp tests/BuyMoonSellRecoveryStrategy.yaml configs/
@@ -352,7 +358,7 @@ function github_actions_ci_pr_docker_tests() {
 		TAG=pr CONFIG_FILE=prove-backtesting.yaml
 
 	wc -l results/prove-backtesting.prove-backtesting.yaml.txt \
-		| grep '29'
+		| grep '44'
 
 	for ta in 01 02 03 04 05 06 07 08 09
 	do

@@ -49,52 +49,86 @@ def daterange(date1, date2):
     return dates
 
 
-def generate_index(log_dir="log"):
-    """generates index.json with dates <- [coins]"""
+def gather_symbols_and_logs(log_dir="log") -> tuple[set[str], set[str]]:
+    """returns lists of symbols and dates"""
     date_list = set()
     symbols_list = set()
-    index = {}
 
     # gather all date.log.gz logs and
     # all symbol dirs
-    for item in sorted(os.listdir(log_dir)):
+    for dir_item in sorted(os.listdir(log_dir)):
         if (
-            os.path.isfile(f"{log_dir}/{item}")
-            and item.startswith("20")
-            and ".log." in item
+            os.path.isfile(f"{log_dir}/{dir_item}")
+            and dir_item.startswith("20")
+            and dir_item.endswith(".log.gz")
         ):
-            date = item.split(".")[0]
+            date: str = dir_item.split(".")[0]
             date_list.add(date)
-        if os.path.isdir(f"{log_dir}/{item}"):
-            symbols_list.add(item)
+        if os.path.isdir(f"{log_dir}/{dir_item}"):
+            symbols_list.add(dir_item)
+
+    return (set(symbols_list), set(date_list))
+
+
+def gather_symbols_per_date(
+    log_dir, symbols_list, date_list
+) -> dict[str, list[str]]:
+    """returns map of dates containing symbols available on that date"""
+    dates_idx: dict[str, list[str]] = {}
 
     # we'll store all symbol logs in each date
     for date in sorted(date_list):
-        index[date] = set()
+        if date not in dates_idx:
+            dates_idx[date] = []
 
-    # iterate over all the symbols and gather all the
-    # logfiles in in each one of those symbol dirs
     for _symbol in sorted(symbols_list):
-        logs = os.listdir(f"{log_dir}/{_symbol}")
+        logs: list[str] = os.listdir(f"{log_dir}/{_symbol}")
         for _log in sorted(logs):
             if not os.path.isfile(f"{log_dir}/{_symbol}/{_log}"):
                 continue
-            date = _log.split(".")[0]
-            index[date].add(_symbol)
+            _date: str = _log.split(".")[0]
+            dates_idx[_date].append(_symbol)
+    return dates_idx
 
-    tmp = index
-    index = {}
-    for date in tmp.keys():  # pylint: disable=C0206,C0201
-        index[date] = list(tmp[date])
+
+def generate_index(log_dir="log") -> None:
+    """generates index.json with dates <- [coins]"""
+
+    print("generating index...")
+    symbols_list, date_list = gather_symbols_and_logs(log_dir)
+
+    dates_index: dict[str, list[str]] = gather_symbols_per_date(
+        log_dir, symbols_list, date_list
+    )
+
+    # generate index_v1
+    print("writing index.json.gz...")
 
     with gzip.open(
         f"{log_dir}/index.json.gz", "wt", encoding="utf-8"
+    ) as index_json:
+        index_json.write(json.dumps(dates_index, indent=4))
+
+    # generate index_v2
+    print("generating index_v2.json.gz...")
+    index: dict[str, dict] = {"DATES": {}, "COINS": {}}
+    for date in dates_index.keys():  # pylint: disable=C0206,C0201
+        index["DATES"][date] = list(dates_index[date])
+
+    for _symbol in sorted(os.listdir(log_dir)):
+        if os.path.isdir(f"{log_dir}/{_symbol}"):
+            logs: list[str] = os.listdir(f"{log_dir}/{_symbol}")
+            index["COINS"][_symbol] = sorted(logs)
+
+    print("writing index_v2.json.gz...")
+    with gzip.open(
+        f"{log_dir}/index_v2.json.gz", "wt", encoding="utf-8"
     ) as index_json:
         index_json.write(json.dumps(index, indent=4))
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    parser: argparse.ArgumentParser = argparse.ArgumentParser()
     parser.add_argument("-s", "--start", help="start day to fetch klines for")
     parser.add_argument(
         "-e", "--end", help="end day to fetch klines for", required=False

@@ -16,10 +16,10 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 import pandas as pd
 import requests
 import yaml
-from tenacity import retry, wait_exponential
+from tenacity import retry, wait_fixed, stop_after_delay
 
 
-@retry(wait=wait_exponential(multiplier=2, min=1, max=30))
+@retry(wait=wait_fixed(2), stop=stop_after_delay(10))
 def get_index_json(query: str) -> requests.Response:
     """retry wrapper for requests calls"""
     response: requests.Response = requests.get(query, timeout=5)
@@ -455,17 +455,18 @@ class ProveBacktesting:
         """generate all coinfiles"""
 
         r: requests.Response = get_index_json(
-            f"{self.price_log_service_url}/index.json.gz"
+            f"{self.price_log_service_url}/index_v2.json.gz"
         )
         index: Any = json.loads(r.content)
+        index_dates = index["DATES"]
 
         next_run_coins: Dict[str, Any] = self.filter_on_avail_days_with_log(
-            dates, index
+            dates, index_dates
         )
 
         if self.enable_new_listing_checks:
             next_run_coins = self.filter_on_coins_with_min_age_logs(
-                index, dates[-1], next_run_coins
+                index_dates, dates[-1], next_run_coins
             )
         for coin, _price_logs in next_run_coins.items():
             self.write_single_coin_config(coin, _price_logs, thisrun)
@@ -775,12 +776,6 @@ if __name__ == "__main__":
         rollforward_dates: List[str] = pv.rollforward_dates_from(date)
         price_logs = pv.generate_price_log_list(rollforward_dates)
         tickers = pv.gather_best_results_from_backtesting_log("coincfg")
-
-        # if our backtesting gave us no tickers,
-        # we'll skip this forward testing run
-        if not tickers:
-            log_msg("forwardtesting config contains no tickers, skipping run")
-            continue
 
         log_msg(
             f"now forwardtesting {rollforward_dates[0]}...{rollforward_dates[-1]}"
