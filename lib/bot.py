@@ -1298,15 +1298,21 @@ class Bot:
 
             logging.warning(f"coins contains {str(self.coins.keys())}")
 
-        # sync our coins state with the list of coins we want to use.
-        # but keep using coins we currently have on our wallet
-        coins_to_remove: List[str] = []
-        for coin in self.coins:
-            if coin not in self.tickers and coin not in self.wallet:
-                coins_to_remove.append(coin)
+        # in backtesting, and mostly in a backtesting run from a prove-backtesting
+        # session. We load up the coin/wallet json files from tmp.
+        # in this scenario, we want to soak up all the coin files not just the
+        # ones we have in our tickets list. This is so that we have all the history
+        # we require to 'continue' our backtesting from 'where we left off'
+        if self.mode != "backtesting":
+            # sync our coins state with the list of coins we want to use.
+            # but keep using coins we currently have on our wallet
+            coins_to_remove: List[str] = []
+            for coin in self.coins:
+                if coin not in self.tickers and coin not in self.wallet:
+                    coins_to_remove.append(coin)
 
-        for coin in coins_to_remove:
-            del self.coins[coin]
+            for coin in coins_to_remove:
+                del self.coins[coin]
 
         # finally apply the current settings in the config file
         symbols: str = " ".join(self.coins.keys())
