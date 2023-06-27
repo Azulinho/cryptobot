@@ -1511,8 +1511,6 @@ class Bot:
         # TODO: rework this, generate a binance_data blob to pass to
         # init_or_update_coin()
         if symbol not in self.coins:
-            if symbol not in self.tickers:
-                return
             if not symbol.endswith(self.cfg["PAIRING"]):
                 return
 
