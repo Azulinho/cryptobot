@@ -1948,11 +1948,70 @@ class Bot:
             pp: pprint.PrettyPrinter = pprint.PrettyPrinter(indent=4)
             pp.pprint(self.tickers)
             self.pull_config_md5 = r["md5"]
-            # clean old coins data, or we will get errors later on
+            # fix old coins data, or we will get errors later on
             symbols: List[str] = list(self.coins.keys())
             for symbol in symbols:
                 if symbol not in self.tickers.keys():
-                    del self.coins[symbol]
+                    market_price = self.coins[symbol].price
+                    self.coins[symbol] = Coin(
+                        symbol,
+                        udatetime.now().timestamp(),
+                        market_price,
+                        buy_at=float(
+                            get_ticker_with_default(
+                                self.tickers, symbol, "BUY_AT_PERCENTAGE"
+                            )
+                        ),
+                        sell_at=float(
+                            get_ticker_with_default(
+                                self.tickers, symbol, "SELL_AT_PERCENTAGE"
+                            )
+                        ),
+                        stop_loss=float(
+                            get_ticker_with_default(
+                                self.tickers, symbol, "STOP_LOSS_AT_PERCENTAGE"
+                            )
+                        ),
+                        trail_target_sell_percentage=float(
+                            get_ticker_with_default(
+                                self.tickers,
+                                symbol,
+                                "TRAIL_TARGET_SELL_PERCENTAGE",
+                            )
+                        ),
+                        trail_recovery_percentage=float(
+                            get_ticker_with_default(
+                                self.tickers,
+                                symbol,
+                                "TRAIL_RECOVERY_PERCENTAGE",
+                            )
+                        ),
+                        soft_limit_holding_time=int(
+                            get_ticker_with_default(
+                                self.tickers, symbol, "SOFT_LIMIT_HOLDING_TIME"
+                            )
+                        ),
+                        hard_limit_holding_time=int(
+                            get_ticker_with_default(
+                                self.tickers, symbol, "HARD_LIMIT_HOLDING_TIME"
+                            )
+                        ),
+                        naughty_timeout=int(
+                            get_ticker_with_default(
+                                self.tickers, symbol, "NAUGHTY_TIMEOUT"
+                            )
+                        ),
+                        klines_trend_period=get_ticker_with_default(
+                            self.tickers, symbol, "KLINES_TREND_PERIOD"
+                        ),
+                        klines_slice_percentage_change=float(
+                            get_ticker_with_default(
+                                self.tickers,
+                                symbol,
+                                "KLINES_SLICE_PERCENTAGE_CHANGE",
+                            )
+                        ),
+                    )
             # we now need to update the config file, so that when we restart
             # the bot will have access to all the ticker info on any coins
             # it might be holding
