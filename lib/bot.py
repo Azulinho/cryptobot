@@ -6,7 +6,7 @@ import logging
 import pprint
 from datetime import datetime
 from functools import lru_cache
-from os import fsync, unlink
+from os import fsync, unlink, rename
 from os.path import basename, exists
 from time import sleep
 from typing import Any, Dict, List, Tuple
@@ -1244,10 +1244,11 @@ class Bot:
                     # corrupt the live .pickle files.
                     # in case or corruption, simply copy the .backup files over
                     # the .pickle files.
-                    with open(f"{statefile}.backup", "wb") as b:
+                    with open(f"{statefile}.tmp", "wb") as b:
                         b.write(f.read())
                         b.flush()
                         fsync(b.fileno())
+                    rename(f"{statefile}.tmp", f"{statefile}.backup")
 
         # convert .pyobject to a .json compatible format
         with open(state_coins, "wt") as f:
