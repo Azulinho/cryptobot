@@ -1780,6 +1780,7 @@ class Bot:
         data: Dict[str, Dict[str, List[List[float]]]] = {}
         # fetch all the available klines for this coin, for the last
         # 60min, 24h, and 1000 days
+        logging.debug("calling klines_caching_service_url")
         response: requests.Response = requests.get(
             self.klines_caching_service_url
             + f"?symbol={coin.symbol}"
@@ -1790,10 +1791,12 @@ class Bot:
         )
         data = response.json()
         if data:
+            logging.debug("klines_caching_service_url reponse: ok")
             ok = True
             coin.lowest = data["lowest"]
             coin.averages = data["averages"]
             coin.highest = data["highest"]
+            logging.debug(f"klines_caching_service_url reponse: {data}")
 
         return ok
 
