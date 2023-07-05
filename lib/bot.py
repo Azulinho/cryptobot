@@ -1460,6 +1460,12 @@ class Bot:
                     + f"TTS:-{(100 - self.coins[symbol].trail_target_sell_percentage):.3f}% "
                     + f"LP:{self.coins[symbol].min:.3f} "
                 )
+
+            # let me know if our coin state is not clean
+            for symbol in self.coins.keys():  # pylint: disable=C0206,C0201
+                if self.coins[symbol].status:
+                    logging.info(f"{symbol}: {self.coins[symbol].status}")
+
             # make sure we unset .quit if its set from a previous run
             self.quit = False
 
