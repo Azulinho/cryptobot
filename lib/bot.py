@@ -6,7 +6,7 @@ import logging
 import pprint
 from datetime import datetime
 from functools import lru_cache
-from os import fsync, unlink
+from os import fsync, unlink, rename
 from os.path import basename, exists
 from time import sleep
 from typing import Any, Dict, List, Tuple
@@ -31,6 +31,33 @@ from lib.helpers import (
 
 rate = RequestRate(600, Duration.MINUTE)  # 600 requests per minute
 limiter = Limiter(rate)
+
+
+def get_ticker_with_default(tickers, symbol, key) -> str:
+    """returns ticker values with default if symbol doesn't exist"""
+
+    if symbol not in tickers:
+        if key == "BUY_AT_PERCENTAGE":
+            return "-99999999"
+        if key == "SELL_AT_PERCENTAGE":
+            return "+99999999"
+        if key == "STOP_LOSS_AT_PERCENTAGE":
+            return "-99999999"
+        if key == "TRAIL_TARGET_SELL_PERCENTAGE":
+            return "-1"
+        if key == "TRAIL_RECOVERY_PERCENTAGE":
+            return "-1"
+        if key == "SOFT_LIMIT_HOLDING_TIME":
+            return "99999999999999"
+        if key == "HARD_LIMIT_HOLDING_TIME":
+            return "999999999999999999999"
+        if key == "NAUGHTY_TIMEOUT":
+            return "999999999999999999"
+        if key == "KLINES_TREND_PERIOD":
+            return "3d"
+        if key == "KLINES_SLICE_PERCENTAGE_CHANGE":
+            return "+99999999"
+    return str(tickers[symbol][key])
 
 
 class Bot:
@@ -770,27 +797,53 @@ class Bot:
                 symbol,
                 udatetime.now().timestamp(),
                 market_price,
-                buy_at=self.tickers[symbol]["BUY_AT_PERCENTAGE"],
-                sell_at=self.tickers[symbol]["SELL_AT_PERCENTAGE"],
-                stop_loss=self.tickers[symbol]["STOP_LOSS_AT_PERCENTAGE"],
-                trail_target_sell_percentage=self.tickers[symbol][
-                    "TRAIL_TARGET_SELL_PERCENTAGE"
-                ],
-                trail_recovery_percentage=self.tickers[symbol][
-                    "TRAIL_RECOVERY_PERCENTAGE"
-                ],
-                soft_limit_holding_time=self.tickers[symbol][
-                    "SOFT_LIMIT_HOLDING_TIME"
-                ],
-                hard_limit_holding_time=self.tickers[symbol][
-                    "HARD_LIMIT_HOLDING_TIME"
-                ],
-                naughty_timeout=self.tickers[symbol]["NAUGHTY_TIMEOUT"],
-                klines_trend_period=self.tickers[symbol][
-                    "KLINES_TREND_PERIOD"
-                ],
+                buy_at=float(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "BUY_AT_PERCENTAGE"
+                    )
+                ),
+                sell_at=float(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "SELL_AT_PERCENTAGE"
+                    )
+                ),
+                stop_loss=float(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "STOP_LOSS_AT_PERCENTAGE"
+                    )
+                ),
+                trail_target_sell_percentage=float(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "TRAIL_TARGET_SELL_PERCENTAGE"
+                    )
+                ),
+                trail_recovery_percentage=float(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "TRAIL_RECOVERY_PERCENTAGE"
+                    )
+                ),
+                soft_limit_holding_time=int(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "SOFT_LIMIT_HOLDING_TIME"
+                    )
+                ),
+                hard_limit_holding_time=int(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "HARD_LIMIT_HOLDING_TIME"
+                    )
+                ),
+                naughty_timeout=int(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "NAUGHTY_TIMEOUT"
+                    )
+                ),
+                klines_trend_period=get_ticker_with_default(
+                    self.tickers, symbol, "KLINES_TREND_PERIOD"
+                ),
                 klines_slice_percentage_change=float(
-                    self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"]
+                    get_ticker_with_default(
+                        self.tickers, symbol, "KLINES_SLICE_PERCENTAGE_CHANGE"
+                    )
                 ),
             )
             # fetch all the available klines for this coin, for the last
@@ -818,11 +871,7 @@ class Bot:
             if self.mode not in ["live", "backtesting", "testnet"]:
                 continue
 
-            # TODO: revisit this, as this function is only called in
-            # live, testnet and logmode. And the within this function, we
-            # expect to process all the coins.
-            # don't process any coins which we don't have in our config
-            if coin_symbol not in self.tickers:
+            if not coin_symbol.endswith(self.pairing):
                 continue
 
             # TODO: revisit this as the function below expects to process all
@@ -982,7 +1031,9 @@ class Bot:
             coin.naughty_date = coin.date
             # and set the chill-out period as we've defined in our config.
             coin.naughty_timeout = int(
-                self.tickers[coin.symbol]["NAUGHTY_TIMEOUT"]
+                get_ticker_with_default(
+                    self.tickers, coin.symbol, "NAUGHTY_TIMEOUT"
+                )
             )
             if self.stop_bot_on_stale:
                 # STOP_BOT_ON_STALE is set, set a STOP flag to stop the bot
@@ -1127,19 +1178,39 @@ class Bot:
 
         coin.holding_time = 1
         coin.buy_at_percentage = add_100(
-            float(self.tickers[coin.symbol]["BUY_AT_PERCENTAGE"])
+            float(
+                get_ticker_with_default(
+                    self.tickers, coin.symbol, "BUY_AT_PERCENTAGE"
+                )
+            )
         )
         coin.sell_at_percentage = add_100(
-            float(self.tickers[coin.symbol]["SELL_AT_PERCENTAGE"])
+            float(
+                get_ticker_with_default(
+                    self.tickers, coin.symbol, "SELL_AT_PERCENTAGE"
+                )
+            )
         )
         coin.stop_loss_at_percentage = add_100(
-            float(self.tickers[coin.symbol]["STOP_LOSS_AT_PERCENTAGE"])
+            float(
+                get_ticker_with_default(
+                    self.tickers, coin.symbol, "STOP_LOSS_AT_PERCENTAGE"
+                )
+            )
         )
         coin.trail_target_sell_percentage = add_100(
-            float(self.tickers[coin.symbol]["TRAIL_TARGET_SELL_PERCENTAGE"])
+            float(
+                get_ticker_with_default(
+                    self.tickers, coin.symbol, "TRAIL_TARGET_SELL_PERCENTAGE"
+                )
+            )
         )
         coin.trail_recovery_percentage = add_100(
-            float(self.tickers[coin.symbol]["TRAIL_RECOVERY_PERCENTAGE"])
+            float(
+                get_ticker_with_default(
+                    self.tickers, coin.symbol, "TRAIL_RECOVERY_PERCENTAGE"
+                )
+            )
         )
         coin.bought_at = float(0)
         coin.dip = float(0)
@@ -1173,10 +1244,11 @@ class Bot:
                     # corrupt the live .pickle files.
                     # in case or corruption, simply copy the .backup files over
                     # the .pickle files.
-                    with open(f"{statefile}.backup", "wb") as b:
+                    with open(f"{statefile}.tmp", "wb") as b:
                         b.write(f.read())
                         b.flush()
                         fsync(b.fileno())
+                    rename(f"{statefile}.tmp", f"{statefile}.backup")
 
         # convert .pyobject to a .json compatible format
         with open(state_coins, "wt") as f:
@@ -1284,64 +1356,78 @@ class Bot:
             with open(coins_state_file, "rt") as f:
                 objects: dict[str, Any] = dict(json.loads(f.read()))
                 for symbol in objects.keys():  # pylint: disable=C0206
-                    # discard any coins for which we don't have tickers info
-                    # if we don't, init_or_update_coin() would raise and error
-                    # as we would be missing the BUY/SELL percentages
-                    if symbol in self.tickers:
-                        self.init_or_update_coin(
-                            objects[symbol], load_klines=load_klines
-                        )
+                    self.init_or_update_coin(
+                        objects[symbol], load_klines=load_klines
+                    )
 
-                        # pylint: disable=consider-using-dict-items
-                        for k, v in objects[symbol].items():
-                            setattr(self.coins[symbol], k, v)
+                    # pylint: disable=consider-using-dict-items
+                    for k, v in objects[symbol].items():
+                        setattr(self.coins[symbol], k, v)
 
             logging.warning(f"coins contains {str(self.coins.keys())}")
-
-        # sync our coins state with the list of coins we want to use.
-        # but keep using coins we currently have on our wallet
-        coins_to_remove: List[str] = []
-        for coin in self.coins:
-            if coin not in self.tickers and coin not in self.wallet:
-                coins_to_remove.append(coin)
-
-        for coin in coins_to_remove:
-            del self.coins[coin]
 
         # finally apply the current settings in the config file
         symbols: str = " ".join(self.coins.keys())
         logging.warning(f"overriding values from config for: {symbols}")
         for symbol in self.coins:  # pylint: disable=C0206
             self.coins[symbol].buy_at_percentage = add_100(
-                self.tickers[symbol]["BUY_AT_PERCENTAGE"]
+                get_ticker_with_default(
+                    self.tickers, symbol, "BUY_AT_PERCENTAGE"
+                )
             )
+
             self.coins[symbol].sell_at_percentage = add_100(
-                self.tickers[symbol]["SELL_AT_PERCENTAGE"]
+                get_ticker_with_default(
+                    self.tickers, symbol, "SELL_AT_PERCENTAGE"
+                )
             )
+
             self.coins[symbol].stop_loss_at_percentage = add_100(
-                self.tickers[symbol]["STOP_LOSS_AT_PERCENTAGE"]
+                get_ticker_with_default(
+                    self.tickers, symbol, "STOP_LOSS_AT_PERCENTAGE"
+                )
             )
+
             self.coins[symbol].soft_limit_holding_time = int(
-                self.tickers[symbol]["SOFT_LIMIT_HOLDING_TIME"]
+                get_ticker_with_default(
+                    self.tickers, symbol, "SOFT_LIMIT_HOLDING_TIME"
+                )
             )
+
             self.coins[symbol].hard_limit_holding_time = int(
-                self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"]
+                get_ticker_with_default(
+                    self.tickers, symbol, "HARD_LIMIT_HOLDING_TIME"
+                )
             )
+
             self.coins[symbol].trail_target_sell_percentage = add_100(
-                self.tickers[symbol]["TRAIL_TARGET_SELL_PERCENTAGE"]
+                get_ticker_with_default(
+                    self.tickers, symbol, "TRAIL_TARGET_SELL_PERCENTAGE"
+                )
             )
+
             self.coins[symbol].trail_recovery_percentage = add_100(
-                self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"]
+                get_ticker_with_default(
+                    self.tickers, symbol, "TRAIL_RECOVERY_PERCENTAGE"
+                )
             )
+
             self.coins[symbol].klines_trend_period = str(
-                self.tickers[symbol]["KLINES_TREND_PERIOD"]
+                get_ticker_with_default(
+                    self.tickers, symbol, "KLINES_TREND_PERIOD"
+                )
             )
+
             self.coins[symbol].klines_slice_percentage_change = float(
-                self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"]
+                get_ticker_with_default(
+                    self.tickers, symbol, "KLINES_SLICE_PERCENTAGE_CHANGE"
+                )
             )
 
             self.coins[symbol].naughty_timeout = int(
-                self.tickers[symbol]["NAUGHTY_TIMEOUT"]
+                get_ticker_with_default(
+                    self.tickers, symbol, "NAUGHTY_TIMEOUT"
+                )
             )
 
         # log some info on the coins in our wallet at boot
@@ -1374,6 +1460,12 @@ class Bot:
                     + f"TTS:-{(100 - self.coins[symbol].trail_target_sell_percentage):.3f}% "
                     + f"LP:{self.coins[symbol].min:.3f} "
                 )
+
+            # let me know if our coin state is not clean
+            for symbol in self.coins.keys():  # pylint: disable=C0206,C0201
+                if self.coins[symbol].status:
+                    logging.info(f"{symbol}: {self.coins[symbol].status}")
+
             # make sure we unset .quit if its set from a previous run
             self.quit = False
 
@@ -1505,8 +1597,6 @@ class Bot:
         # TODO: rework this, generate a binance_data blob to pass to
         # init_or_update_coin()
         if symbol not in self.coins:
-            if symbol not in self.tickers:
-                return
             if not symbol.endswith(self.cfg["PAIRING"]):
                 return
 
@@ -1523,17 +1613,58 @@ class Bot:
                 symbol,
                 float(date),
                 float(market_price),
-                float(self.tickers[symbol]["BUY_AT_PERCENTAGE"]),
-                float(self.tickers[symbol]["SELL_AT_PERCENTAGE"]),
-                float(self.tickers[symbol]["STOP_LOSS_AT_PERCENTAGE"]),
-                float(self.tickers[symbol]["TRAIL_TARGET_SELL_PERCENTAGE"]),
-                float(self.tickers[symbol]["TRAIL_RECOVERY_PERCENTAGE"]),
-                int(self.tickers[symbol]["SOFT_LIMIT_HOLDING_TIME"]),
-                int(self.tickers[symbol]["HARD_LIMIT_HOLDING_TIME"]),
-                int(self.tickers[symbol]["NAUGHTY_TIMEOUT"]),
-                str(self.tickers[symbol]["KLINES_TREND_PERIOD"]),
-                float(self.tickers[symbol]["KLINES_SLICE_PERCENTAGE_CHANGE"]),
+                float(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "BUY_AT_PERCENTAGE"
+                    )
+                ),
+                float(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "SELL_AT_PERCENTAGE"
+                    )
+                ),
+                float(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "STOP_LOSS_AT_PERCENTAGE"
+                    )
+                ),
+                float(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "TRAIL_TARGET_SELL_PERCENTAGE"
+                    )
+                ),
+                float(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "TRAIL_RECOVERY_PERCENTAGE"
+                    )
+                ),
+                int(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "SOFT_LIMIT_HOLDING_TIME"
+                    )
+                ),
+                int(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "HARD_LIMIT_HOLDING_TIME"
+                    )
+                ),
+                int(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "NAUGHTY_TIMEOUT"
+                    )
+                ),
+                str(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "KLINES_TREND_PERIOD"
+                    )
+                ),
+                float(
+                    get_ticker_with_default(
+                        self.tickers, symbol, "KLINES_SLICE_PERCENTAGE_CHANGE"
+                    )
+                ),
             )
+
             if self.check_for_delisted_coin(symbol):
                 return
         else:
@@ -1655,6 +1786,7 @@ class Bot:
         data: Dict[str, Dict[str, List[List[float]]]] = {}
         # fetch all the available klines for this coin, for the last
         # 60min, 24h, and 1000 days
+        logging.debug("calling klines_caching_service_url")
         response: requests.Response = requests.get(
             self.klines_caching_service_url
             + f"?symbol={coin.symbol}"
@@ -1665,10 +1797,12 @@ class Bot:
         )
         data = response.json()
         if data:
+            logging.debug("klines_caching_service_url reponse: ok")
             ok = True
             coin.lowest = data["lowest"]
             coin.averages = data["averages"]
             coin.highest = data["highest"]
+            logging.debug(f"klines_caching_service_url reponse: {data}")
 
         return ok
 
@@ -1804,11 +1938,70 @@ class Bot:
             pp: pprint.PrettyPrinter = pprint.PrettyPrinter(indent=4)
             pp.pprint(self.tickers)
             self.pull_config_md5 = r["md5"]
-            # clean old coins data, or we will get errors later on
+            # fix old coins data, or we will get errors later on
             symbols: List[str] = list(self.coins.keys())
             for symbol in symbols:
                 if symbol not in self.tickers.keys():
-                    del self.coins[symbol]
+                    market_price = self.coins[symbol].price
+                    self.coins[symbol] = Coin(
+                        symbol,
+                        udatetime.now().timestamp(),
+                        market_price,
+                        buy_at=float(
+                            get_ticker_with_default(
+                                self.tickers, symbol, "BUY_AT_PERCENTAGE"
+                            )
+                        ),
+                        sell_at=float(
+                            get_ticker_with_default(
+                                self.tickers, symbol, "SELL_AT_PERCENTAGE"
+                            )
+                        ),
+                        stop_loss=float(
+                            get_ticker_with_default(
+                                self.tickers, symbol, "STOP_LOSS_AT_PERCENTAGE"
+                            )
+                        ),
+                        trail_target_sell_percentage=float(
+                            get_ticker_with_default(
+                                self.tickers,
+                                symbol,
+                                "TRAIL_TARGET_SELL_PERCENTAGE",
+                            )
+                        ),
+                        trail_recovery_percentage=float(
+                            get_ticker_with_default(
+                                self.tickers,
+                                symbol,
+                                "TRAIL_RECOVERY_PERCENTAGE",
+                            )
+                        ),
+                        soft_limit_holding_time=int(
+                            get_ticker_with_default(
+                                self.tickers, symbol, "SOFT_LIMIT_HOLDING_TIME"
+                            )
+                        ),
+                        hard_limit_holding_time=int(
+                            get_ticker_with_default(
+                                self.tickers, symbol, "HARD_LIMIT_HOLDING_TIME"
+                            )
+                        ),
+                        naughty_timeout=int(
+                            get_ticker_with_default(
+                                self.tickers, symbol, "NAUGHTY_TIMEOUT"
+                            )
+                        ),
+                        klines_trend_period=get_ticker_with_default(
+                            self.tickers, symbol, "KLINES_TREND_PERIOD"
+                        ),
+                        klines_slice_percentage_change=float(
+                            get_ticker_with_default(
+                                self.tickers,
+                                symbol,
+                                "KLINES_SLICE_PERCENTAGE_CHANGE",
+                            )
+                        ),
+                    )
             # we now need to update the config file, so that when we restart
             # the bot will have access to all the ticker info on any coins
             # it might be holding
