@@ -696,11 +696,6 @@ class ProveBacktesting:
         """runs optimized config"""
         with open(f"configs/optimized.{self.strategy}.yaml") as cf:
             _tickers: Dict[str, Any] = yaml.safe_load(cf.read())["TICKERS"]
-        if not _tickers:
-            log_msg(
-                f"automated-backtesting: no tickers in {self.strategy} yaml, skipping run"
-            )
-            return float(s_investment)
 
         wrap_subprocessing(f"optimized.{self.strategy}.yaml")
         with open(
