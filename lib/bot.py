@@ -264,6 +264,7 @@ class Bot:
                 return False
 
         # all our pre-conditions played out, now run the buy_strategy
+        logging.debug(f"running buy_strategy for {coin.symbol}")
         self.buy_strategy(coin)
         return True
 
@@ -765,8 +766,10 @@ class Bot:
     ) -> None:
         """creates a new coin or updates its price with latest binance data"""
         symbol = binance_data["symbol"]
+        logging.debug(f"init_or_update_coin: {symbol}")
 
         if symbol not in self.coins:
+            logging.debug(f"{symbol} not found in self.coins")
             market_price = float(binance_data["price"])
         else:
             if self.coins[symbol].status == "TARGET_DIP":
@@ -793,6 +796,7 @@ class Bot:
         #
         # init this coin if we are coming across it for the first time
         if symbol not in self.coins:
+            logging.debug(f"initializing {symbol}")
             self.coins[symbol] = Coin(
                 symbol,
                 udatetime.now().timestamp(),
@@ -1176,6 +1180,7 @@ class Bot:
         # past the SOFT_LIMIT_HOLDING_TIME. So we reset them back to the config
         # values here.
 
+        logging.debug(f"cleaning coin stats: {coin.symbol}")
         coin.holding_time = 1
         coin.buy_at_percentage = add_100(
             float(
@@ -1222,6 +1227,7 @@ class Bot:
         # reset the min, max prices so that the bot won't look at all time high
         # and instead use the values since the last sale.
         if self.clean_coin_stats_at_sale:
+            logging.debug(f"set min,max to current price: {coin.symbol}")
             coin.min = coin.price
             coin.max = coin.price
 
@@ -1238,6 +1244,7 @@ class Bot:
 
         for statefile in [state_coins, state_wallet]:
             if exists(statefile):
+                logging.debug(f"updating statefile {statefile}")
                 with open(statefile, "rb") as f:
                     # as these files are important to the bot, we keep a
                     # backup file in case there is a failure that could
@@ -1254,6 +1261,7 @@ class Bot:
         with open(state_coins, "wt") as f:
             objects: dict[str, Dict[str, Any]] = {}
             for symbol in self.coins.keys():  # pylint: disable=C0206,C0201
+                logging.debug(f"converting coin {symbol}")
                 # TODO: move this into a Coin.__to_dict method
                 objects[symbol] = {}
                 objects[symbol]["averages"] = self.coins[symbol].averages
@@ -1356,6 +1364,7 @@ class Bot:
             with open(coins_state_file, "rt") as f:
                 objects: dict[str, Any] = dict(json.loads(f.read()))
                 for symbol in objects.keys():  # pylint: disable=C0206
+                    logging.debug(f"loading {symbol} from coins.json")
                     self.init_or_update_coin(
                         objects[symbol], load_klines=load_klines
                     )
@@ -1930,6 +1939,7 @@ class Bot:
             for symbol in self.wallet:
                 # we need to make sure we maintain any tickers for coins we may
                 # have in our wallet.
+                logging.debug(f"keeping old tickers:{symbol} in self.wallet")
                 new_tickers[symbol] = self.tickers[symbol]
 
             self.tickers = new_tickers
@@ -1946,6 +1956,8 @@ class Bot:
             symbols: List[str] = list(self.coins.keys())
             for symbol in symbols:
                 if symbol not in self.tickers.keys():
+                    logging.debug(f"{symbol} not in tickers")
+                    logging.debug(f"adding {symbol} to tickers using defaults")
                     market_price = self.coins[symbol].price
                     self.coins[symbol] = Coin(
                         symbol,
