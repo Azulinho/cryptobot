@@ -239,7 +239,7 @@ class ProveBacktesting:
             c.write(
                 tmpl.substitute(
                     {
-                        "CLEAR_COIN_STATS_AT_BOOT": self.clear_coin_stats_at_boot,
+                        "CLEAR_COIN_STATS_AT_BOOT": True,
                         "CLEAR_COIN_STATS_AT_SALE": self.clear_coin_stats_at_sale,
                         "COIN": symbol,
                         "DEBUG": self.debug,
