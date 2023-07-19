@@ -1783,27 +1783,31 @@ class Bot:
         """fetches from binance or a local cache klines for a coin"""
 
         ok: bool = False
-        data: Dict[str, Dict[str, List[List[float]]]] = {}
-        # fetch all the available klines for this coin, for the last
-        # 60min, 24h, and 1000 days
-        logging.debug("calling klines_caching_service_url")
-        response: requests.Response = requests.get(
-            self.klines_caching_service_url
-            + f"?symbol={coin.symbol}"
-            + f"&date={coin.date}"
-            + f"&mode={self.mode}"
-            + f"&debug={self.debug}",
-            timeout=30,
-        )
-        data = response.json()
-        if data:
-            logging.debug("klines_caching_service_url reponse: ok")
-            ok = True
-            coin.lowest = data["lowest"]
-            coin.averages = data["averages"]
-            coin.highest = data["highest"]
-            logging.debug(f"klines_caching_service_url reponse: {data}")
-
+        try:
+            # fetch all the available klines for this coin, for the last
+            # 60min, 24h, and 1000 days
+            logging.debug("calling klines_caching_service_url")
+            response: requests.Response = requests.get(
+                self.klines_caching_service_url
+                + f"?symbol={coin.symbol}"
+                + f"&date={coin.date}"
+                + f"&mode={self.mode}"
+                + f"&debug={self.debug}",
+                timeout=30,
+            )
+            data: Dict[str, Dict[str, List[List[float]]]] = response.json()
+            if data:
+                logging.debug("klines_caching_service_url reponse: ok")
+                coin.lowest = data["lowest"]
+                coin.averages = data["averages"]
+                coin.highest = data["highest"]
+                logging.debug(f"klines_caching_service_url reponse: {data}")
+                ok = True
+        except Exception as error_msg:  # pylint: disable=broad-except
+            logging.warning(
+                f"Error calling klines_caching_serice {coin.symbol} {coin.date}"
+            )
+            logging.debug(f"Exception: {error_msg}")
         return ok
 
     @retry(wait=wait_exponential(multiplier=1, max=3))
