@@ -761,9 +761,15 @@ class TestBot:
 
     def test_run_stategy_gives_False_if_coin_not_in_tickers(self, bot, coin):
         bot.tickers = {}
+        bot.coins["BTCUSDT"] = coin
         assert bot.run_strategy(coin) is False
 
-    def test_run_stategy_gives_False_if_coin_is_naught(self, bot, coin):
+    def test_run_stategy_gives_False_if_coin_is_delisted(self, bot, coin):
+        coin.delisted = True
+        bot.coins["BTCUSDT"] = coin
+        bot.run_strategy(coin) is False
+
+    def test_run_stategy_gives_False_if_coin_is_naughty(self, bot, coin):
         coin.naughty = True
         bot.coins["BTCUSDT"] = coin
         bot.run_strategy(coin) is False

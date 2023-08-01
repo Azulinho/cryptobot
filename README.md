@@ -58,7 +58,6 @@ A python based trading bot for Binance, which relies heavily on backtesting.
 11. [Bot command center](#bot-command-center)
 12. [Development/New features](#development/new-features)
 
-
 ## Overview
 
 CryptoBot is a python based bot which relies heavily on automation and
@@ -891,6 +890,7 @@ SELL_AS_SOON_IT_DROPS: True
 When the price drops just below the *SELL_AT_PERCENTAGE* if this flag is
 enabled, the bot will sell the coin, instead of relying on the
 *TRAIL_TARGET_SELL_PERCENTAGE*
+
 
 ### DEBUG
 
