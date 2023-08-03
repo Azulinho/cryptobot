@@ -704,7 +704,7 @@ class ProveBacktesting:
             r = results_txt.read()
 
             end_investment = float(
-                re.findall(r"investment: start: .* end: (\d+\.?\d+)", r)[0]
+                re.findall(r"investment: start: .* end: (\d+\.?\d?)", r)[0]
             )
 
             _diff = str(int(100 - ((s_investment / end_investment) * 100)))
