@@ -233,6 +233,10 @@ class Bot:
         # reducing processing time. So we stop validating conditions as soon
         # they are not possible to occur in the chain that follows.
 
+        # skip any coins that were delisted
+        if self.coins[coin.symbol].delisted:
+            return False
+
         # the bot won't act on coins not listed on its config.
         if coin.symbol not in self.tickers:
             return False
@@ -851,10 +855,13 @@ class Bot:
             if load_klines:
                 self.load_klines_for_coin(self.coins[symbol])
         else:
-            # or simply update the coin with the latest price data
-            self.update(
-                self.coins[symbol], udatetime.now().timestamp(), market_price
-            )
+            if not self.coins[symbol].delisted:
+                # or simply update the coin with the latest price data
+                self.update(
+                    self.coins[symbol],
+                    udatetime.now().timestamp(),
+                    market_price,
+                )
 
     def process_coins(self) -> None:
         """processes all the prices returned by binance"""
@@ -1356,6 +1363,10 @@ class Bot:
             with open(coins_state_file, "rt") as f:
                 objects: dict[str, Any] = dict(json.loads(f.read()))
                 for symbol in objects.keys():  # pylint: disable=C0206
+                    # skip any coins that were marked as delisted in the json
+                    if "delisted" in objects[symbol].keys():
+                        if objects[symbol].delisted:
+                            continue
                     self.init_or_update_coin(
                         objects[symbol], load_klines=load_klines
                     )
@@ -1578,11 +1589,10 @@ class Bot:
         # as this will return a True
         if not self.load_klines_for_coin(self.coins[symbol]):
             # got no klines data on this coin, probably delisted
-            # will remove this coin from our ticker list
+            # will mark it as delisted
             if symbol not in self.wallet:
-                logging.warning(f"removing {symbol} from tickers")
-                del self.coins[symbol]
-                del self.tickers[symbol]
+                logging.warning(f"marking {symbol} as delisted")
+                self.coins[symbol].delisted = True
                 return True
         return False
 
@@ -1668,6 +1678,8 @@ class Bot:
             if self.check_for_delisted_coin(symbol):
                 return
         else:
+            if self.coins[symbol].delisted:
+                return
             # implements a PAUSE_FOR pause while reading from
             # our price logs.
             # we essentially skip a number of iterations between
@@ -1786,7 +1798,9 @@ class Bot:
         try:
             # fetch all the available klines for this coin, for the last
             # 60min, 24h, and 1000 days
-            logging.debug("calling klines_caching_service_url")
+            logging.debug(
+                f"calling klines_caching_service_url for {coin.symbol}"
+            )
             response: requests.Response = requests.get(
                 self.klines_caching_service_url
                 + f"?symbol={coin.symbol}"

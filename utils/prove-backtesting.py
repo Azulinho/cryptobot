@@ -239,7 +239,7 @@ class ProveBacktesting:
             c.write(
                 tmpl.substitute(
                     {
-                        "CLEAR_COIN_STATS_AT_BOOT": self.clear_coin_stats_at_boot,
+                        "CLEAR_COIN_STATS_AT_BOOT": True,
                         "CLEAR_COIN_STATS_AT_SALE": self.clear_coin_stats_at_sale,
                         "COIN": symbol,
                         "DEBUG": self.debug,
@@ -692,7 +692,7 @@ class ProveBacktesting:
             f"{self.strategy} best run {best_run} profit: {best_profit_in_runs:.3f}"
         )
 
-    def run_optimized_config(self, s_investment: float) -> float:
+    def run_optimized_config(self) -> float:
         """runs optimized config"""
         with open(f"configs/optimized.{self.strategy}.yaml") as cf:
             _tickers: Dict[str, Any] = yaml.safe_load(cf.read())["TICKERS"]
@@ -704,14 +704,11 @@ class ProveBacktesting:
             r = results_txt.read()
 
             end_investment = float(
-                re.findall(r"investment: start: .* end: (\d+\.?\d+)", r)[0]
+                re.findall(r"investment: start: .* end: (\d+\.?\d?)", r)[0]
             )
 
-            _diff = str(int(100 - ((s_investment / end_investment) * 100)))
-            if int(_diff) > 0:
-                _diff = f"+{_diff}"
             log_msg(
-                f" final investment for {self.strategy}: {str(end_investment)} {_diff}%"
+                f" final investment for {self.strategy}: {str(end_investment)}"
             )
 
         return end_investment
@@ -782,14 +779,13 @@ if __name__ == "__main__":
         pv.write_optimized_strategy_config(
             price_logs, tickers, starting_investment
         )
-        final_investment = pv.run_optimized_config(starting_investment)
+        final_investment = pv.run_optimized_config()
         starting_investment = final_investment
 
     log_msg("COMPLETED WITH RESULTS:")
-    diff = str(int(100 - ((pv.initial_investment / final_investment) * 100)))
-    if int(diff) > 0:
-        diff = f"+{diff}"
-    log_msg(f" {pv.strategy}: {final_investment} {diff}%")
+    log_msg(f" {pv.strategy}: {final_investment}")
     for f in glob.glob("tmp/*"):
+        os.remove(f)
+    for f in glob.glob("configs/coin.*.yaml"):
         os.remove(f)
     log_msg("PROVE-BACKTESTING: FINISHED")

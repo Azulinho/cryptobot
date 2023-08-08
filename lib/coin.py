@@ -106,3 +106,4 @@ class Coin:  # pylint: disable=too-few-public-methods
         self.naughty: bool = False
         # used in backtesting, the last read date, as the date in the price.log
         self.last_read_date: float = date
+        self.delisted: bool = False
