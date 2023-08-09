@@ -16,13 +16,13 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 import pandas as pd
 import requests
 import yaml
-from tenacity import retry, wait_fixed, stop_after_delay
+from tenacity import retry, wait_fixed, stop_after_attempt
 
 
-@retry(wait=wait_fixed(2), stop=stop_after_delay(10))
+@retry(wait=wait_fixed(30), stop=stop_after_attempt(3))
 def get_index_json(query: str) -> requests.Response:
     """retry wrapper for requests calls"""
-    response: requests.Response = requests.get(query, timeout=5)
+    response: requests.Response = requests.get(query, timeout=15)
     status: int = response.status_code
     if status != 200:
         with open("log/price_log_service.response.log", "at") as l:
@@ -117,6 +117,11 @@ class ProveBacktesting:
             self.from_date, self.end_date, self.roll_forward
         )
         self.sort_by: str = cfg["SORT_BY"]
+        self.index_json: Dict[str, Any] = json.loads(
+            get_index_json(
+                f"{self.price_log_service_url}/index_v2.json.gz"
+            ).content
+        )
 
     def check_for_invalid_values(self) -> None:
         """check for invalid values in the config"""
@@ -454,11 +459,7 @@ class ProveBacktesting:
     ) -> Set[str]:
         """generate all coinfiles"""
 
-        r: requests.Response = get_index_json(
-            f"{self.price_log_service_url}/index_v2.json.gz"
-        )
-        index: Any = json.loads(r.content)
-        index_dates = index["DATES"]
+        index_dates = self.index_json["DATES"]
 
         next_run_coins: Dict[str, Any] = self.filter_on_avail_days_with_log(
             dates, index_dates
