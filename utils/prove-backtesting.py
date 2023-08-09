@@ -607,7 +607,7 @@ class ProveBacktesting:
             "max_profit_on_clean_wins",
         ]:
             # drop any results containing losses, stales, or holds
-            if 0 not in [l, s, h] or w == 0:
+            if sum([l, s, h]) > 0 or w == 0:
                 return (False, {})
 
         blob: Dict[str, Any] = json.loads(_cfg)
