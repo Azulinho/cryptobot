@@ -117,6 +117,11 @@ class ProveBacktesting:
             self.from_date, self.end_date, self.roll_forward
         )
         self.sort_by: str = cfg["SORT_BY"]
+        self.index_json: Dict[str, Any] = json.loads(
+            get_index_json(
+                f"{self.price_log_service_url}/index_v2.json.gz"
+            ).content
+        )
 
     def check_for_invalid_values(self) -> None:
         """check for invalid values in the config"""
@@ -454,11 +459,7 @@ class ProveBacktesting:
     ) -> Set[str]:
         """generate all coinfiles"""
 
-        r: requests.Response = get_index_json(
-            f"{self.price_log_service_url}/index_v2.json.gz"
-        )
-        index: Any = json.loads(r.content)
-        index_dates = index["DATES"]
+        index_dates = self.index_json["DATES"]
 
         next_run_coins: Dict[str, Any] = self.filter_on_avail_days_with_log(
             dates, index_dates
