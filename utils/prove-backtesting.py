@@ -16,13 +16,13 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 import pandas as pd
 import requests
 import yaml
-from tenacity import retry, wait_fixed, stop_after_delay
+from tenacity import retry, wait_fixed, stop_after_attempt
 
 
-@retry(wait=wait_fixed(2), stop=stop_after_delay(10))
+@retry(wait=wait_fixed(30), stop=stop_after_attempt(3))
 def get_index_json(query: str) -> requests.Response:
     """retry wrapper for requests calls"""
-    response: requests.Response = requests.get(query, timeout=5)
+    response: requests.Response = requests.get(query, timeout=15)
     status: int = response.status_code
     if status != 200:
         with open("log/price_log_service.response.log", "at") as l:
