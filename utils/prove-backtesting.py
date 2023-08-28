@@ -74,7 +74,6 @@ class ProveBacktesting:
 
     def __init__(self, cfg: Dict[str, Any]) -> None:
         """init"""
-        self.min: float = float(cfg["MIN"])
         self.filter_by: str = cfg["FILTER_BY"]
         self.from_date: datetime = datetime.strptime(
             str(cfg["FROM_DATE"]), "%Y%m%d"
@@ -116,23 +115,18 @@ class ProveBacktesting:
         self.start_dates: List[str] = self.generate_start_dates(
             self.from_date, self.end_date, self.roll_forward
         )
-        self.sort_by: str = cfg["SORT_BY"]
+        self.min_wins: int = int(cfg["MIN_WINS"])
+        self.min_profit: float = float(cfg["MIN_PROFIT"])
+        self.max_losses: int = int(cfg["MAX_LOSSES"])
+        self.max_stales: int = int(cfg["MAX_STALES"])
+        self.max_holds: int = int(cfg["MAX_HOLDS"])
+        self.valid_tokens: list[str] = cfg.get("VALID_TOKENS", [])
+
         self.index_json: Dict[str, Any] = json.loads(
             get_index_json(
                 f"{self.price_log_service_url}/index_v2.json.gz"
             ).content
         )
-
-    def check_for_invalid_values(self) -> None:
-        """check for invalid values in the config"""
-
-        if self.sort_by not in [
-            "max_profit_on_clean_wins",
-            "number_of_clean_wins",
-            "greed",
-        ]:
-            log_msg("SORT_BY set to invalid value")
-            sys.exit(1)
 
     def generate_start_dates(
         self, start_date: datetime, end_date: datetime, jump: Optional[int] = 7
@@ -232,12 +226,13 @@ class ProveBacktesting:
         )
 
         # on our coin backtesting runs, we want to quit early if we are using
-        # a sort_by mode that discards runs with STALES or LOSSES
-        if self.sort_by == "greed":
-            stop_bot_on_loss = False
-            stop_bot_on_stale = False
-        else:
+        # a mode that discards runs with STALES or LOSSES
+        stop_bot_on_loss = False
+        stop_bot_on_stale = False
+
+        if self.max_losses == 0:
             stop_bot_on_loss = True
+        if self.max_stales == 0:
             stop_bot_on_stale = True
 
         with open(f"configs/coin.{symbol}.yaml", "wt") as c:
@@ -547,36 +542,22 @@ class ProveBacktesting:
                 wins, losses, stales, holds = [0, 0, 0, 0]
                 balance = float(0)
 
-            if self.sort_by in [
-                "number_of_clean_wins",
-                "max_profit_on_clean_wins",
-            ]:
-                if (int(losses) + int(stales) + int(holds)) == 0:
-                    _run["total_wins"] += int(wins)
-                    _run["total_losses"] += int(losses)
-                    _run["total_stales"] += int(stales)
-                    _run["total_holds"] += int(holds)
-                    _run["total_profit"] += float(balance)
-            else:
-                # greed
+            if (
+                (int(wins) >= self.min_wins)
+                and (float(balance) >= self.min_profit)
+                and (int(losses) <= self.max_losses)
+                and (int(stales) <= self.max_stales)
+                and (int(holds) <= self.max_holds)
+            ):
                 _run["total_wins"] += int(wins)
                 _run["total_losses"] += int(losses)
                 _run["total_stales"] += int(stales)
                 _run["total_holds"] += int(holds)
                 _run["total_profit"] += float(balance)
 
-            if balance > highest_profit:
-                if self.sort_by in [
-                    "number_of_clean_wins",
-                    "max_profit_on_clean_wins",
-                ]:
-                    if (int(losses) + int(stales) + int(holds)) == 0:
-                        coin_with_highest_profit = symbol
-                        highest_profit = float(balance)
-                else:
-                    # greed
+                if balance > highest_profit:
                     coin_with_highest_profit = symbol
-                    highest_profit = balance
+                    highest_profit = float(balance)
 
         log_msg(
             f" {run_id}: sum of all coins profit:{_run['total_profit']:.3f}|"
@@ -596,40 +577,39 @@ class ProveBacktesting:
         if not self.filter_by in cfgname:
             return (False, {})
         profit: float = float(_profit)
-        if profit < 0 or profit < float(self.min):
+        if profit < 0 or profit < float(self.min_profit):
             return (False, {})
 
         coin: str = cfgname[9:].split(".")[0]
         w, l, s, h = [int(x[1:]) for x in wls.split(",")]
 
-        if self.sort_by in [
-            "number_of_clean_wins",
-            "max_profit_on_clean_wins",
-        ]:
-            # drop any results containing losses, stales, or holds
-            if sum([l, s, h]) > 0 or w == 0:
-                return (False, {})
+        if not (
+            (int(w) >= self.min_wins)
+            and (float(profit) >= self.min_profit)
+            and (int(l) <= self.max_losses)
+            and (int(s) <= self.max_stales)
+            and (int(h) <= self.max_holds)
+        ):
+            # drop any results below our thresholds
+            return (False, {})
 
+        # confused about this one?
         blob: Dict[str, Any] = json.loads(_cfg)
         if "TICKERS" in blob.keys():
             coincfg = blob["TICKERS"][coin]  # pylint: disable=W0123
 
-        if coin not in coins:
-            coins[coin] = {
-                "profit": profit,
-                "wls": wls,
-                "w": w,
-                "l": l,
-                "s": s,
-                "h": h,
-                "cfgname": cfgname,
-                "coincfg": coincfg,
-            }
-        else:
-            if self.sort_by in [
-                "greed",
-                "max_profit_on_clean_wins",
-            ]:
+            if coin not in coins:
+                coins[coin] = {
+                    "profit": profit,
+                    "wls": wls,
+                    "w": w,
+                    "l": l,
+                    "s": s,
+                    "h": h,
+                    "cfgname": cfgname,
+                    "coincfg": coincfg,
+                }
+
                 if profit > coins[coin]["profit"]:
                     coins[coin] = {
                         "profit": profit,
@@ -641,25 +621,7 @@ class ProveBacktesting:
                         "cfgname": cfgname,
                         "coincfg": coincfg,
                     }
-            if self.sort_by == "number_of_clean_wins":
-                if w >= coins[coin]["w"]:
-                    # if this run has the same amount of wins but higher
-                    # profit, then keep this one.
-                    if (
-                        w == coins[coin]["w"]
-                        and profit < coins[coin]["profit"]
-                    ):
-                        return (False, {})
-                    coins[coin] = {
-                        "profit": profit,
-                        "wls": wls,
-                        "w": w,
-                        "l": l,
-                        "s": s,
-                        "h": h,
-                        "cfgname": cfgname,
-                        "coincfg": coincfg,
-                    }
+
         return (True, coins)
 
     def gather_best_results_from_backtesting_log(
@@ -736,7 +698,6 @@ if __name__ == "__main__":
     n_cpus: Optional[int] = os.cpu_count()
 
     pv: ProveBacktesting = ProveBacktesting(config)
-    pv.check_for_invalid_values()
 
     # generate start_dates
     log_msg(
