@@ -730,8 +730,8 @@ if __name__ == "__main__":
         log_msg("Incorrect KIND: type")
         sys.exit(1)
 
-    if os.path.exists("cache/binance.client"):
-        os.remove("cache/binance.client")
+    if os.path.exists("state/binance.client"):
+        os.remove("state/binance.client")
 
     n_cpus: Optional[int] = os.cpu_count()
 
