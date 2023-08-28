@@ -175,7 +175,13 @@ class ProveBacktesting:
         for day in dates:
             if symbol:
                 if self.filter_by in symbol:
-                    urls.append(f"{symbol}/{day}.log.gz")
+                    if self.valid_tokens != []:
+                        if symbol in " ".join(
+                            [f"{v}{self.pairing}" for v in self.valid_tokens]
+                        ):
+                            urls.append(f"{symbol}/{day}.log.gz")
+                    else:
+                        urls.append(f"{symbol}/{day}.log.gz")
             else:
                 urls.append(f"{day}.log.gz")
         return urls
@@ -460,10 +466,20 @@ class ProveBacktesting:
             dates, index_dates
         )
 
+        if self.valid_tokens != []:
+            for coin in list(next_run_coins.keys()):
+                if self.filter_by not in coin:
+                    del next_run_coins[coin]
+                if coin not in " ".join(
+                    [f"{v}{self.pairing}" for v in self.valid_tokens]
+                ):
+                    del next_run_coins[coin]
+
         if self.enable_new_listing_checks:
             next_run_coins = self.filter_on_coins_with_min_age_logs(
                 index_dates, dates[-1], next_run_coins
             )
+
         for coin, _price_logs in next_run_coins.items():
             self.write_single_coin_config(coin, _price_logs, thisrun)
 
