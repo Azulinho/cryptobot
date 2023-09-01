@@ -183,6 +183,7 @@ class ProveBacktesting:
                     else:
                         urls.append(f"{symbol}/{day}.log.gz")
             else:
+                # TODO: validate that this logfile actually exist
                 urls.append(f"{day}.log.gz")
         return urls
 
@@ -298,7 +299,7 @@ class ProveBacktesting:
         _tickers: Dict[str, Any],
         s_balance: float,
     ) -> None:
-        """generates a config.yaml for a coin"""
+        """generates a config.yaml for forwardtesting optimized run"""
 
         # we keep "state" between optimized runs, by soaking up an existing
         # optimized config file and an existing wallet.json file
@@ -589,32 +590,47 @@ class ProveBacktesting:
     ) -> Tuple[bool, Dict[str, Any]]:
         """process line of the backtesting log"""
 
+        # gather profit, wls(wins,losses,stales), cfg filename, and the config
         _profit, _, _, wls, cfgname, _cfg = line[7:].split("|")
+
+        # discard any entries that don't match FILTER_BY
         if not self.filter_by in cfgname:
             return (False, {})
+
+        # discard any entries that returned less than MIN_PROFIT
         profit: float = float(_profit)
         if profit < 0 or profit < float(self.min_profit):
             return (False, {})
 
+        # gather coin name
         coin: str = cfgname[9:].split(".")[0]
+        # and wins, losses, stales, holds
         w, l, s, h = [int(x[1:]) for x in wls.split(",")]
 
-        if not (
-            (int(w) >= self.min_wins)
-            and (float(profit) >= self.min_profit)
-            and (int(l) <= self.max_losses)
-            and (int(s) <= self.max_stales)
-            and (int(h) <= self.max_holds)
+        # discard any entries that are below our MIN_WINS, MIN_PROFIT
+        # or above our MAX_LOSSES, MAX_STALES, MAX_HOLDS
+        if (
+            (int(w) < self.min_wins)
+            and (float(profit) < self.min_profit)
+            and (int(l) > self.max_losses)
+            and (int(s) > self.max_stales)
+            and (int(h) > self.max_holds)
         ):
             # drop any results below our thresholds
             return (False, {})
 
-        # confused about this one?
+        # TODO: need a better way to pull results from backtesting runs
+        #       pulling them from backtesting.log is very ugly
+        # load the coin full config from the backtesting line entry
         blob: Dict[str, Any] = json.loads(_cfg)
+        # and retrieve the TICKERS config for that coin
         if "TICKERS" in blob.keys():
             coincfg = blob["TICKERS"][coin]  # pylint: disable=W0123
 
+            # initialize our coin, if it's the first time we've seen it.
             if coin not in coins:
+                # storing all the results we got from this backtesting line entry
+                # this is the config that we will use in our forwardtesting
                 coins[coin] = {
                     "profit": profit,
                     "wls": wls,
@@ -626,6 +642,7 @@ class ProveBacktesting:
                     "coincfg": coincfg,
                 }
 
+                # replace the config if we find a new entry with higher profit
                 if profit > coins[coin]["profit"]:
                     coins[coin] = {
                         "profit": profit,
@@ -640,7 +657,7 @@ class ProveBacktesting:
 
         return (True, coins)
 
-    def gather_best_results_from_backtesting_log(
+    def find_best_results_from_backtesting_log(
         self, kind: str
     ) -> Dict[str, Any]:
         """parses backtesting.log for the best result for a coin"""
@@ -659,8 +676,8 @@ class ProveBacktesting:
                 _results[coin] = coins[coin]["coincfg"]
         return _results
 
-    def gather_best_results_per_strategy(self, this: Dict[str, Any]) -> None:
-        """finds the best results in the strategy"""
+    def log_best_run_results(self, this: Dict[str, Any]) -> None:
+        """finds and logs the best results in the strategy"""
         best_run: str = ""
         best_profit_in_runs: int = 0
         for _run in this.keys():
@@ -741,11 +758,18 @@ if __name__ == "__main__":
                 coin_list, pv.concurrency, run
             )
 
-        # TODO: this simply prints out the best run
-        pv.gather_best_results_per_strategy(results)
+        pv.log_best_run_results(results)
+
+        # using the backtesting.log, we now build the list of tickers
+        # we will be using in forwardtesting
+        tickers = pv.find_best_results_from_backtesting_log("coincfg")
+        cleanup()
+
+        # figure out the next block of dates for our forwadtesting
         rollforward_dates: List[str] = pv.rollforward_dates_from(date)
+
+        # and generate the list of price logs to use from those dates
         price_logs = pv.generate_price_log_list(rollforward_dates)
-        tickers = pv.gather_best_results_from_backtesting_log("coincfg")
 
         log_msg(
             f"now forwardtesting {rollforward_dates[0]}...{rollforward_dates[-1]}"
