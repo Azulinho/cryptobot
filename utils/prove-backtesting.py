@@ -725,8 +725,13 @@ if __name__ == "__main__":
         log_msg("Incorrect KIND: type")
         sys.exit(1)
 
+    cleanup()
     if os.path.exists("state/binance.client"):
         os.remove("state/binance.client.lockfile")
+    for f in glob.glob("tmp/*"):
+        os.remove(f)
+    for f in glob.glob("configs/coin.*.yaml"):
+        os.remove(f)
 
     n_cpus: Optional[int] = os.cpu_count()
 
