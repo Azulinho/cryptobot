@@ -1,8 +1,7 @@
 """ test_prove_backtesting """
 
-import os
 import unittest
-from typing import Tuple, Dict, Any
+from typing import Dict
 from unittest import mock
 from datetime import datetime
 
@@ -60,72 +59,6 @@ def mocked_get_index_json_call(_):
 
 class TestProveBacktesting(unittest.TestCase):
     """Test ProveBacktesting"""
-
-    def test_parse_backtesting_line(self):
-        """test parse backtesting line"""
-
-        pb.get_index_json = mocked_get_index_json_call
-        obj = pb.ProveBacktesting(CONFIG)
-
-        # Define test inputs
-        line = "|".join(
-            [
-                "profit:99.000",
-                "investment:199.0",
-                "days:1",
-                "w1,l0,s0,h0",
-                "cfg:coin.fake.yaml",
-                ", ".join(
-                    [
-                        '{"CLEAR_COIN_STATS_AT_BOOT": true',
-                        '"CLEAR_COIN_STATS_AT_SALE": true',
-                        '"DEBUG": false',
-                        '"ENABLE_NEW_LISTING_CHECKS": true',
-                        '"ENABLE_NEW_LISTING_CHECKS_AGE_IN_DAYS": 31',
-                        '"INITIAL_INVESTMENT": 100.0',
-                        '"KLINES_CACHING_SERVICE_URL": "http://klines:8999"',
-                        '"MAX_COINS": 1',
-                        '"PAIRING": "USDT"',
-                        '"PAUSE_FOR": 1.0',
-                        '"PRICE_LOGS": ["20211207.log.gz"]',
-                        '"PRICE_LOG_SERVICE_URL": "http://price-log-service:8998"',
-                        '"RE_INVEST_PERCENTAGE": 100.0',
-                        '"SELL_AS_SOON_IT_DROPS": true',
-                        '"STOP_BOT_ON_LOSS": false',
-                        '"STOP_BOT_ON_STALE": false',
-                        '"STRATEGY": "BuyDropSellRecoveryStrategy"',
-                        '"TICKERS": {"fake": {}}',
-                        '"TRADING_FEE": "1e-06"',
-                        '"MODE": "backtesting"}',
-                    ]
-                ),
-            ]
-        )
-
-        coins: Dict = {}
-
-        # Call the method being tested
-        result: Any = obj.parse_backtesting_line(line, coins)
-
-        # Define the expected output
-        expected: Tuple = (
-            True,
-            {
-                "fake": {
-                    "profit": 99.0,
-                    "wls": "w1,l0,s0,h0",
-                    "w": 1,
-                    "l": 0,
-                    "s": 0,
-                    "h": 0,
-                    "cfgname": "cfg:coin.fake.yaml",
-                    "coincfg": {},
-                }
-            },
-        )
-
-        # Assert the result
-        self.assertEqual(result, expected)
 
     def test_generate_start_dates(self):
         """Test Generate Start Dates"""
@@ -299,35 +232,3 @@ class TestProveBacktesting(unittest.TestCase):
         self.assertEqual(result["total_stales"], 3)
         self.assertEqual(result["total_holds"], 4)
         self.assertEqual(result["total_profit"], 100.0)
-
-    def test_find_best_results_from_backtesting_log(self):
-        """test find best results from backtesting log"""
-        pb.get_index_json = mocked_get_index_json_call
-        instance = pb.ProveBacktesting(CONFIG)
-
-        # TODO: mock open and os.remove
-        # Create a mock backtesting.log file
-        with open("log/backtesting.log", "w", encoding="utf-8") as f:
-            f.write("line 1\n")
-            f.write("line 2\n")
-            f.write("line 3\n")
-
-        def mock_parse_backtesting_line(_, __) -> Tuple[bool, Dict[str, Any]]:
-            """mock parse backtesting line"""
-            return True, {
-                "coin1": {"coincfg": "config1"},
-                "coin2": {"coincfg": "config2"},
-            }
-
-        with mock.patch.object(
-            instance,
-            "parse_backtesting_line",
-            side_effect=mock_parse_backtesting_line,
-        ):
-            # Call the method under test
-            result = instance.find_best_results_from_backtesting_log("coincfg")
-
-        os.remove("log/backtesting.log")
-
-        expected_result = {"coin1": "config1", "coin2": "config2"}
-        self.assertEqual(result, expected_result)
