@@ -69,12 +69,12 @@ RUN eatmydata /cryptobot/.venv/bin/pip install -r requirements.txt && \
 
 COPY lib/ lib/
 COPY utils/__init__.py utils/__init__.py
-COPY utils/prove-backtesting.py utils/prove-backtesting.py
-COPY utils/prove-backtesting.sh utils/prove-backtesting.sh
 COPY utils/pull_klines.py utils/pull_klines.py
 COPY utils/config-endpoint-service.py utils/config-endpoint-service.py
 COPY utils/config-endpoint-service.sh utils/config-endpoint-service.sh
 COPY klines_caching_service.py klines_caching_service.py
 COPY price_log_service.py price_log_service.py
 COPY app.py .
+COPY utils/prove-backtesting.sh utils/prove-backtesting.sh
+COPY utils/prove-backtesting.py utils/prove-backtesting.py
 
