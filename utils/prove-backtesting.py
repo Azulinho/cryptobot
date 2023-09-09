@@ -11,7 +11,8 @@ from itertools import islice
 from multiprocessing import Pool
 from string import Template
 from time import sleep
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
+from collections import OrderedDict
 
 import pandas as pd
 import requests
@@ -74,7 +75,6 @@ class ProveBacktesting:
 
     def __init__(self, cfg: Dict[str, Any]) -> None:
         """init"""
-        self.min: float = float(cfg["MIN"])
         self.filter_by: str = cfg["FILTER_BY"]
         self.from_date: datetime = datetime.strptime(
             str(cfg["FROM_DATE"]), "%Y%m%d"
@@ -116,23 +116,19 @@ class ProveBacktesting:
         self.start_dates: List[str] = self.generate_start_dates(
             self.from_date, self.end_date, self.roll_forward
         )
-        self.sort_by: str = cfg["SORT_BY"]
+        self.min_wins: int = int(cfg["MIN_WINS"])
+        self.min_profit: float = float(cfg["MIN_PROFIT"])
+        self.max_losses: int = int(cfg["MAX_LOSSES"])
+        self.max_stales: int = int(cfg["MAX_STALES"])
+        self.max_holds: int = int(cfg["MAX_HOLDS"])
+        self.valid_tokens: list[str] = cfg.get("VALID_TOKENS", [])
+
         self.index_json: Dict[str, Any] = json.loads(
             get_index_json(
                 f"{self.price_log_service_url}/index_v2.json.gz"
             ).content
         )
-
-    def check_for_invalid_values(self) -> None:
-        """check for invalid values in the config"""
-
-        if self.sort_by not in [
-            "max_profit_on_clean_wins",
-            "number_of_clean_wins",
-            "greed",
-        ]:
-            log_msg("SORT_BY set to invalid value")
-            sys.exit(1)
+        self.cfg: Dict[str, Any] = cfg
 
     def generate_start_dates(
         self, start_date: datetime, end_date: datetime, jump: Optional[int] = 7
@@ -181,8 +177,15 @@ class ProveBacktesting:
         for day in dates:
             if symbol:
                 if self.filter_by in symbol:
-                    urls.append(f"{symbol}/{day}.log.gz")
+                    if self.valid_tokens != []:
+                        if symbol in " ".join(
+                            [f"{v}{self.pairing}" for v in self.valid_tokens]
+                        ):
+                            urls.append(f"{symbol}/{day}.log.gz")
+                    else:
+                        urls.append(f"{symbol}/{day}.log.gz")
             else:
+                # TODO: validate that this logfile actually exist
                 urls.append(f"{day}.log.gz")
         return urls
 
@@ -232,12 +235,13 @@ class ProveBacktesting:
         )
 
         # on our coin backtesting runs, we want to quit early if we are using
-        # a sort_by mode that discards runs with STALES or LOSSES
-        if self.sort_by == "greed":
-            stop_bot_on_loss = False
-            stop_bot_on_stale = False
-        else:
+        # a mode that discards runs with STALES or LOSSES
+        stop_bot_on_loss = False
+        stop_bot_on_stale = False
+
+        if self.max_losses == 0:
             stop_bot_on_loss = True
+        if self.max_stales == 0:
             stop_bot_on_stale = True
 
         with open(f"configs/coin.{symbol}.yaml", "wt") as c:
@@ -297,7 +301,7 @@ class ProveBacktesting:
         _tickers: Dict[str, Any],
         s_balance: float,
     ) -> None:
-        """generates a config.yaml for a coin"""
+        """generates a config.yaml for forwardtesting optimized run"""
 
         # we keep "state" between optimized runs, by soaking up an existing
         # optimized config file and an existing wallet.json file
@@ -329,6 +333,7 @@ class ProveBacktesting:
 
         z: Dict[str, Any] = x | _tickers
         _tickers = z
+        log_msg(f" tickers: {_tickers}")
 
         tmpl: Template = Template(
             """{
@@ -465,10 +470,20 @@ class ProveBacktesting:
             dates, index_dates
         )
 
+        if self.valid_tokens != []:
+            for coin in list(next_run_coins.keys()):
+                if self.filter_by not in coin:
+                    del next_run_coins[coin]
+                if coin not in " ".join(
+                    [f"{v}{self.pairing}" for v in self.valid_tokens]
+                ):
+                    del next_run_coins[coin]
+
         if self.enable_new_listing_checks:
             next_run_coins = self.filter_on_coins_with_min_age_logs(
                 index_dates, dates[-1], next_run_coins
             )
+
         for coin, _price_logs in next_run_coins.items():
             self.write_single_coin_config(coin, _price_logs, thisrun)
 
@@ -506,12 +521,12 @@ class ProveBacktesting:
             except:  # pylint: disable=bare-except
                 pass
 
-        return self.gather_best_results_from_run(_coin_list, _run)
+        return self.sum_of_results_from_run(_coin_list, _run)
 
-    def gather_best_results_from_run(
+    def sum_of_results_from_run(
         self, _coin_list: Set[str], run_id: str
     ) -> Dict[str, Any]:
-        """finds the best results from run"""
+        """finds the best results across all coins from this run"""
         wins_re: str = r".*INFO.*\swins:([0-9]+)\slosses:([0-9]+)\sstales:([0-9]+)\sholds:([0-9]+)"
         balance_re: str = r".*INFO.*final\sbalance:\s(-?[0-9]+\.[0-9]+)"
 
@@ -547,36 +562,22 @@ class ProveBacktesting:
                 wins, losses, stales, holds = [0, 0, 0, 0]
                 balance = float(0)
 
-            if self.sort_by in [
-                "number_of_clean_wins",
-                "max_profit_on_clean_wins",
-            ]:
-                if (int(losses) + int(stales) + int(holds)) == 0:
-                    _run["total_wins"] += int(wins)
-                    _run["total_losses"] += int(losses)
-                    _run["total_stales"] += int(stales)
-                    _run["total_holds"] += int(holds)
-                    _run["total_profit"] += float(balance)
-            else:
-                # greed
+            if (
+                (int(wins) >= self.min_wins)
+                and (float(balance) >= self.min_profit)
+                and (int(losses) <= self.max_losses)
+                and (int(stales) <= self.max_stales)
+                and (int(holds) <= self.max_holds)
+            ):
                 _run["total_wins"] += int(wins)
                 _run["total_losses"] += int(losses)
                 _run["total_stales"] += int(stales)
                 _run["total_holds"] += int(holds)
                 _run["total_profit"] += float(balance)
 
-            if balance > highest_profit:
-                if self.sort_by in [
-                    "number_of_clean_wins",
-                    "max_profit_on_clean_wins",
-                ]:
-                    if (int(losses) + int(stales) + int(holds)) == 0:
-                        coin_with_highest_profit = symbol
-                        highest_profit = float(balance)
-                else:
-                    # greed
+                if balance > highest_profit:
                     coin_with_highest_profit = symbol
-                    highest_profit = balance
+                    highest_profit = float(balance)
 
         log_msg(
             f" {run_id}: sum of all coins profit:{_run['total_profit']:.3f}|"
@@ -587,102 +588,78 @@ class ProveBacktesting:
         )
         return _run
 
-    def parse_backtesting_line(
-        self, line, coins
-    ) -> Tuple[bool, Dict[str, Any]]:
-        """process line of the backtesting log"""
-
-        _profit, _, _, wls, cfgname, _cfg = line[7:].split("|")
-        if not self.filter_by in cfgname:
-            return (False, {})
-        profit: float = float(_profit)
-        if profit < 0 or profit < float(self.min):
-            return (False, {})
-
-        coin: str = cfgname[9:].split(".")[0]
-        w, l, s, h = [int(x[1:]) for x in wls.split(",")]
-
-        if self.sort_by in [
-            "number_of_clean_wins",
-            "max_profit_on_clean_wins",
-        ]:
-            # drop any results containing losses, stales, or holds
-            if sum([l, s, h]) > 0 or w == 0:
-                return (False, {})
-
-        blob: Dict[str, Any] = json.loads(_cfg)
-        if "TICKERS" in blob.keys():
-            coincfg = blob["TICKERS"][coin]  # pylint: disable=W0123
-
-        if coin not in coins:
-            coins[coin] = {
-                "profit": profit,
-                "wls": wls,
-                "w": w,
-                "l": l,
-                "s": s,
-                "h": h,
-                "cfgname": cfgname,
-                "coincfg": coincfg,
-            }
-        else:
-            if self.sort_by in [
-                "greed",
-                "max_profit_on_clean_wins",
-            ]:
-                if profit > coins[coin]["profit"]:
-                    coins[coin] = {
-                        "profit": profit,
-                        "wls": wls,
-                        "w": w,
-                        "l": l,
-                        "s": s,
-                        "h": h,
-                        "cfgname": cfgname,
-                        "coincfg": coincfg,
-                    }
-            if self.sort_by == "number_of_clean_wins":
-                if w >= coins[coin]["w"]:
-                    # if this run has the same amount of wins but higher
-                    # profit, then keep this one.
-                    if (
-                        w == coins[coin]["w"]
-                        and profit < coins[coin]["profit"]
-                    ):
-                        return (False, {})
-                    coins[coin] = {
-                        "profit": profit,
-                        "wls": wls,
-                        "w": w,
-                        "l": l,
-                        "s": s,
-                        "h": h,
-                        "cfgname": cfgname,
-                        "coincfg": coincfg,
-                    }
-        return (True, coins)
-
-    def gather_best_results_from_backtesting_log(
+    def find_best_results_from_backtesting_log(
         self, kind: str
     ) -> Dict[str, Any]:
         """parses backtesting.log for the best result for a coin"""
-        coins: Dict[str, Any] = {}
-        _results: Dict[str, Any] = {}
+
+        coins: OrderedDict = OrderedDict()
+        _results: dict = {}
         log: str = "log/backtesting.log"
         if os.path.exists(log):
             with open(log, encoding="utf-8") as lines:
                 for line in lines:
-                    ok, _coins = self.parse_backtesting_line(line, coins)
-                    if ok:
-                        coins = _coins
+                    _profit, _, _, wls, cfgname, _cfg = line[7:].split("|")
+                    if not self.filter_by in cfgname:
+                        continue
+                    profit = float(_profit)
 
-        for coin in coins:  # pylint: disable=consider-using-dict-items
-            if kind == "coincfg":
-                _results[coin] = coins[coin]["coincfg"]
+                    coin = cfgname[9:].split(".")[0]
+                    w, l, s, h = [int(x[1:]) for x in wls.split(",")]
+
+                    if (
+                        (int(w) < self.min_wins)
+                        or (float(profit) < self.min_profit)
+                        or (int(l) > self.max_losses)
+                        or (int(s) > self.max_stales)
+                        or (int(h) > self.max_holds)
+                    ):
+                        continue
+
+                    blob = json.loads(_cfg)
+                    if "TICKERS" in blob.keys():
+                        coincfg = blob["TICKERS"][
+                            coin
+                        ]  # pylint: disable=W0123
+                    else:
+                        continue
+
+                    if coin not in coins:
+                        coins[coin] = {
+                            "profit": profit,
+                            "wls": wls,
+                            "w": w,
+                            "l": l,
+                            "s": s,
+                            "h": h,
+                            "cfgname": cfgname,
+                            "coincfg": coincfg,
+                        }
+
+                    if coin in coins:
+                        if profit > coins[coin]["profit"]:
+                            coins[coin] = {
+                                "profit": profit,
+                                "wls": wls,
+                                "w": w,
+                                "l": l,
+                                "s": s,
+                                "h": h,
+                                "cfgname": cfgname,
+                                "coincfg": coincfg,
+                            }
+
+            _coins: dict = coins
+            coins = OrderedDict(
+                sorted(_coins.items(), key=lambda x: x[1]["w"])
+            )
+            for coin in coins:
+                if kind == "coincfg":
+                    _results[coin] = coins[coin]["coincfg"]
         return _results
 
-    def gather_best_results_per_strategy(self, this: Dict[str, Any]) -> None:
-        """finds the best results in the strategy"""
+    def log_best_run_results(self, this: Dict[str, Any]) -> None:
+        """finds and logs the best results in the strategy"""
         best_run: str = ""
         best_profit_in_runs: int = 0
         for _run in this.keys():
@@ -730,18 +707,23 @@ if __name__ == "__main__":
         log_msg("Incorrect KIND: type")
         sys.exit(1)
 
-    if os.path.exists("cache/binance.client"):
-        os.remove("cache/binance.client")
+    cleanup()
+    if os.path.exists("state/binance.client"):
+        os.remove("state/binance.client.lockfile")
+    for f in glob.glob("tmp/*"):
+        os.remove(f)
+    for f in glob.glob("configs/coin.*.yaml"):
+        os.remove(f)
 
     n_cpus: Optional[int] = os.cpu_count()
 
     pv: ProveBacktesting = ProveBacktesting(config)
-    pv.check_for_invalid_values()
 
     # generate start_dates
     log_msg(
         f"running from {pv.start_dates[0]} to {pv.start_dates[-1]} "
-        + f"backtesting previous {pv.roll_backwards} days every {pv.roll_forward} days"
+        + f"backtesting previous {pv.roll_backwards} days "
+        + f"every {pv.roll_forward} days"
     )
     final_investment: float = pv.initial_investment
     starting_investment: float = pv.initial_investment
@@ -764,11 +746,18 @@ if __name__ == "__main__":
                 coin_list, pv.concurrency, run
             )
 
-        # TODO: this simply prints out the best run
-        pv.gather_best_results_per_strategy(results)
+        pv.log_best_run_results(results)
+
+        # using the backtesting.log, we now build the list of tickers
+        # we will be using in forwardtesting
+        tickers = pv.find_best_results_from_backtesting_log("coincfg")
+        cleanup()
+
+        # figure out the next block of dates for our forwadtesting
         rollforward_dates: List[str] = pv.rollforward_dates_from(date)
+
+        # and generate the list of price logs to use from those dates
         price_logs = pv.generate_price_log_list(rollforward_dates)
-        tickers = pv.gather_best_results_from_backtesting_log("coincfg")
 
         log_msg(
             f"now forwardtesting {rollforward_dates[0]}...{rollforward_dates[-1]}"

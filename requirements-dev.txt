@@ -19,3 +19,4 @@ urllib3-mock
 virtualenv
 types-requests
 flaky
+openai

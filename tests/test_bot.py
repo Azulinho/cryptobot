@@ -4,18 +4,16 @@
 # pylint: disable=missing-function-docstring
 # pylint: disable=redefined-outer-name
 # pylint: disable=import-outside-toplevel
-# pylint: disable=no-self-use
 from datetime import datetime
 from unittest import mock
+import json
 from flaky import flaky
 
+import pytest
 import app
 import lib
 import lib.bot
 import lib.coin
-import pytest
-import requests
-import json
 
 
 @pytest.fixture()
@@ -518,7 +516,7 @@ class TestBot:
             bot, "get_step_size", return_value=(True, "0.00001000")
         ) as _:
             ok, volume = bot.calculate_volume_size(coin)
-            assert ok == True
+            assert ok is True
             assert volume == 0.5
 
     def test_get_binance_prices(self, bot):
@@ -767,12 +765,12 @@ class TestBot:
     def test_run_stategy_gives_False_if_coin_is_delisted(self, bot, coin):
         coin.delisted = True
         bot.coins["BTCUSDT"] = coin
-        bot.run_strategy(coin) is False
+        assert bot.run_strategy(coin) is False
 
     def test_run_stategy_gives_False_if_coin_is_naughty(self, bot, coin):
         coin.naughty = True
         bot.coins["BTCUSDT"] = coin
-        bot.run_strategy(coin) is False
+        assert bot.run_strategy(coin) is False
 
     def test_run_stategy_calls_sale_if_wallet_not_empty(self, bot, coin):
         # if there are coins in WALLET
@@ -925,6 +923,34 @@ class TestBot:
         }
 
         assert bot.place_sell_order(coin) is False
+
+    def test_get_ticker_with_default(self):
+        tickers = {
+            "ETH": {"BUY_AT_PERCENTAGE": "0.05", "SELL_AT_PERCENTAGE": "0.1"},
+            "BTC": {"BUY_AT_PERCENTAGE": "0.02", "SELL_AT_PERCENTAGE": "0.05"},
+        }
+
+        assert (
+            lib.bot.get_ticker_with_default(
+                tickers, "ETH", "BUY_AT_PERCENTAGE"
+            )
+            == "0.05"
+        )
+        assert (
+            lib.bot.get_ticker_with_default(
+                tickers, "ETH", "SELL_AT_PERCENTAGE"
+            )
+            == "0.1"
+        )
+
+    def test_get_ticker_with_default_not_in_ticket(self):
+        tickers = {}
+        assert (
+            lib.bot.get_ticker_with_default(
+                tickers, "ETH", "STOP_LOSS_AT_PERCENTAGE"
+            )
+            == "-99999999"
+        )
 
 
 class TestBotCheckForSaleConditions:
@@ -1102,6 +1128,81 @@ class TestBuyCoin:
                         assert coin.bought_at == 100
                         assert coin.volume == 0.5
                         # TODO: assert that clear_all_coins_stats
+
+
+class TestPlaceBuyOrder:
+    def test_place_buy_order_limit(
+        self,
+        bot,
+        coin,
+    ):
+        bot.order_type = "LIMIT"
+        bot.extract_order_data = mock.MagicMock()
+        bot.client.get_order_book = mock.MagicMock()
+        bot.client.create_order = mock.MagicMock()
+        bot.client.get_order = mock.MagicMock()
+        lib.bot.udatetime.now = mock.MagicMock()
+
+        lib.bot.udatetime.now.return_value = datetime(2021, 1, 1, 0, 0, 0)
+        bot.client.get_order_book.return_value = {"asks": [(50000, 1)]}
+        bot.client.get_order.return_value = {
+            "orderId": 123,
+            "status": "FILLED",
+            "price": 50000,
+            "executedQty": 1,
+        }
+
+        bot.extract_order_data.return_value = (
+            True,
+            {"avgPrice": 50000, "volume": 1},
+        )
+
+        result = bot.place_buy_order(coin, 1.0)
+
+        bot.client.create_order.assert_called_with(
+            symbol="BTCUSDT",
+            side="BUY",
+            type="LIMIT",
+            quantity=1.0,
+            timeInForce="FOK",
+            price=50000,
+        )
+        assert result is True
+
+    def test_place_buy_order_market(
+        self,
+        coin,
+        bot,
+    ):
+        bot.order_type = "MARKET"
+        bot.extract_order_data = mock.MagicMock()
+        bot.client.get_order_book = mock.MagicMock()
+        bot.client.create_order = mock.MagicMock()
+        bot.client.get_order = mock.MagicMock()
+        lib.bot.udatetime.now = mock.MagicMock()
+
+        lib.bot.udatetime.now.return_value = datetime(2021, 1, 1, 0, 0, 0)
+        bot.client.get_order_book.return_value = {"asks": [(50000, 1)]}
+        bot.client.get_order.return_value = {
+            "orderId": 123,
+            "status": "FILLED",
+            "price": 50000,
+            "executedQty": 1,
+        }
+
+        bot.extract_order_data.return_value = (
+            True,
+            {"avgPrice": 50000, "volume": 1},
+        )
+        result = bot.place_buy_order(coin, 1.0)
+
+        bot.client.create_order.assert_called_with(
+            symbol="BTCUSDT",
+            side="BUY",
+            type="MARKET",
+            quantity=1.0,
+        )
+        assert result is True
 
 
 class TestCoinStatus:
@@ -1573,9 +1674,52 @@ class TestStrategyBuyOnGrowthTrendAfterDrop(StrategyBaseTestClass):
             assert result is True
 
 
-class TestBacktesting:
-    def backtesting(self):
-        pass
+class TestBotState:  # pylint: disable=too-few-public-methods
+    def test_save_coins(self, bot, coin):
+        mock_open = mock.mock_open()
 
-    def backtest_logfile(self):
-        pass
+        lib.bot.fsync = mock.MagicMock()
+        lib.bot.unlink = mock.MagicMock()
+        lib.bot.rename = mock.MagicMock()
+
+        bot.coins["BTCUSDT"] = coin
+
+        with mock.patch("builtins.open", mock_open):
+            bot.save_coins()
+
+            expected_calls = [
+                mock.call().write(mock.ANY),
+            ]
+            mock_open.assert_has_calls(expected_calls, any_order=True)
+
+
+class TestForDelistedCoin:
+    def test_coin_is_delisted(self, bot, coin):
+        bot.load_klines_for_coin = mock.MagicMock(return_value=[])
+        bot.coins["BTCUSDT"] = coin
+        assert bot.check_for_delisted_coin("BTCUSDT")
+
+    def test_coin_is_not_delisted(self, bot, coin):
+        bot.load_klines_for_coin = mock.MagicMock(return_value=[1])
+        bot.coins["BTCUSDT"] = coin
+        assert bot.check_for_delisted_coin("BTCUSDT") is False
+
+
+class TestProcessLine:  # pylint: disable=too-few-public-methods
+    def test_process_line(self, bot, coin):
+        symbol = "BTCUSDT"
+        date = datetime(2021, 1, 1, 0, 0, 0).timestamp()
+        market_price = 40000.0
+
+        bot.coins = {}
+        bot.coins["BTCUSDT"] = coin
+
+        lib.bot.udatetime.now = mock.MagicMock(
+            return_value=datetime(2021, 1, 1, 0, 0, 0)
+        )
+        bot.process_line(symbol, date, market_price)
+
+        assert symbol in bot.coins
+        assert coin.symbol == symbol
+        assert coin.date == datetime(2021, 1, 1, 0, 0, 0).timestamp()
+        assert coin.price == market_price

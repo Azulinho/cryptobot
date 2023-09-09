@@ -24,3 +24,5 @@ strategies/Local*
 control/*
 .tests*.txt
 lastfewdays.log.gz
+.envrc.local
+*.inotifywait
