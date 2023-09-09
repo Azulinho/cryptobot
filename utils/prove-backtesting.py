@@ -518,12 +518,12 @@ class ProveBacktesting:
             except:  # pylint: disable=bare-except
                 pass
 
-        return self.gather_best_results_from_run(_coin_list, _run)
+        return self.sum_of_results_from_run(_coin_list, _run)
 
-    def gather_best_results_from_run(
+    def sum_of_results_from_run(
         self, _coin_list: Set[str], run_id: str
     ) -> Dict[str, Any]:
-        """finds the best results from run"""
+        """finds the best results across all coins from this run"""
         wins_re: str = r".*INFO.*\swins:([0-9]+)\slosses:([0-9]+)\sstales:([0-9]+)\sholds:([0-9]+)"
         balance_re: str = r".*INFO.*final\sbalance:\s(-?[0-9]+\.[0-9]+)"
 
