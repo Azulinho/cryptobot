@@ -51,10 +51,12 @@ A python based trading bot for Binance, which relies heavily on backtesting.
     * [PRICE_LOG_SERVICE_URL](#price_log_service_url)
     * [KLINES_CACHING_SERVICE_URL](#klines_caching_service_url)
     * [CONCURRENCY](#concurrency)
-    * [SORT_BY](#sort_by)
-      * [max_profit_on_clean_wins](#max_profit_on_clean_wins)
-      * [number_of_clean_wins](#number_of_clean_wins)
-      * [greed](#greed)
+    * [MIN_PROFIT](#min_profit)
+    * [MIN_WINS](#min_wins)
+    * [MAX_LOSSES](#max_losses)
+    * [MAX_STALES](#max_stales)
+    * [MAX_HOLDS](#max_holds)
+    * [VALID_TOKENS](#valid_tokens)
 11. [Bot command center](#bot-command-center)
 12. [Development/New features](#development/new-features)
 
@@ -495,7 +497,7 @@ Use it as:
 returned at least 10% in profit.
 
  ```yaml
- MIN: 10
+ MIN_PROFIT: 10
  ```
 
 3. Update the dates to test against, for example:
@@ -1024,36 +1026,62 @@ The number of parallel backtesting processes to run.
 CONCURRENCY: 4
 ```
 
-### SORT_BY
+### MIN_PROFIT
 
-How to order results from the different test runs in automated-backtesting in
-order to choose the best config for each coin.
-
-#### max_profit_on_clean_wins
-
-Use the config that provided the best profit for this coin and did not result
-in any STOP_LOSSES or STALES or HOLDS at the end of the runs.
+Defines the minimum profit we expect from a single coin run in prove-backtesting
+before we select this run in our forward backtesting session.
 
 ```yaml
-SORT_BY: "max_profit_on_clean_wins"
+MIN_PROFIT: 10.0
 ```
 
-#### number_of_clean_wins
+### MIN_WINS
 
-Use the config that returned the highest number of wins for this coin and did
-not result in any STOP_LOSSES or STALES or HOLDS at the end of the runs
+Defines the minimum number of wins we expect from a single coin run in prove-backtesting
+before we select this run in our forward backtesting session.
 
 ```yaml
-SORT_BY: "number_of_clean_wins"
+MIN_WINS: 3
 ```
 
-#### greed
+### MAX_LOSSES
 
-Use the config that returned the highest profit for this coin.
+Defines the maximum number of losses we tolerate from a single coin run in prove-backtesting
+before we select this run in our forward backtesting session.
 
 ```yaml
-SORT_BY: "greed
+MAX_LOSSES: 2
 ```
+
+### MAX_STALES
+
+Defines the maximum number of stales we tolerate from a single coin run in prove-backtesting
+before we select this run in our forward backtesting session.
+
+```yaml
+MAX_STALES: 2
+```
+
+### MAX_HOLDS
+
+Defines the maximum number of holds we tolerate from a single coin run in prove-backtesting
+before we select this run in our forward backtesting session.
+Use 0 or 1
+
+```yaml
+MAX_HOLDS: 1
+```
+
+### VALID_TOKENS
+
+Defines a list of tokens that the bot will use in a prove-backtesting session,
+any tokens not defined will be ignored.
+Defaults to [], when set this [] all tokens are included.
+
+```yaml
+VALID_TOKENS: ["BTC", "ETH"]
+```
+
 
 ## Bot command center
 
