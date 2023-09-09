@@ -333,6 +333,7 @@ class ProveBacktesting:
 
         z: Dict[str, Any] = x | _tickers
         _tickers = z
+        log_msg(f" tickers: {_tickers}")
 
         tmpl: Template = Template(
             """{
@@ -721,7 +722,8 @@ if __name__ == "__main__":
     # generate start_dates
     log_msg(
         f"running from {pv.start_dates[0]} to {pv.start_dates[-1]} "
-        + f"backtesting previous {pv.roll_backwards} days every {pv.roll_forward} days"
+        + f"backtesting previous {pv.roll_backwards} days "
+        + f"every {pv.roll_forward} days"
     )
     final_investment: float = pv.initial_investment
     starting_investment: float = pv.initial_investment
