@@ -726,7 +726,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     if os.path.exists("state/binance.client"):
-        os.remove("state/binance.client")
+        os.remove("state/binance.client.lockfile")
 
     n_cpus: Optional[int] = os.cpu_count()
 
