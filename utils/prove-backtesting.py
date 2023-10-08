@@ -331,7 +331,7 @@ class ProveBacktesting:
 
         log_msg(f" wallet: {old_wallet}")
 
-        z: Dict[str, Any] = x | _tickers
+        z: Dict[str, Any] = _tickers | x
         _tickers = z
         log_msg(f" tickers: {_tickers}")
 
