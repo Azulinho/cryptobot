@@ -2312,6 +2312,8 @@ class Bot:
             try:
                 response: requests.Response = session.get(query, timeout=30)
                 status: int = response.status_code
+                if status == 404:
+                    return (False, [])
                 if status != 200:
                     response.raise_for_status()
                 else:
