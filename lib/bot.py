@@ -2049,9 +2049,17 @@ class Bot:
                     symbol = line.strip()
                     if symbol in self.wallet:
                         logging.warning(f"control/SELL contains {symbol}")
-                        self.coins[symbol].status = "CONTROL_FLAG"
                         self.sell_coin(self.coins[symbol])
             unlink("control/SELL")
+        if exists("control/BUY"):
+            logging.warning("control/BUY flag found")
+            with open("control/BUY") as f:
+                for line in f:
+                    symbol = line.strip()
+                    if symbol not in self.wallet:
+                        logging.warning(f"control/BUY contains {symbol}")
+                        self.buy_coin(self.coins[symbol])
+            unlink("control/BUY")
         if exists("control/STOP"):
             logging.warning("control/STOP flag found. Stopping bot.")
             self.quit = True
