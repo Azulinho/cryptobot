@@ -60,3 +60,7 @@ yarl==1.9.2
 zipp==3.15.0
 zope.event==4.6
 zope.interface==6.0
+django==5.0.1
+psycopg==3.1.16
+pyzstd==0.15.9
+msgpack==1.0.7
