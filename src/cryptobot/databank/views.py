@@ -4,6 +4,7 @@ from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 import pyzstd
 import msgpack
+from sortedcontainers import SortedKeyList
 
 from .models import Mappings
 from .helpers import CACHE, Helpers
@@ -81,24 +82,23 @@ def handler_symbols(request):
     to_timestamp: int = int(req["to_timestamp"])
 
     cache_key: str = f"{timeframe}_{pair}_{from_timestamp}_{to_timestamp}"
-    avail, contents = CACHE["symbols"].get(cache_key)
+    avail, contents = CACHE["symbols"].get(cache_key, raw=True)
     if avail:
-        return contents
+        return HttpResponse(contents)
 
-    symbols: list = Helpers.symbols(
-        timeframe, from_timestamp, to_timestamp, pair
+    symbols: list = list(
+        Helpers.symbols(timeframe, from_timestamp, to_timestamp, pair)
     )
     CACHE["symbols"].update(cache_key, symbols)
-    avail, resp = CACHE["symbols"].get(cache_key)
+    avail, resp = CACHE["symbols"].get(cache_key, raw=True)
 
     return HttpResponse(resp)
-    # return HttpResponse(msgpack.packb(resp))
 
 
 @csrf_exempt
 def handler_aggregate(request):
     """/combined endpoint"""
-    req = request.get_json()
+    req = json.loads(request.body)
 
     timeframe: str = req["timeframe"]
     pair: str = req["pair"]
@@ -131,7 +131,7 @@ def handler_aggregate(request):
         ):
             lines_in_file = []
             with pyzstd.open(
-                f"{KLINES_DIRECTORY}/{file[0]}", "rt", encoding="utf-8"
+                f"{KLINES_DIRECTORY}/{file.filename}", "rt", encoding="utf-8"
             ) as f:
                 for line in f:
                     entry = line.replace("\n", "").split(",")

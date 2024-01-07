@@ -100,24 +100,28 @@ class Helpers:
     def symbols(timeframe, from_timestamp, to_timestamp, pair="") -> list:
         """returns list of symbols available from a time window"""
 
-        symbol_queryset = Mappings.objects.filter(
-            Q(
-                open_timestamp__lte=int(from_timestamp),
-                close_timestamp__gte=int(from_timestamp),
+        symbol_queryset = (
+            Mappings.objects.filter(
+                Q(
+                    open_timestamp__lte=int(from_timestamp),
+                    close_timestamp__gte=int(from_timestamp),
+                )
+                | Q(
+                    open_timestamp__lte=int(to_timestamp),
+                    close_timestamp__gte=int(to_timestamp),
+                )
+                | Q(
+                    open_timestamp__gte=int(from_timestamp),
+                    open_timestamp__lte=int(to_timestamp),
+                ),
+                timeframe=str(timeframe),
             )
-            | Q(
-                open_timestamp__lte=int(to_timestamp),
-                close_timestamp__gte=int(to_timestamp),
-            )
-            | Q(
-                open_timestamp__gte=int(from_timestamp),
-                open_timestamp__lte=int(to_timestamp),
-            ),
-            timeframe=str(timeframe),
-        ).order_by("open_timestamp")
+            .order_by("open_timestamp")
+            .distinct()
+        )
 
-        symbols = symbol_queryset.values_list("symbol", flat=True)
-        return list(symbols)
+        symbols = list(set(symbol_queryset.values_list("symbol", flat=True)))
+        return symbols
 
     @staticmethod
     def filenames(
