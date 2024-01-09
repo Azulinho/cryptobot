@@ -77,16 +77,7 @@ WSGI_APPLICATION = "cryptobot.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DATABASE_NAME", "databank"),
-        "USER": os.getenv("DATABASE_USERNAME", "databank"),
-        "PASSWORD": os.getenv("DATABASE_PASSWORD", "databank"),
-        "HOST": os.getenv("DATABASE_HOST", "127.0.0.1"),
-        "PORT": os.getenv("DATABASE_PORT", "5432"),
-    }
-}
+DATABASES = {}
 
 
 # Password validation

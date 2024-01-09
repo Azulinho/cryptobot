@@ -7,9 +7,7 @@ from datetime import datetime
 
 import pyzstd
 import msgpack
-from django.db.models import Q
 from django.conf import settings
-from .models import Mappings
 
 CACHE_DIRECTORY: str = settings.DATABANK_CACHE_DIRECTORY
 CACHE_CONFIG: dict = settings.DATABANK_CACHE_CONFIG
@@ -247,33 +245,3 @@ class Helpers:
         symbols = list(set([file.split("/")[-6] for file in all_files]))
 
         return symbols
-
-    @staticmethod
-    def filenames(
-        timeframe, symbol, pair, from_timestamp, to_timestamp
-    ) -> list:
-        """returns list of filenames available from a time window"""
-        return list(
-            Mappings.objects.raw(
-                f"""
-                SELECT filename FROM databank_mappings
-                WHERE timeframe='{timeframe}'
-                AND pair='{pair}'
-                AND symbol='{symbol}'
-                AND (
-                    (
-                        open_timestamp <= {from_timestamp}
-                        AND {from_timestamp} <= close_timestamp
-                    ) OR
-                    (
-                        open_timestamp <= {to_timestamp}
-                        AND {to_timestamp} <= close_timestamp
-                    ) OR
-                    (
-                        {from_timestamp} <= open_timestamp
-                        AND open_timestamp <= {to_timestamp}
-                    )
-                ) ORDER BY open_timestamp;
-            """
-            )
-        )

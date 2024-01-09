@@ -8,7 +8,6 @@ from django.conf import settings
 import pyzstd
 from sortedcontainers import SortedKeyList
 
-from .models import Mappings
 from .helpers import CACHE, Helpers
 
 KLINES_MAX_BATCH_SIZE: int = settings.DATABANK_KLINES_MAX_BATCH_SIZE
@@ -140,44 +139,6 @@ def handler_aggregate(request):
     CACHE["aggregate"].update(cache_key, list(lines))
     avail, resp = CACHE["aggregate"].get(cache_key, raw=True)
     return HttpResponse(resp)
-
-
-@csrf_exempt
-def handler_mappings(request):
-    """updates mappings of filenames in DB"""
-    try:
-        req = json.loads(request.body)
-    except:  # pylint: disable=bare-except
-        req = {}
-
-    filename = req["filename"]
-    timeframe = req["timeframe"]
-    symbol = req["symbol"]
-    pair = req["pair"]
-    open_timestamp = req["open_timestamp"]
-    close_timestamp = req["close_timestamp"]
-
-    res = Mappings.objects.filter(filename=filename).exists()
-
-    if res:
-        rec = Mappings.objects.get(filename=filename)
-        rec.filename = str(filename)
-        rec.timeframe = str(timeframe)
-        rec.symbol = str(symbol)
-        rec.pair = str(pair)
-        rec.open_timestamp = int(open_timestamp)
-        rec.close_timestamp = int(close_timestamp)
-    else:
-        rec = Mappings(
-            filename=str(filename),
-            timeframe=str(timeframe),
-            symbol=str(symbol),
-            pair=str(pair),
-            open_timestamp=int(open_timestamp),
-            close_timestamp=int(close_timestamp),
-        )
-    rec.save()
-    return HttpResponse("OK: Mapping updated\n")
 
 
 @csrf_exempt
