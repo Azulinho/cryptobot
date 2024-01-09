@@ -1,5 +1,6 @@
 """ cryptobot/databank/helpers.py """
 import os
+import re
 from glob import glob
 import hashlib
 from datetime import datetime
@@ -139,12 +140,23 @@ class Helpers:
 
     @staticmethod
     def get_list_of_hourly_filenames(
-        timeframe, symbol, pair, from_timestamp, to_timestamp
+        timeframe, from_timestamp, to_timestamp, symbol=None, pair=None
     ):
+        _symbol = symbol
+        _pair = pair
+        if not symbol:
+            symbol = "*"
+        if not pair:
+            pair = "*"
+
+        print(timeframe, symbol, pair)
         files_found: list[str] = glob(
             KLINES_DIRECTORY + f"*/{timeframe}/{symbol}/{pair}/**/*.zstd",
             recursive=True,
         )
+
+        symbol = _symbol
+        pair = _pair
 
         (
             ok,
@@ -168,9 +180,19 @@ class Helpers:
 
             # now find any matches, that contain the hourly partial strings
             # against the full list of filenames available for these timestamps
-            path_name = f"{timeframe}/{symbol}/{pair}/"
+            path_name = f"/{timeframe}/"
+            if not symbol:
+                path_name = path_name + ".*/"
+            else:
+                path_name = path_name + f"{symbol}/"
+
+            if not pair:
+                path_name = path_name + ".*/"
+            else:
+                path_name = path_name + f"{pair}/"
+
             for filename in files_found:
-                if path_name in filename:
+                if re.search(path_name, filename):
                     for hourly_filename in hourly_filenames:
                         if hourly_filename in filename:
                             contents.append(filename)
@@ -190,7 +212,11 @@ class Helpers:
         batch = 0
 
         all_files = Helpers.get_list_of_hourly_filenames(
-            timeframe, symbol, pair, from_timestamp, to_timestamp
+            timeframe=timeframe,
+            symbol=symbol,
+            pair=pair,
+            from_timestamp=from_timestamp,
+            to_timestamp=to_timestamp,
         )
         for file in all_files:
             if batch >= batch_size:
@@ -212,28 +238,14 @@ class Helpers:
     def symbols(timeframe, from_timestamp, to_timestamp, pair="") -> list:
         """returns list of symbols available from a time window"""
 
-        symbol_queryset = (
-            Mappings.objects.filter(
-                Q(
-                    open_timestamp__lte=int(from_timestamp),
-                    close_timestamp__gte=int(from_timestamp),
-                )
-                | Q(
-                    open_timestamp__lte=int(to_timestamp),
-                    close_timestamp__gte=int(to_timestamp),
-                )
-                | Q(
-                    open_timestamp__gte=int(from_timestamp),
-                    open_timestamp__lte=int(to_timestamp),
-                ),
-                timeframe=str(timeframe),
-                pair=str(pair),
-            )
-            .order_by("open_timestamp")
-            .distinct()
+        all_files = Helpers.get_list_of_hourly_filenames(
+            timeframe=timeframe,
+            pair=pair,
+            from_timestamp=from_timestamp,
+            to_timestamp=to_timestamp,
         )
+        symbols = list(set([file.split("/")[-6] for file in all_files]))
 
-        symbols = list(set(symbol_queryset.values_list("symbol", flat=True)))
         return symbols
 
     @staticmethod

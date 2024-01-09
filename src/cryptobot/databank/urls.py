@@ -8,7 +8,7 @@ urlpatterns = [
     path("v1/aggregate", views.handler_aggregate, name="aggregate"),
     path("v1/mappings", views.handler_mappings, name="mappings"),
     path(
-        "v1/tests",
+        "v1/filenames",
         views.handler_hourly_filenames,
         name="handler_hourly_filenames",
     ),

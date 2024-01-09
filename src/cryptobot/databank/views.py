@@ -84,7 +84,11 @@ def handler_aggregate(request):
     req = json.loads(request.body)
 
     timeframe: str = req["timeframe"]
-    pair: str = req["pair"]
+
+    pair = None
+    if "pair" in req:
+        pair: str = req["pair"]
+
     from_timestamp: int = int(req["from_timestamp"])
     to_timestamp: int = int(req["to_timestamp"])
     if "batch_size" in req:
@@ -101,25 +105,29 @@ def handler_aggregate(request):
     if avail:
         return HttpResponse(contents)
 
-    symbols = Helpers.symbols(timeframe, from_timestamp, to_timestamp, pair)
-
+    symbols = Helpers.symbols(
+        timeframe=timeframe,
+        from_timestamp=from_timestamp,
+        to_timestamp=to_timestamp,
+        pair=pair,
+    )
     lines: SortedKeyList = SortedKeyList([], key=lambda x: x[2])
     for symbol in symbols:
-        for file in Helpers.filenames(
-            timeframe,
-            symbol,
-            pair,
-            from_timestamp,
-            to_timestamp,
-        ):
+        all_files = Helpers.get_list_of_hourly_filenames(
+            timeframe=timeframe,
+            symbol=symbol,
+            pair=pair,
+            from_timestamp=from_timestamp,
+            to_timestamp=to_timestamp,
+        )
+        for file in all_files:
             lines_in_file = []
-            with pyzstd.open(
-                f"{KLINES_DIRECTORY}/{file.filename}", "rt", encoding="utf-8"
-            ) as f:
+            with pyzstd.open(file, "rt", encoding="utf-8") as f:
                 for line in f:
                     entry = line.replace("\n", "").split(",")
                     if entry:
                         if int(entry[6]) > (from_timestamp + batch_size):
+                            print(entry[6], from_timestamp, batch_size)
                             break
 
                         if (
@@ -178,13 +186,23 @@ def handler_hourly_filenames(request):
     req = json.loads(request.body)
 
     timeframe: str = req["timeframe"]
-    symbol: str = req["symbol"]
-    pair: str = req["pair"]
+
+    symbol = None
+    if "symbol" in req:
+        symbol: str = req["symbol"]
+
+    pair = None
+    if "pair" in req:
+        pair: str = req["pair"]
+
     from_timestamp: int = int(req["from_timestamp"])
     to_timestamp: int = int(req["to_timestamp"])
 
     contents = Helpers.get_list_of_hourly_filenames(
-        timeframe, symbol, pair, from_timestamp, to_timestamp
+        timeframe=timeframe,
+        symbol=symbol,
+        pair=pair,
+        from_timestamp=from_timestamp,
+        to_timestamp=to_timestamp,
     )
-
     return JsonResponse(contents, safe=False)
