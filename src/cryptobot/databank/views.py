@@ -1,22 +1,21 @@
-import os
+""" cryptobot/databank/views.py """
+
 import json
-from django.http import HttpResponse
+from glob import glob
+from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
 import pyzstd
-import msgpack
 from sortedcontainers import SortedKeyList
 
 from .models import Mappings
 from .helpers import CACHE, Helpers
 
-KLINES_MAX_BATCH_SIZE: int = int(os.getenv("KLINES_MAX_BATCH_SIZE", "86400"))
-AGGREGATE_MAX_BATCH_SIZE: int = int(
-    os.getenv("AGGREGATE_MAX_BATCH_SIZE", "3600")
-)
-KLINES_DIRECTORY: str = os.getenv("KLINES_DIRECTORY", "./klines")
-CACHE_DIRECTORY: str = os.getenv("CACHE_DIRECTORY", "./cache")
-PAIRS: list = os.getenv("PAIRS", "BTC USDT ETH BNB").split(" ")
-PORT = int(os.getenv("PORT", "9000"))
+KLINES_MAX_BATCH_SIZE: int = settings.DATABANK_KLINES_MAX_BATCH_SIZE
+AGGREGATE_MAX_BATCH_SIZE: int = settings.DATABANK_AGGREGATE_MAX_BATCH_SIZE
+KLINES_DIRECTORY: str = settings.DATABANK_KLINES_DIRECTORY
+CACHE_DIRECTORY: str = settings.DATABANK_CACHE_DIRECTORY
+PAIRS: list = settings.DATABANK_PAIRS
 
 
 @csrf_exempt
@@ -41,30 +40,14 @@ def handler_klines(request):
     if avail:
         return HttpResponse(contents)
 
-    lines: list = []
-    batch = 0
-    for file in Helpers.filenames(
+    lines = Helpers.get_klines(
         timeframe,
         symbol,
-        pair,
         from_timestamp,
         to_timestamp,
-    ):
-        if batch >= batch_size:
-            break
-        with pyzstd.open(
-            f"{KLINES_DIRECTORY}/{file.filename}", "rt", encoding="utf-8"
-        ) as f:
-            for line in f:
-                if batch >= batch_size:
-                    break
-                entry = line.replace("\n", "").split(",")
-                if (
-                    int(entry[0]) >= from_timestamp
-                    and int(entry[6]) <= to_timestamp
-                ):
-                    lines.append([symbol] + [pair] + entry)
-                    batch = batch + 1
+        pair=pair,
+        batch_size=batch_size,
+    )
 
     CACHE["klines"].update(cache_key, lines)
     avail, resp = CACHE["klines"].get(cache_key, raw=True)
@@ -169,14 +152,13 @@ def handler_mappings(request):
     res = Mappings.objects.filter(filename=filename).exists()
 
     if res:
-        rec = Mappings.filter(filename=filename).update(
-            filename=str(filename),
-            timeframe=str(timeframe),
-            symbol=str(symbol),
-            pair=str(pair),
-            open_timestamp=int(open_timestamp),
-            close_timestamp=int(close_timestamp),
-        )
+        rec = Mappings.objects.get(filename=filename)
+        rec.filename = str(filename)
+        rec.timeframe = str(timeframe)
+        rec.symbol = str(symbol)
+        rec.pair = str(pair)
+        rec.open_timestamp = int(open_timestamp)
+        rec.close_timestamp = int(close_timestamp)
     else:
         rec = Mappings(
             filename=str(filename),
@@ -188,3 +170,21 @@ def handler_mappings(request):
         )
     rec.save()
     return HttpResponse("OK: Mapping updated\n")
+
+
+@csrf_exempt
+def handler_hourly_filenames(request):
+    """/klines endpoint"""
+    req = json.loads(request.body)
+
+    timeframe: str = req["timeframe"]
+    symbol: str = req["symbol"]
+    pair: str = req["pair"]
+    from_timestamp: int = int(req["from_timestamp"])
+    to_timestamp: int = int(req["to_timestamp"])
+
+    contents = Helpers.get_list_of_hourly_filenames(
+        timeframe, symbol, pair, from_timestamp, to_timestamp
+    )
+
+    return JsonResponse(contents, safe=False)

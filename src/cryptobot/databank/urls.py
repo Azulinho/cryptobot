@@ -7,4 +7,9 @@ urlpatterns = [
     path("v1/symbols", views.handler_symbols, name="symbols"),
     path("v1/aggregate", views.handler_aggregate, name="aggregate"),
     path("v1/mappings", views.handler_mappings, name="mappings"),
+    path(
+        "v1/tests",
+        views.handler_hourly_filenames,
+        name="handler_hourly_filenames",
+    ),
 ]

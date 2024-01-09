@@ -20,3 +20,4 @@ virtualenv
 types-requests
 flaky
 openai
+pylint-django

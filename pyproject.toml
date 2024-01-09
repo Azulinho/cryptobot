@@ -8,6 +8,11 @@ extend-exclude = '''
 ^/foo.py  # exclude a file named foo.py in the root of the project (in addition to the defaults)
 '''
 
+[tool.pylint.main]
+load-plugins="pylint_django"
+django-settings-module="cryptobot.settings"
+
+
 [tool.pylint.'MESSAGES CONTROL']
 disable = [
   "too-many-public-methods",
@@ -27,4 +32,5 @@ disable = [
 ]
 [tool.pylint.basic]
 good-names-rgxs = "^[_a-z][_a-z0-9]?$"
+
 
