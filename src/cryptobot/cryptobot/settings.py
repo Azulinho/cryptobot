@@ -129,3 +129,21 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+# Databank settings below:
+DATABANK_KLINES_MAX_BATCH_SIZE: int = int(
+    os.getenv("KLINES_MAX_BATCH_SIZE", "86400")
+)
+DATABANK_AGGREGATE_MAX_BATCH_SIZE: int = int(
+    os.getenv("AGGREGATE_MAX_BATCH_SIZE", "3600")
+)
+DATABANK_KLINES_DIRECTORY: str = os.getenv("KLINES_DIRECTORY", "./klines")
+DATABANK_CACHE_DIRECTORY: str = os.getenv("CACHE_DIRECTORY", "./cache")
+DATABANK_PAIRS: list = os.getenv("PAIRS", "BTC USDT ETH BNB").split(" ")
+DATABANK_CACHE_CONFIG: dict = {
+    "filelist": 3600,
+    "klines": 3600,
+    "aggregate": 0,
+    "symbols": 3600,
+}
