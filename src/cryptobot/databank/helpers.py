@@ -105,14 +105,14 @@ class Helpers:
         for f in filenames:
             columns = f.split("/")
             idx[f] = {
-                "EXCHANGE": columns[-8],
-                "TIMEFRAME": columns[-7],
-                "SYMBOL": columns[-6],
-                "PAIR": columns[-5],
-                "YEAR": int(columns[-4]),
-                "MONTH": int(columns[-3]),
-                "DAY": int(columns[-2]),
-                "HOUR": int(columns[-1].split(".")[0]),
+                "EXCHANGE": columns[-9],
+                "TIMEFRAME": columns[-8],
+                "SYMBOL": columns[-7],
+                "PAIR": columns[-6],
+                "YEAR": int(columns[-5]),
+                "MONTH": int(columns[-4]),
+                "DAY": int(columns[-3]),
+                "HOUR": int(columns[-2]),
             }
         if filenames:
             ly = min([idx[x]["YEAR"] for x in idx.keys()])
@@ -147,9 +147,8 @@ class Helpers:
         if not pair:
             pair = "*"
 
-        print(timeframe, symbol, pair)
         files_found: list[str] = glob(
-            KLINES_DIRECTORY + f"*/{timeframe}/{symbol}/{pair}/**/*.zstd",
+            KLINES_DIRECTORY + f"*/{timeframe}/{symbol}/{pair}/**/klines.zstd",
             recursive=True,
         )
 
@@ -207,7 +206,6 @@ class Helpers:
         batch_size=None,
     ) -> list:
         lines: list = []
-        batch = 0
 
         all_files = Helpers.get_list_of_hourly_filenames(
             timeframe=timeframe,
@@ -217,19 +215,18 @@ class Helpers:
             to_timestamp=to_timestamp,
         )
         for file in all_files:
-            if batch >= batch_size:
-                break
             with pyzstd.open(file, "rt", encoding="utf-8") as f:
                 for line in f:
-                    if batch >= batch_size:
-                        break
                     entry = line.replace("\n", "").split(",")
+                    if int(entry[0]) >= from_timestamp + batch_size:
+                        break
+                    if int(entry[0]) >= to_timestamp:
+                        break
                     if (
                         int(entry[0]) >= from_timestamp
                         and int(entry[6]) <= to_timestamp
                     ):
                         lines.append([symbol] + [pair] + entry)
-                        batch = batch + 1
         return lines
 
     @staticmethod
@@ -242,6 +239,6 @@ class Helpers:
             from_timestamp=from_timestamp,
             to_timestamp=to_timestamp,
         )
-        symbols = list(set([file.split("/")[-6] for file in all_files]))
+        symbols = list(set([file.split("/")[-7] for file in all_files]))
 
         return symbols

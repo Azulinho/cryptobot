@@ -34,6 +34,13 @@ def handler_klines(request):
     else:
         batch_size = int(KLINES_MAX_BATCH_SIZE)
 
+    # TODO: override batch size based on timeframe
+    # we assume that batch_size is for 1s, but if we are using
+    # 1h or 1m, we should multiply that batch_size * 60, *3600
+    # override to_timestamp, so that we don't go over batch size
+    if to_timestamp > from_timestamp + batch_size:
+        to_timestamp = from_timestamp + batch_size
+
     cache_key: str = f"{timeframe}_{symbol}_{pair}_{from_timestamp}_{to_timestamp}_{batch_size}"
     avail, contents = CACHE["klines"].get(cache_key, raw=True)
     if avail:
@@ -47,7 +54,6 @@ def handler_klines(request):
         pair=pair,
         batch_size=batch_size,
     )
-
     CACHE["klines"].update(cache_key, lines)
     avail, resp = CACHE["klines"].get(cache_key, raw=True)
     return HttpResponse(resp)
@@ -97,6 +103,10 @@ def handler_aggregate(request):
     else:
         batch_size = int(AGGREGATE_MAX_BATCH_SIZE)
 
+    # override to_timestamp, so that we don't go over batch size
+    if to_timestamp > from_timestamp + batch_size:
+        to_timestamp = from_timestamp + batch_size
+
     cache_key: str = (
         f"{timeframe}_{pair}_{from_timestamp}_{to_timestamp}_{batch_size}"
     )
@@ -112,29 +122,15 @@ def handler_aggregate(request):
     )
     lines: SortedKeyList = SortedKeyList([], key=lambda x: x[2])
     for symbol in symbols:
-        all_files = Helpers.get_list_of_hourly_filenames(
-            timeframe=timeframe,
-            symbol=symbol,
+        klines = Helpers.get_klines(
+            timeframe,
+            symbol,
+            from_timestamp,
+            to_timestamp,
             pair=pair,
-            from_timestamp=from_timestamp,
-            to_timestamp=to_timestamp,
+            batch_size=batch_size,
         )
-        for file in all_files:
-            lines_in_file = []
-            with pyzstd.open(file, "rt", encoding="utf-8") as f:
-                for line in f:
-                    entry = line.replace("\n", "").split(",")
-                    if entry:
-                        if int(entry[6]) > (from_timestamp + batch_size):
-                            print(entry[6], from_timestamp, batch_size)
-                            break
-
-                        if (
-                            int(entry[0]) >= from_timestamp
-                            and int(entry[6]) <= to_timestamp
-                        ):
-                            lines_in_file.append([symbol] + [pair] + entry)
-            lines.update(lines_in_file)
+        lines.update(klines)
 
     CACHE["aggregate"].update(cache_key, list(lines))
     avail, resp = CACHE["aggregate"].get(cache_key, raw=True)
