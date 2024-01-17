@@ -24,7 +24,6 @@ def handler_klines(request):
     symbol: str = req["symbol"]
     pair: str = req["pair"]
     from_timestamp: int = int(req["from_timestamp"])
-    to_timestamp: int = int(req["to_timestamp"])
     if "batch_size" in req:
         batch_size: int = int(req["batch_size"])
         if batch_size > int(KLINES_MAX_BATCH_SIZE[timeframe]):
@@ -32,11 +31,11 @@ def handler_klines(request):
     else:
         batch_size = int(KLINES_MAX_BATCH_SIZE[timeframe])
 
-    # override to_timestamp, so that we don't go over batch size
-    if to_timestamp > from_timestamp + batch_size:
-        to_timestamp = from_timestamp + batch_size
+    to_timestamp = from_timestamp + batch_size
 
-    cache_key: str = f"{timeframe}_{symbol}_{pair}_{from_timestamp}_{to_timestamp}_{batch_size}"
+    cache_key: str = (
+        f"{timeframe}_{symbol}_{pair}_{from_timestamp}_{to_timestamp}"
+    )
     avail, contents = CACHE["klines"].get(cache_key, raw=True)
     if avail:
         return HttpResponse(contents)
@@ -47,7 +46,6 @@ def handler_klines(request):
         from_timestamp,
         to_timestamp,
         pair=pair,
-        batch_size=batch_size,
     )
     CACHE["klines"].update(cache_key, lines)
     avail, resp = CACHE["klines"].get(cache_key, raw=True)
@@ -90,7 +88,6 @@ def handler_aggregate(request):
         pair: str = req["pair"]
 
     from_timestamp: int = int(req["from_timestamp"])
-    to_timestamp: int = int(req["to_timestamp"])
     if "batch_size" in req:
         batch_size: int = int(req["batch_size"])
         if batch_size > int(AGGREGATE_MAX_BATCH_SIZE[timeframe]):
@@ -99,12 +96,9 @@ def handler_aggregate(request):
         batch_size = int(AGGREGATE_MAX_BATCH_SIZE[timeframe])
 
     # override to_timestamp, so that we don't go over batch size
-    if to_timestamp > from_timestamp + batch_size:
-        to_timestamp = from_timestamp + batch_size
+    to_timestamp = from_timestamp + batch_size
 
-    cache_key: str = (
-        f"{timeframe}_{pair}_{from_timestamp}_{to_timestamp}_{batch_size}"
-    )
+    cache_key: str = f"{timeframe}_{pair}_{from_timestamp}_{to_timestamp}"
     avail, contents = CACHE["aggregate"].get(cache_key, raw=True)
     if avail:
         return HttpResponse(contents)
@@ -118,12 +112,7 @@ def handler_aggregate(request):
     lines: SortedKeyList = SortedKeyList([], key=lambda x: x[2])
     for symbol in symbols:
         klines = Helpers.get_klines(
-            timeframe,
-            symbol,
-            from_timestamp,
-            to_timestamp,
-            pair=pair,
-            batch_size=batch_size,
+            timeframe, symbol, from_timestamp, to_timestamp, pair=pair
         )
         lines.update(klines)
 

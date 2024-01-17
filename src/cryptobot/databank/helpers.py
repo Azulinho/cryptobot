@@ -198,12 +198,7 @@ class Helpers:
 
     @staticmethod
     def get_klines(
-        timeframe,
-        symbol,
-        from_timestamp,
-        to_timestamp,
-        pair="",
-        batch_size=None,
+        timeframe, symbol, from_timestamp, to_timestamp, pair=""
     ) -> list:
         lines: list = []
 
@@ -218,8 +213,6 @@ class Helpers:
             with pyzstd.open(file, "rt", encoding="utf-8") as f:
                 for line in f:
                     entry = line.replace("\n", "").split(",")
-                    if int(entry[0]) >= from_timestamp + batch_size:
-                        break
                     if int(entry[0]) >= to_timestamp:
                         break
                     if (
