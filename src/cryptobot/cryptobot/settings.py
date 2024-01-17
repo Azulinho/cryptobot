@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 import os
+import json
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -123,12 +124,23 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 # Databank settings below:
-DATABANK_KLINES_MAX_BATCH_SIZE: int = int(
-    os.getenv("KLINES_MAX_BATCH_SIZE", "86400")
+
+DATABANK_KLINES_MAX_BATCH_SIZE: dict = json.loads(
+    os.getenv(
+        "KLINES_MAX_BATCH_SIZE",
+        json.dumps({"1s": 86400, "1m": 5184000, "1h": 311040000}),
+    )
 )
-DATABANK_AGGREGATE_MAX_BATCH_SIZE: int = int(
-    os.getenv("AGGREGATE_MAX_BATCH_SIZE", "3600")
+
+
+DATABANK_AGGREGATE_MAX_BATCH_SIZE: dict = json.loads(
+    os.getenv(
+        "AGGREGATE_MAX_BATCH_SIZE",
+        json.dumps({"1s": 3600, "1m": 216000, "1h": 12960000}),
+    )
 )
+
+
 DATABANK_KLINES_DIRECTORY: str = os.getenv("KLINES_DIRECTORY", "./klines")
 DATABANK_CACHE_DIRECTORY: str = os.getenv("CACHE_DIRECTORY", "./cache")
 DATABANK_PAIRS: list = os.getenv("PAIRS", "BTC USDT ETH BNB").split(" ")

@@ -1,17 +1,15 @@
 """ cryptobot/databank/views.py """
 
 import json
-from glob import glob
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
-import pyzstd
 from sortedcontainers import SortedKeyList
 
 from .helpers import CACHE, Helpers
 
-KLINES_MAX_BATCH_SIZE: int = settings.DATABANK_KLINES_MAX_BATCH_SIZE
-AGGREGATE_MAX_BATCH_SIZE: int = settings.DATABANK_AGGREGATE_MAX_BATCH_SIZE
+KLINES_MAX_BATCH_SIZE: dict = settings.DATABANK_KLINES_MAX_BATCH_SIZE
+AGGREGATE_MAX_BATCH_SIZE: dict = settings.DATABANK_AGGREGATE_MAX_BATCH_SIZE
 KLINES_DIRECTORY: str = settings.DATABANK_KLINES_DIRECTORY
 CACHE_DIRECTORY: str = settings.DATABANK_CACHE_DIRECTORY
 PAIRS: list = settings.DATABANK_PAIRS
@@ -29,14 +27,11 @@ def handler_klines(request):
     to_timestamp: int = int(req["to_timestamp"])
     if "batch_size" in req:
         batch_size: int = int(req["batch_size"])
-        if batch_size > int(KLINES_MAX_BATCH_SIZE):
-            batch_size = int(KLINES_MAX_BATCH_SIZE)
+        if batch_size > int(KLINES_MAX_BATCH_SIZE[timeframe]):
+            batch_size = int(KLINES_MAX_BATCH_SIZE[timeframe])
     else:
-        batch_size = int(KLINES_MAX_BATCH_SIZE)
+        batch_size = int(KLINES_MAX_BATCH_SIZE[timeframe])
 
-    # TODO: override batch size based on timeframe
-    # we assume that batch_size is for 1s, but if we are using
-    # 1h or 1m, we should multiply that batch_size * 60, *3600
     # override to_timestamp, so that we don't go over batch size
     if to_timestamp > from_timestamp + batch_size:
         to_timestamp = from_timestamp + batch_size
@@ -85,7 +80,7 @@ def handler_symbols(request):
 
 @csrf_exempt
 def handler_aggregate(request):
-    """/combined endpoint"""
+    """/aggregate endpoint"""
     req = json.loads(request.body)
 
     timeframe: str = req["timeframe"]
@@ -98,10 +93,10 @@ def handler_aggregate(request):
     to_timestamp: int = int(req["to_timestamp"])
     if "batch_size" in req:
         batch_size: int = int(req["batch_size"])
-        if batch_size > int(AGGREGATE_MAX_BATCH_SIZE):
-            batch_size = int(AGGREGATE_MAX_BATCH_SIZE)
+        if batch_size > int(AGGREGATE_MAX_BATCH_SIZE[timeframe]):
+            batch_size = int(AGGREGATE_MAX_BATCH_SIZE[timeframe])
     else:
-        batch_size = int(AGGREGATE_MAX_BATCH_SIZE)
+        batch_size = int(AGGREGATE_MAX_BATCH_SIZE[timeframe])
 
     # override to_timestamp, so that we don't go over batch size
     if to_timestamp > from_timestamp + batch_size:
@@ -139,7 +134,7 @@ def handler_aggregate(request):
 
 @csrf_exempt
 def handler_hourly_filenames(request):
-    """/klines endpoint"""
+    """/hourly_filenames endpoint"""
     req = json.loads(request.body)
 
     timeframe: str = req["timeframe"]
