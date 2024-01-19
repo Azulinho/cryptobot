@@ -1,12 +1,13 @@
 """ cryptobot/databank/views.py """
 
+import datetime
 import json
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from sortedcontainers import SortedKeyList
 
-from .helpers import CACHE, Helpers
+from .helpers import CACHE, Helpers, Token
 
 KLINES_MAX_BATCH_SIZE: dict = settings.DATABANK_KLINES_MAX_BATCH_SIZE
 AGGREGATE_MAX_BATCH_SIZE: dict = settings.DATABANK_AGGREGATE_MAX_BATCH_SIZE
@@ -147,3 +148,32 @@ def handler_hourly_filenames(request):
         to_timestamp=to_timestamp,
     )
     return JsonResponse(contents, safe=False)
+
+
+@csrf_exempt
+def handler_download_klines(request):
+    """/download_klines"""
+
+    req = json.loads(request.body)
+    from_timestamp: int = int(req["from_timestamp"])
+    to_timestamp: int = int(req["to_timestamp"])
+
+    EXCHANGE = "https://api.binance.com/api/v1/exchangeInfo"
+
+    tokens = Token.get_all_tokens(EXCHANGE)
+
+    # sdate = datetime.date(2023, 12, 1)
+    sdate = datetime.datetime.utcfromtimestamp(from_timestamp)
+    edate = datetime.datetime.utcfromtimestamp(to_timestamp)
+
+    # edate = datetime.datetime.now()
+    # edate = datetime.date(2023, 12, 7)
+
+    date_list = Token.get_list_of_dates(sdate, edate)
+
+    for fullsymbol, pair, symbol in tokens:
+        if pair not in ["ETH", "BNB", "USDT", "BTC"]:
+            continue
+        token = Token(fullsymbol=fullsymbol, pair=pair, symbol=symbol)
+        token.process_symbol(date_list)
+    return JsonResponse([], safe=False)
